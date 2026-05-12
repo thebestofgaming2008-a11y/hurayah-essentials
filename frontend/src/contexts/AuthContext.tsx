@@ -1,0 +1,98 @@
+import { useAuthActions, useConvexAuth } from "@convex-dev/auth/react";
+import { useMutation, useQuery } from "convex/react";
+import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
+import { api } from "../../convex/_generated/api";
+
+export interface Profile {
+  id: string;
+  user_id: string;
+  email: string | null;
+  full_name: string | null;
+  phone: string | null;
+  avatar_url: string | null;
+  preferred_currency: string | null;
+  marketing_consent: boolean | null;
+}
+
+export interface User {
+  id: string;
+  email: string | null;
+  name?: string | null;
+}
+
+interface AuthContextValue {
+  user: User | null;
+  profile: Profile | null;
+  isAdmin: boolean;
+  loading: boolean;
+  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string, fullName?: string) => Promise<{ error: Error | null }>;
+  signOut: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextValue | null>(null);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const { isLoading, isAuthenticated } = useConvexAuth();
+  const { signIn: convexSignIn, signOut: convexSignOut } = useAuthActions();
+  const ensureCurrentProfile = useMutation(api.users.ensureCurrentProfile);
+  const user = useQuery(api.users.currentUser, isAuthenticated ? {} : "skip") ?? null;
+  const profile = useQuery(api.users.currentProfile, isAuthenticated ? {} : "skip") ?? null;
+  const loading = isLoading || (isAuthenticated && user === undefined);
+  const isAdmin = Boolean(user?.isAdmin);
+
+  const signIn = useCallback(
+    async (email: string, password: string) => {
+      try {
+        await convexSignIn("password", {
+          email: email.trim().toLowerCase(),
+          password,
+          flow: "signIn",
+        });
+        return { error: null };
+      } catch (err) {
+        return { error: err instanceof Error ? err : new Error("Unable to sign in.") };
+      }
+    },
+    [convexSignIn],
+  );
+
+  const signUp = useCallback(
+    async (email: string, password: string, fullName?: string) => {
+      try {
+        await convexSignIn("password", {
+          email: email.trim().toLowerCase(),
+          password,
+          flow: "signUp",
+        });
+        if (fullName?.trim()) {
+          await ensureCurrentProfile({ fullName: fullName.trim() });
+        }
+        return { error: null };
+      } catch (err) {
+        return { error: err instanceof Error ? err : new Error("Unable to create account.") };
+      }
+    },
+    [convexSignIn, ensureCurrentProfile],
+  );
+
+  const signOut = useCallback(async () => {
+    await convexSignOut();
+  }, [convexSignOut]);
+
+  const refreshProfile = useCallback(async () => {}, []);
+
+  const value = useMemo<AuthContextValue>(
+    () => ({ user, profile, isAdmin, loading, signIn, signUp, signOut, refreshProfile }),
+    [user, profile, isAdmin, loading, signIn, signUp, signOut, refreshProfile],
+  );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export function useAuth() {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth must be used inside AuthProvider");
+  return ctx;
+}

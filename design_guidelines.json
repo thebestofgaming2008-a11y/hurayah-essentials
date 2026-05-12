@@ -1,0 +1,107 @@
+{
+  "theme": "light",
+  "archetype": "Archetype 4: Swiss & High-Contrast (Admin) mixed with Clean Organic (Storefront)",
+  "typography": {
+    "headings": {
+      "fontFamily": "'Outfit', sans-serif",
+      "weights": ["400", "500", "600"],
+      "usage": "Use tight letter spacing (tracking-tight) for all headings above 24px."
+    },
+    "body": {
+      "fontFamily": "'Inter', sans-serif",
+      "weights": ["400", "500"],
+      "usage": "Clean, legible reading for storefront and dense data in admin."
+    },
+    "code_or_mono": {
+      "fontFamily": "'JetBrains Mono', monospace",
+      "usage": "Order IDs, SKUs, and numerical data."
+    }
+  },
+  "colors": {
+    "background": {
+      "default": "#FFFFFF",
+      "subtle": "#F9FAFB",
+      "admin_sidebar": "#F3F4F6",
+      "admin_surface": "#FFFFFF"
+    },
+    "text": {
+      "primary": "#111827",
+      "secondary": "#4B5563",
+      "muted": "#9CA3AF"
+    },
+    "border": {
+      "default": "#E5E7EB",
+      "focus": "#2563EB"
+    },
+    "primary": {
+      "DEFAULT": "#0F172A",
+      "hover": "#1E293B",
+      "foreground": "#FFFFFF"
+    },
+    "status": {
+      "success": "#10B981",
+      "warning": "#F59E0B",
+      "error": "#EF4444",
+      "info": "#3B82F6"
+    }
+  },
+  "spacing_and_layout": {
+    "admin_dashboard": {
+      "grid": "Control Room Grid (gap-4 or gap-6). Dense layout to maximize data visibility.",
+      "cards": "Flat surfaces with 1px border (#E5E7EB), minimal to no shadow (shadow-sm at most). Use rounded-lg.",
+      "padding": "Internal card padding: p-6. Tab content wrapper: py-6."
+    },
+    "ecommerce_storefront": {
+      "grid": "Bento Grid (gap-8) for marketing sections. Generous breathing room.",
+      "container": "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
+    }
+  },
+  "components": {
+    "header_responsive_fix": {
+      "issue": "Buttons on header going left on tablet/smaller.",
+      "solution": "Use CSS Grid or Flexbox with strict justify properties. Example: `<header className=\"flex items-center justify-between w-full p-4\">`. Left section (Nav/Hamburger) `flex-1`, Center (Logo) `flex-none`, Right (Actions/Cart) `flex-1 justify-end`. Ensure mobile menu wraps correctly using `hidden md:flex` and a hamburger icon `flex md:hidden`.",
+      "data_testid": "storefront-header"
+    },
+    "checkout_flow": {
+      "layout": "One-page split layout. Left: Form steps (Shipping, Payment). Right: Order summary with a light gray (#F9FAFB) background. Mobile: Summary becomes a collapsible accordion at the top.",
+      "navigation": "Hide main site navigation and footer during checkout to prevent cart abandonment. Only show logo (linked to home) and a back link.",
+      "forms": "Use Shadcn UI Input, Select. Maximize width. Explicit error states in red text below inputs.",
+      "data_testid": "checkout-container"
+    },
+    "admin_tables": {
+      "style": "MedusaJS style: 1px border, white background. Table headers should be uppercase, tracking-wider, text-xs, text-gray-500. Table rows have border-b. Hover state on rows: bg-gray-50.",
+      "data_testid": "admin-data-table"
+    },
+    "admin_tabs": {
+      "style": "Underline tabs for secondary navigation. text-sm font-medium text-gray-500 hover:text-gray-700. Active state: text-primary border-b-2 border-primary.",
+      "data_testid": "admin-nav-tabs"
+    }
+  },
+  "motion_and_interactions": {
+    "hover_states": "Buttons translate-y-[1px] or darken slightly. Table rows highlight bg-gray-50.",
+    "transitions": "transition-all duration-200 ease-in-out"
+  },
+  "instructions_to_main_agent": [
+    "Apply Outfit font for storefront headings and Admin Dashboard primary titles. Use Inter for body text and data.",
+    "Fix the header layout in responsive view by strictly using flex-1 for left/right sections and center-aligning the logo, or explicitly using justify-between for the mobile wrapper.",
+    "Refactor Admin Dashboard completely to match MedusaJS style: Flat white cards, light gray backgrounds (bg-gray-50), subtle borders (border-gray-200), and dense tabular data.",
+    "Simplify Checkout to a one-page setup with no distractions. Mute the header. Form on the left, gray Order Summary on the right.",
+    "Ensure all interactive elements have data-testid attributes (e.g., data-testid='checkout-submit-button', data-testid='admin-settings-tab').",
+    "Preserve the Razorpay mock implementation but refine the UI of the selection process.",
+    "Ensure the Google Sign in logic is completely removed as requested."
+  ],
+  "image_urls": {
+    "placeholders": [
+      {
+        "category": "product_placeholder",
+        "url": "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=800",
+        "description": "Clean product placeholder (watch)"
+      },
+      {
+        "category": "avatar_placeholder",
+        "url": "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200",
+        "description": "User avatar for admin dashboard"
+      }
+    ]
+  }
+}
