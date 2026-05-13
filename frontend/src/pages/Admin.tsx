@@ -229,7 +229,14 @@ function trackingWhatsappUrl(order: AdminOrder, form: OrderFulfillmentState) {
     form.trackingUrl.trim() ? `Track here: ${form.trackingUrl.trim()}` : "",
     "Jazakallahu khairan for your order.",
   ].filter(Boolean);
-  return `https://wa.me/${phone}?text=${encodeURIComponent(lines.join("\n"))}`;
+  return `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(lines.join("\n"))}`;
+}
+
+function openWhatsapp(url: string) {
+  const opened = window.open(url, "_blank", "noopener,noreferrer");
+  if (!opened) {
+    toast({ title: "WhatsApp popup was blocked", description: "Allow popups for this site, then send tracking again.", variant: "destructive" });
+  }
 }
 
 function dayKey(date: Date) {
@@ -396,7 +403,6 @@ export default function Admin() {
       toast({ title: "Customer phone is missing", description: "Add a phone number to the order before sending tracking.", variant: "destructive" });
       return;
     }
-    const whatsappWindow = window.open("", "_blank", "noopener,noreferrer");
     try {
       let patch: Partial<AdminOrder> = {};
       if (
@@ -424,15 +430,10 @@ export default function Admin() {
         patch = { ...patch, status: nextStatus };
       }
       patchOrderLocally(order.id, patch);
-      if (whatsappWindow) {
-        whatsappWindow.location.href = whatsappUrl;
-      } else {
-        window.location.href = whatsappUrl;
-      }
+      openWhatsapp(whatsappUrl);
       toast({ title: "Tracking opened in WhatsApp", description: order.order_number ?? order.id.slice(0, 8) });
       void refreshNotifications();
     } catch {
-      whatsappWindow?.close();
       toast({ title: "Could not send tracking", variant: "destructive" });
     }
   };
