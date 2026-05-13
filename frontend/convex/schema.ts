@@ -137,4 +137,37 @@ export default defineSchema({
     .index("by_product_id", ["product_id"])
     .index("by_status", ["status"])
     .index("by_created_at", ["created_at"]),
+  discounts: defineTable({
+    code: v.string(),
+    type: v.string(),
+    value: v.number(),
+    active: v.boolean(),
+    usage_limit: optionalNumber,
+    used_count: v.number(),
+    starts_at: optionalString,
+    ends_at: optionalString,
+    scope_type: v.string(),
+    scope_value: optionalString,
+    created_at: v.string(),
+    updated_at: v.string(),
+  })
+    .index("by_code", ["code"])
+    .index("by_active", ["active"]),
+  shipping_rates: defineTable({
+    carrier: v.string(),
+    zone: v.string(),
+    method: v.string(),
+    base_fee: v.number(),
+    per_item_fee: v.number(),
+    per_weight_fee: v.number(),
+    is_active: v.boolean(),
+    updated_at: v.string(),
+  })
+    .index("by_carrier", ["carrier"])
+    .index("by_carrier_zone_method", ["carrier", "zone", "method"]),
+  store_settings: defineTable({
+    key: v.string(),
+    value: v.any(),
+    updated_at: v.string(),
+  }).index("by_key", ["key"]),
 });

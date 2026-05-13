@@ -94,8 +94,8 @@ function cleanNullable(value: string | null | undefined, max = 500) {
 function cleanUrl(value: string | null | undefined) {
   const url = cleanText(value, 1000);
   if (!url) return null;
-  if (/^https?:\/\//i.test(url) || /^data:image\//i.test(url)) return url;
-  throw new Error("Image URL must be http(s) or an image data URL.");
+  if (/^https?:\/\//i.test(url) || /^\/api\/storage\//i.test(url) || /^\/photoroom\//i.test(url)) return url;
+  throw new Error("Image URL must be http(s), a Convex storage URL, or an approved public asset URL.");
 }
 
 function normalize(input: any, isPatch = false, existingPrice?: number) {
@@ -268,5 +268,21 @@ export const deleteProduct = mutation({
     await requireAdmin(ctx);
     await ctx.db.patch(args.id as any, { is_active: false, in_stock: false, updated_at: nowIso() });
     return true;
+  },
+});
+
+export const generateProductImageUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+export const getProductImageUrl = query({
+  args: { storageId: v.string() },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    return await ctx.storage.getUrl(args.storageId as any);
   },
 });

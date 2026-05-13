@@ -9,12 +9,14 @@
  */
 
 import type * as addresses from "../addresses.js";
+import type * as admin from "../admin.js";
 import type * as auth from "../auth.js";
 import type * as currency from "../currency.js";
 import type * as http from "../http.js";
 import type * as lib from "../lib.js";
 import type * as notifications from "../notifications.js";
 import type * as orders from "../orders.js";
+import type * as photoRoomImport from "../photoRoomImport.js";
 import type * as products from "../products.js";
 import type * as reviews from "../reviews.js";
 import type * as seed from "../seed.js";
@@ -29,12 +31,14 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   addresses: typeof addresses;
+  admin: typeof admin;
   auth: typeof auth;
   currency: typeof currency;
   http: typeof http;
   lib: typeof lib;
   notifications: typeof notifications;
   orders: typeof orders;
+  photoRoomImport: typeof photoRoomImport;
   products: typeof products;
   reviews: typeof reviews;
   seed: typeof seed;

@@ -72,12 +72,91 @@ export async function deleteProduct(id: string): Promise<boolean> {
 }
 
 export async function uploadProductImage(file: File): Promise<string | null> {
-  return await new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => resolve(null);
-    reader.readAsDataURL(file);
+  const uploadUrl = await convex.mutation(api.products.generateProductImageUploadUrl, {});
+  const result = await fetch(uploadUrl, {
+    method: "POST",
+    headers: { "Content-Type": file.type },
+    body: file,
   });
+  if (!result.ok) return null;
+  const { storageId } = await result.json();
+  return await convex.query(api.products.getProductImageUrl, { storageId });
+}
+
+export interface AdminDiscount {
+  id: string;
+  code: string;
+  type: string;
+  value: number;
+  active: boolean;
+  usage_limit: number | null;
+  used_count: number;
+  starts_at: string | null;
+  ends_at: string | null;
+  scope_type: string;
+  scope_value: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ShippingRate {
+  id: string;
+  carrier: string;
+  zone: string;
+  method: string;
+  base_fee: number;
+  per_item_fee: number;
+  per_weight_fee: number;
+  is_active: boolean;
+  updated_at: string;
+}
+
+export interface AdminNotification {
+  id: string;
+  title: string;
+  body: string;
+  section: string;
+}
+
+export async function listDiscounts(): Promise<AdminDiscount[]> {
+  return (await convex.query(api.admin.listDiscounts, {})) as AdminDiscount[];
+}
+
+export async function createDiscount(input: Omit<AdminDiscount, "id" | "active" | "used_count" | "created_at" | "updated_at">): Promise<AdminDiscount | null> {
+  return (await convex.mutation(api.admin.createDiscount, input)) as AdminDiscount | null;
+}
+
+export async function updateDiscount(id: string, patch: Partial<AdminDiscount>): Promise<AdminDiscount | null> {
+  return (await convex.mutation(api.admin.updateDiscount, { id, patch })) as AdminDiscount | null;
+}
+
+export async function deleteDiscount(id: string): Promise<boolean> {
+  return await convex.mutation(api.admin.deleteDiscount, { id });
+}
+
+export async function listShippingRates(): Promise<ShippingRate[]> {
+  let rows = (await convex.query(api.admin.listShippingRates, {})) as ShippingRate[];
+  if (!rows.length) {
+    await convex.mutation(api.admin.seedShippingDefaults, {});
+    rows = (await convex.query(api.admin.listShippingRates, {})) as ShippingRate[];
+  }
+  return rows;
+}
+
+export async function updateShippingRate(id: string, patch: Partial<ShippingRate>): Promise<ShippingRate | null> {
+  return (await convex.mutation(api.admin.updateShippingRate, { id, patch })) as ShippingRate | null;
+}
+
+export async function getStoreSettings(): Promise<Record<string, unknown>> {
+  return (await convex.query(api.admin.getStoreSettings, {})) as Record<string, unknown>;
+}
+
+export async function saveStoreSettings(settings: Record<string, unknown>): Promise<boolean> {
+  return await convex.mutation(api.admin.saveStoreSettings, { settings });
+}
+
+export async function listAdminNotifications(): Promise<AdminNotification[]> {
+  return (await convex.query(api.admin.notifications, {})) as AdminNotification[];
 }
 
 export interface AdminOrder {
