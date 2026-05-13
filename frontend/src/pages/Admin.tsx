@@ -233,10 +233,17 @@ function trackingWhatsappUrl(order: AdminOrder, form: OrderFulfillmentState) {
 }
 
 function openWhatsapp(url: string) {
-  const opened = window.open(url, "_blank", "noopener,noreferrer");
-  if (!opened) {
+  const link = document.createElement("a");
+  link.href = url;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => {
+    if (!document.hasFocus()) return;
     toast({ title: "WhatsApp popup was blocked", description: "Allow popups for this site, then send tracking again.", variant: "destructive" });
-  }
+  }, 800);
 }
 
 function dayKey(date: Date) {
