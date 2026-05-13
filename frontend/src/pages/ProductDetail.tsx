@@ -153,6 +153,16 @@ const ProductDetail = () => {
           <span className="line-clamp-1 text-foreground/80">{product.name}</span>
         </nav>
 
+        <div className="mb-5 rounded-lg border border-brand/20 bg-brand/5 px-4 py-3 text-sm text-foreground/72 md:flex md:items-center md:justify-between">
+          <div className="flex items-center gap-2">
+            <Shield className="h-4 w-4 text-brand" />
+            <span className="font-medium text-foreground">Hurayah Essentials verified listing</span>
+            <span className="hidden text-foreground/45 sm:inline">·</span>
+            <span className="hidden sm:inline">Images, edition notes, and stock are managed from the webshop admin.</span>
+          </div>
+          {product.sku && <span className="mt-2 block font-mono text-xs text-foreground/50 md:mt-0">SKU {product.sku}</span>}
+        </div>
+
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1.08fr)_minmax(360px,0.92fr)] lg:gap-12 pdp-fade-in">
           <div className="grid gap-3 md:grid-cols-[88px_1fr] lg:sticky lg:top-28 lg:self-start">
             {gallery.length > 1 && (
@@ -241,18 +251,20 @@ const ProductDetail = () => {
 
               {versions.length > 0 && (
                 <div className="mt-5">
-                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-foreground/50">Version</p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <span className="rounded-md border border-brand bg-brand/5 px-3 py-2 text-sm font-medium text-brand">
-                      {product.variant_label || product.language || "Current"}
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-foreground/50">Edition / variant</p>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                    <span className="rounded-md border border-brand bg-brand/5 px-3 py-3 text-sm font-medium text-brand">
+                      <span className="block">{product.variant_label || product.language || "Current"}</span>
+                      <span className="mt-0.5 block text-xs font-normal text-brand/70">{format(price)} · selected</span>
                     </span>
                     {versions.map((version) => (
                       <Link
                         key={version.id}
                         to={`/product/${version.slug ?? version.id}`}
-                        className="rounded-md border border-border px-3 py-2 text-sm font-medium text-foreground/75 pdp-press hover:border-brand hover:text-brand"
+                        className="rounded-md border border-border px-3 py-3 text-sm font-medium text-foreground/75 pdp-press hover:border-brand hover:text-brand"
                       >
-                        {version.variant_label || version.language || version.name}
+                        <span className="block line-clamp-1">{version.variant_label || version.language || version.name}</span>
+                        <span className="mt-0.5 block text-xs font-normal text-foreground/45">{format(productPrice(version))}</span>
                       </Link>
                     ))}
                   </div>
@@ -303,18 +315,27 @@ const ProductDetail = () => {
               </ul>
             </aside>
 
-            <section className="rounded-lg border border-border p-5">
-              <h2 className="text-base font-semibold text-foreground">Details</h2>
+            <section className="rounded-lg border border-border bg-background p-5 shadow-sm">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-brand">Hurayah product file</p>
+                  <h2 className="mt-1 text-lg font-semibold text-foreground">Details and specifications</h2>
+                </div>
+                {product.edition && <span className="rounded-md bg-hero px-2.5 py-1 text-xs font-medium text-foreground/65">{product.edition}</span>}
+              </div>
               {product.description && (
                 <p className="mt-3 whitespace-pre-line text-sm leading-7 text-foreground/70">{product.description}</p>
               )}
-              {(product.publisher || product.language || product.pages != null || product.binding || product.isbn) && (
-                <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-2">
+              {(product.publisher || product.language || product.pages != null || product.binding || product.isbn || product.author || product.edition || product.sku) && (
+                <dl className="mt-5 grid overflow-hidden rounded-md border border-border text-sm sm:grid-cols-2">
+                  {product.author && <ProductFact label="Author" value={product.author} />}
                   {product.publisher && <ProductFact label="Publisher" value={product.publisher} />}
                   {product.language && <ProductFact label="Language" value={product.language} />}
                   {product.pages != null && <ProductFact label="Pages" value={String(product.pages)} />}
                   {product.binding && <ProductFact label="Binding" value={product.binding} />}
+                  {product.edition && <ProductFact label="Edition" value={product.edition} />}
                   {product.isbn && <ProductFact label="ISBN" value={product.isbn} mono />}
+                  {product.sku && <ProductFact label="Reference" value={product.sku} mono />}
                 </dl>
               )}
             </section>

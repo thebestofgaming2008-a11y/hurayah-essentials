@@ -275,6 +275,163 @@ function priceFor(name: string, index: number) {
   return 250;
 }
 
+type CatalogPatch = {
+  name?: string;
+  short_description?: string;
+  description?: string;
+  author?: string | null;
+  publisher?: string | null;
+  language?: string | null;
+  pages?: number | null;
+  isbn?: string | null;
+  binding?: string | null;
+  edition?: string | null;
+  category?: string;
+  tags?: string[];
+  price_inr?: number;
+  variant_label?: string | null;
+  badge?: string | null;
+};
+
+const curatedByFile: Record<string, CatalogPatch> = {
+  "1776002171162-gmxrve.png": {
+    name: "The Sealed Nectar",
+    short_description: "Award-winning seerah of Prophet Muhammad ﷺ by Safiur Rahman Mubarakpuri.",
+    description: "A detailed, accessible biography of Prophet Muhammad ﷺ, widely used by students and families. Verified publisher metadata from Darussalam listings.",
+    author: "Safiur Rahman Mubarakpuri",
+    publisher: "Darussalam",
+    language: "English",
+    binding: "Hardcover",
+    category: "books",
+    tags: ["Seerah", "Biography", "Darussalam"],
+    price_inr: 650,
+    variant_label: "English hardcover",
+    badge: "Classic",
+  },
+  "1776002592178-kedb59.png": {
+    name: "Great Women of Islam",
+    short_description: "True stories of the Mothers of the Believers and great women companions.",
+    description: "Covers the lives of the Mothers of the Believers and sixteen women companions who were given glad tidings of Paradise. Metadata verified against Darussalam and Dar-us-Salam listings.",
+    author: "Mahmood Ahmad Ghadanfar",
+    publisher: "Darussalam",
+    language: "English",
+    pages: 272,
+    isbn: "9789960897271",
+    binding: "Hardcover",
+    edition: "2003",
+    category: "women",
+    tags: ["Women", "Sahabiyat", "Darussalam"],
+    price_inr: 650,
+    variant_label: "English hardcover",
+    badge: "Recommended",
+  },
+  "1776683474504-kd3ap9.png": {
+    name: "Arabic Course for English-Speaking Students - Volume 1",
+    short_description: "Madinah Islamic University Arabic course for non-Arabic speakers.",
+    description: "A foundational Arabic course originally devised and taught at the Islamic University of Madinah. Darussalam listings identify Dr. V. Abdur Rahim as author with hardcover editions under ISBN 9789960986074.",
+    author: "Dr. V. Abdur Rahim",
+    publisher: "Darussalam",
+    language: "English / Arabic",
+    pages: 162,
+    isbn: "9789960986074",
+    binding: "Hardcover",
+    category: "books",
+    tags: ["Arabic", "Language", "Darussalam"],
+    price_inr: 950,
+    variant_label: "Volume 1",
+    badge: "Study",
+  },
+  "1775899527882-wkvc92.png": {
+    name: "The Noble Qur'an",
+    short_description: "Arabic-English Qur'an translation by Dr. Muhammad Taqi-ud-Din Al-Hilali and Dr. Muhammad Muhsin Khan.",
+    description: "Arabic text with English meaning and concise explanatory notes. Darussalam listings describe this family of editions as hardcover Arabic-English Qur'an translations.",
+    author: "Dr. Muhammad Taqi-ud-Din Al-Hilali and Dr. Muhammad Muhsin Khan",
+    publisher: "Darussalam",
+    language: "Arabic / English",
+    pages: 687,
+    binding: "Hardcover",
+    category: "books",
+    tags: ["Qur'an", "Translation", "Darussalam"],
+    price_inr: 950,
+    variant_label: "Arabic-English hardcover",
+    badge: "Bestseller",
+  },
+  "1776002656169-dupwgt.png": {
+    name: "Riyad-us-Saliheen",
+    short_description: "Classic hadith collection arranged by Imam an-Nawawi.",
+    description: "A widely studied collection of hadith covering worship, manners, purification of the soul, and daily Muslim conduct.",
+    author: "Imam an-Nawawi",
+    publisher: "Darussalam",
+    language: "English",
+    binding: "Hardcover",
+    category: "books",
+    tags: ["Hadith", "Darussalam"],
+    price_inr: 850,
+    variant_label: "English hardcover",
+    badge: "Classic",
+  },
+};
+
+const galleryGroups = [
+  {
+    label: "Sickness: Fools and Simpletons",
+    files: ["1776001533569-lkjnxy.png", "1776001899578-cm9fcm.png"],
+  },
+  {
+    label: "Seeds of Admonishment and Reform",
+    files: ["1776001535392-2avrjt.png", "1776001900463-aonipg.png"],
+  },
+  {
+    label: "Disturber of the Hearts",
+    files: ["1776001536168-grulgq.png", "1776001901274-tm5xm0.png"],
+  },
+  {
+    label: "Awaking from the Sleep of Heedlessness",
+    files: ["1776001537005-ceyljr.png", "1776001901989-0a8mgt.png"],
+  },
+  {
+    label: "Kitab Al-Iman: Book of Faith",
+    files: ["1776001919558-nnfmhi.png", "1776001929349-jzrjhc.png"],
+  },
+];
+
+const variantGroups = [
+  {
+    family: "Crochet Kufi Cap",
+    files: [
+      ["1776958981121-etf98s.png", "Brown"],
+      ["1776959106848-25ux1q.png", "White"],
+      ["1776959128276-nzee2s.png", "Black"],
+      ["1776959135235-478ikr.png", "Black pattern"],
+      ["1776959152780-mamel7.png", "Bright green"],
+      ["1776959227278-ofx1da.png", "Olive"],
+      ["1776959247401-krn618.png", "Cream"],
+      ["1776959273807-ocnla6.png", "Navy"],
+      ["1776961684548-vlz5hp.png", "Navy pattern"],
+      ["1776961707542-54sf6n.png", "Dark navy"],
+    ],
+  },
+  {
+    family: "Kitab At-Tawhid",
+    files: [
+      ["1775895541690-jmf20w.png", "Pocket edition"],
+      ["1775896038074-2qerbj.png", "Commentary edition"],
+    ],
+  },
+  {
+    family: "Qur'an Editions",
+    files: [
+      ["1775895877886-szsnr3.png", "Tajweed edition"],
+      ["1775896857876-khg4ji.png", "Tajweed set"],
+      ["1775899527882-wkvc92.png", "Arabic-English hardcover"],
+    ],
+  },
+];
+
+function fileFromUrl(url: string | null | undefined) {
+  return String(url ?? "").split("/").pop() ?? "";
+}
+
 export const importPhotoRoomProducts = mutation({
   args: {},
   handler: async (ctx) => {
@@ -332,5 +489,90 @@ export const importPhotoRoomProducts = mutation({
       inserted += 1;
     }
     return { inserted, skipped, total: files().length };
+  },
+});
+
+export const curatePhotoRoomCatalog = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const timestamp = nowIso();
+    const rows = await ctx.db.query("products").collect();
+    const byFile = new Map<string, any>();
+    for (const product of rows) {
+      const file = fileFromUrl(product.cover_image_url);
+      if (file) byFile.set(file, product);
+    }
+
+    let enriched = 0;
+    let grouped = 0;
+    let linked = 0;
+    let archived = 0;
+
+    for (const [file, patch] of Object.entries(curatedByFile)) {
+      const product = byFile.get(file);
+      if (!product) continue;
+      const price = patch.price_inr ?? product.price_inr ?? product.price;
+      await ctx.db.patch(product._id, {
+        ...patch,
+        price,
+        price_inr: price,
+        category_id: patch.category ?? product.category_id ?? product.category,
+        in_stock: (product.stock_quantity ?? 0) > 0,
+        updated_at: timestamp,
+      });
+      enriched += 1;
+    }
+
+    for (const group of galleryGroups) {
+      const products = group.files.map((file) => byFile.get(file)).filter(Boolean);
+      const primary = products[0];
+      if (!primary) continue;
+      const imageUrls = group.files.map((file) => `/photoroom/${file}`);
+      await ctx.db.patch(primary._id, {
+        name: group.label,
+        short_description: `${group.label} with all available Hurayah product images grouped into one listing.`,
+        description: `${group.label}. This listing now contains the available cover/gallery images that were previously split into duplicate products.`,
+        images: imageUrls,
+        cover_image_url: imageUrls[0],
+        is_active: true,
+        updated_at: timestamp,
+      });
+      grouped += 1;
+      for (const duplicate of products.slice(1)) {
+        await ctx.db.patch(duplicate._id, {
+          is_active: false,
+          badge: "Merged",
+          updated_at: timestamp,
+        });
+        archived += 1;
+      }
+    }
+
+    for (const group of variantGroups) {
+      const products = group.files.map(([file, label]) => ({ product: byFile.get(file), label })).filter((item) => item.product);
+      const ids = products.map((item) => String(item.product._id));
+      for (const item of products) {
+        const product = item.product;
+        const familyName = group.family === "Crochet Kufi Cap" ? `${item.label} ${group.family}` : product.name;
+        await ctx.db.patch(product._id, {
+          name: familyName,
+          short_description:
+            group.family === "Crochet Kufi Cap"
+              ? `${item.label} crochet kufi cap. Select other colors from the variant options.`
+              : product.short_description,
+          category: group.family === "Crochet Kufi Cap" ? "clothing" : product.category,
+          category_id: group.family === "Crochet Kufi Cap" ? "clothing" : product.category_id,
+          tags: group.family === "Crochet Kufi Cap" ? ["Kufi", "Cap", "Clothing"] : product.tags,
+          linked_product_ids: ids.filter((id) => id !== String(product._id)),
+          variant_label: item.label,
+          price: group.family === "Crochet Kufi Cap" ? 99 : product.price,
+          price_inr: group.family === "Crochet Kufi Cap" ? 99 : product.price_inr,
+          updated_at: timestamp,
+        });
+        linked += 1;
+      }
+    }
+
+    return { enriched, grouped, linked, archived };
   },
 });
