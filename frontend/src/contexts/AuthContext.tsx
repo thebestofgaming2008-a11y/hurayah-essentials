@@ -1,6 +1,6 @@
 import { useAuthActions, useConvexAuth } from "@convex-dev/auth/react";
 import { useMutation, useQuery } from "convex/react";
-import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { api } from "../../convex/_generated/api";
 
 export interface Profile {
@@ -41,6 +41,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const profile = useQuery(api.users.currentProfile, isAuthenticated ? {} : "skip") ?? null;
   const loading = isLoading || (isAuthenticated && user === undefined);
   const isAdmin = Boolean(user?.isAdmin);
+  const ensuredUserRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id || ensuredUserRef.current === user.id) return;
+    ensuredUserRef.current = user.id;
+    const pendingName = window.localStorage.getItem("hurayah_pending_full_name") ?? undefined;
+    void ensureCurrentProfile({ fullName: pendingName?.trim() || undefined })
+      .then(() => {
+        window.localStorage.removeItem("hurayah_pending_full_name");
+      })
+      .catch(() => {
+        ensuredUserRef.current = null;
+      });
+  }, [ensureCurrentProfile, isAuthenticated, user?.id]);
 
   const signIn = useCallback(
     async (email: string, password: string) => {
@@ -67,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           flow: "signUp",
         });
         if (fullName?.trim()) {
-          await ensureCurrentProfile({ fullName: fullName.trim() });
+          window.localStorage.setItem("hurayah_pending_full_name", fullName.trim());
         }
         return { error: null };
       } catch (err) {

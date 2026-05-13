@@ -39,7 +39,8 @@ export const ensureCurrentProfile = mutation({
     marketingConsent: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    const auth = await requireIdentity(ctx);
+    const auth = await requireIdentity(ctx).catch(() => null);
+    if (!auth) return null;
     const authUser = auth.user as any;
     const existing = await getProfileByUserId(ctx, auth.userId);
     const timestamp = nowIso();
