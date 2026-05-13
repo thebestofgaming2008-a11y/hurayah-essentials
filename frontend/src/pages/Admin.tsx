@@ -396,6 +396,7 @@ export default function Admin() {
       toast({ title: "Customer phone is missing", description: "Add a phone number to the order before sending tracking.", variant: "destructive" });
       return;
     }
+    const whatsappWindow = window.open("", "_blank", "noopener,noreferrer");
     try {
       let patch: Partial<AdminOrder> = {};
       if (
@@ -423,11 +424,28 @@ export default function Admin() {
         patch = { ...patch, status: nextStatus };
       }
       patchOrderLocally(order.id, patch);
-      window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+      if (whatsappWindow) {
+        whatsappWindow.location.href = whatsappUrl;
+      } else {
+        window.location.href = whatsappUrl;
+      }
       toast({ title: "Tracking opened in WhatsApp", description: order.order_number ?? order.id.slice(0, 8) });
       void refreshNotifications();
     } catch {
+      whatsappWindow?.close();
       toast({ title: "Could not send tracking", variant: "destructive" });
+    }
+  };
+
+  const handleUpdateOrderStatus = async (order: AdminOrder, status: FulfillmentStatus) => {
+    try {
+      const saved = await updateOrderStatus(order.id, status);
+      if (!saved) throw new Error("Order update failed");
+      patchOrderLocally(order.id, { status });
+      toast({ title: "Order status updated", description: status.replace("_", " ") });
+      void refreshNotifications();
+    } catch {
+      toast({ title: "Could not update order status", variant: "destructive" });
     }
   };
 
@@ -846,6 +864,7 @@ export default function Admin() {
           products={products}
           onClose={() => setSelectedOrder(null)}
           onSendTrackingWhatsapp={handleSendTrackingWhatsapp}
+          onUpdateOrderStatus={handleUpdateOrderStatus}
           onCancelOrder={handleCancelOrder}
         />
       )}
@@ -1398,17 +1417,20 @@ function OrderDetailsDialog({
   products,
   onClose,
   onSendTrackingWhatsapp,
+  onUpdateOrderStatus,
   onCancelOrder,
 }: {
   order: AdminOrder;
   products: Product[];
   onClose: () => void;
   onSendTrackingWhatsapp: (order: AdminOrder, form: OrderFulfillmentState) => Promise<void>;
+  onUpdateOrderStatus: (order: AdminOrder, status: FulfillmentStatus) => Promise<void>;
   onCancelOrder: (order: AdminOrder) => void;
 }) {
   const meta = statusMeta[normalizeStatus(order)];
   const total = order.total_inr ?? order.total ?? 0;
   const [saving, setSaving] = useState(false);
+  const [savingStatus, setSavingStatus] = useState(false);
   const [form, setForm] = useState<OrderFulfillmentState>({
     carrier: order.tracking_carrier ?? "",
     trackingNumber: order.tracking_number ?? "",
@@ -1433,7 +1455,16 @@ function OrderDetailsDialog({
       setSaving(false);
     }
   };
+  const saveStatus = async () => {
+    setSavingStatus(true);
+    try {
+      await onUpdateOrderStatus(order, form.status);
+    } finally {
+      setSavingStatus(false);
+    }
+  };
   const canSendTracking = Boolean(form.trackingNumber.trim() && order.customer_phone);
+  const statusChanged = form.status !== fulfillmentStatus(order);
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/35 p-0 sm:items-center sm:p-6">
       <div className="vibe-card max-h-[95vh] w-full max-w-5xl overflow-hidden rounded-b-none sm:rounded-b-lg">
@@ -1487,6 +1518,9 @@ function OrderDetailsDialog({
                   {statuses.map((status) => <option key={status.key} value={status.key}>{status.label}</option>)}
                 </select>
               </label>
+              <button type="button" onClick={saveStatus} disabled={savingStatus || !statusChanged} className="mt-2 h-9 w-full rounded-md border border-[rgb(var(--vibe-border))] px-3 text-[12px] transition-colors hover:bg-[rgb(var(--vibe-accent))] disabled:opacity-50">
+                {savingStatus ? "Updating status..." : "Update order status"}
+              </button>
               <div className="mt-3 space-y-2">
                 <ProductInputField label="Carrier" value={form.carrier} onChange={(value) => updateField("carrier", value)} placeholder="DHL, PostNL, Bpost..." />
                 <ProductInputField label="Tracking number" value={form.trackingNumber} onChange={(value) => updateField("trackingNumber", value)} placeholder="Paste or scan code" />

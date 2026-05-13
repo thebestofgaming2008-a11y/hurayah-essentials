@@ -1,14 +1,38 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, CreditCard, Lock, MapPin, ShieldCheck, ShoppingBag, Truck } from "lucide-react";
+import { ArrowLeft, CheckCircle2, CreditCard, Info, Lock, MapPin, ShieldCheck, ShoppingBag, Truck } from "lucide-react";
 import { SiteLayout } from "@/components/layout/SiteLayout";
 import { useShop } from "@/store/shop";
 import { useAuth } from "@/contexts/AuthContext";
-import { createMockedRazorpayOrder } from "@/services/orderService";
+import { createRazorpayCheckoutOrder, verifyRazorpayPayment } from "@/services/orderService";
 import { calculateShippingInr, FREE_SHIPPING_THRESHOLD_INR } from "@/services/shipping";
 import { toast } from "@/hooks/use-toast";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { cn } from "@/lib/utils";
+
+declare global {
+  interface Window {
+    Razorpay?: new (options: Record<string, unknown>) => { open: () => void; on: (event: string, handler: (response: unknown) => void) => void };
+  }
+}
+
+function loadRazorpayScript() {
+  return new Promise<boolean>((resolve) => {
+    if (window.Razorpay) return resolve(true);
+    const existing = document.querySelector<HTMLScriptElement>('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
+    if (existing) {
+      existing.addEventListener("load", () => resolve(true), { once: true });
+      existing.addEventListener("error", () => resolve(false), { once: true });
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+}
 
 const Checkout = () => {
   const { cartLines, cartSubtotal, clearCart } = useShop();
@@ -45,7 +69,10 @@ const Checkout = () => {
     e.preventDefault();
     const nextErrors: Record<string, string> = {};
     if (!/^\S+@\S+\.\S+$/.test(form.email.trim())) nextErrors.email = "Enter a valid email.";
-    if (form.phone.replace(/\D/g, "").length < 7) nextErrors.phone = "Enter a WhatsApp-ready phone number.";
+    const phoneDigits = form.phone.replace(/\D/g, "");
+    if (!/^\+?[0-9\s().-]{8,20}$/.test(form.phone.trim()) || phoneDigits.length < 8 || phoneDigits.length > 15) {
+      nextErrors.phone = "Enter a valid WhatsApp number with country code, for example +91 98765 43210.";
+    }
     if (!form.firstName.trim()) nextErrors.firstName = "First name is required.";
     if (!form.lastName.trim()) nextErrors.lastName = "Last name is required.";
     if (!form.address.trim()) nextErrors.address = "Address is required.";
@@ -62,25 +89,59 @@ const Checkout = () => {
     if (cartLines.length === 0) return;
     setSubmitting(true);
     try {
-      const order = await createMockedRazorpayOrder({
+      const customer = {
+        email: form.email.trim(),
+        phone: form.phone.trim(),
+        name: `${form.firstName} ${form.lastName}`.trim(),
+        address_line_1: form.address.trim(),
+        address_line_2: form.apartment.trim() || undefined,
+        city: form.city.trim(),
+        postal_code: form.postalCode.trim(),
+        country: form.country.trim(),
+      };
+      const payload = {
         cart: cartLines,
-        customer: {
-          email: form.email,
-          phone: form.phone,
-          name: `${form.firstName} ${form.lastName}`.trim(),
-          address_line_1: form.address,
-          address_line_2: form.apartment || undefined,
-          city: form.city,
-          postal_code: form.postalCode,
-          country: form.country,
-        },
+        customer,
         subtotal: cartSubtotal,
         shipping,
         total,
+      };
+      const ready = await loadRazorpayScript();
+      if (!ready || !window.Razorpay) throw new Error("Razorpay checkout could not be loaded. Check your connection and try again.");
+      const RazorpayCheckout = window.Razorpay;
+      const razorpayOrder = await createRazorpayCheckoutOrder(payload);
+      await new Promise<void>((resolve, reject) => {
+        const checkout = new RazorpayCheckout({
+          key: razorpayOrder.keyId,
+          amount: razorpayOrder.amount,
+          currency: razorpayOrder.currency,
+          name: "Hurayrah Essentials",
+          description: "Secure checkout",
+          order_id: razorpayOrder.orderId,
+          prefill: { name: customer.name, email: customer.email, contact: customer.phone },
+          notes: { source: "hurayah_webshop" },
+          theme: { color: "#171717" },
+          handler: async (response: any) => {
+            try {
+              const order = await verifyRazorpayPayment({
+                ...payload,
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+              });
+              clearCart();
+              toast({ title: "Payment received", description: "Your order was verified and saved securely." });
+              navigate(`/order-confirmation?id=${order?.order_number ?? "HE-PAID"}`);
+              resolve();
+            } catch (error) {
+              reject(error);
+            }
+          },
+          modal: { ondismiss: () => reject(new Error("Payment was cancelled.")) },
+        });
+        checkout.on("payment.failed", (response: any) => reject(new Error(response?.error?.description ?? "Payment failed.")));
+        checkout.open();
       });
-      clearCart();
-      toast({ title: "MOCKED Razorpay payment accepted", description: "Order totals were verified securely before saving." });
-      navigate(`/order-confirmation?id=${order?.order_number ?? "HE-MOCKED"}`);
     } catch (error) {
       console.error("checkout", error);
       toast({ title: "Could not place order", description: error instanceof Error ? error.message : undefined, variant: "destructive" });
@@ -149,7 +210,17 @@ const Checkout = () => {
               <Section title="Contact" icon={<ShieldCheck className="h-4 w-4" />}>
                 <div className="grid sm:grid-cols-2 gap-3">
                   <Field label="Email" type="email" value={form.email} onChange={setField("email")} error={errors.email} required testId="checkout-email-input" />
-                  <Field label="Phone / WhatsApp" type="tel" value={form.phone} onChange={setField("phone")} error={errors.phone} required testId="checkout-phone-input" />
+                  <Field
+                    label="Phone / WhatsApp"
+                    type="tel"
+                    value={form.phone}
+                    onChange={setField("phone")}
+                    error={errors.phone}
+                    required
+                    testId="checkout-phone-input"
+                    hint="Important: dispatch tracking is sent by WhatsApp, so this must be the customer's real WhatsApp number with country code."
+                    placeholder="+91 98765 43210"
+                  />
                 </div>
               </Section>
 
@@ -181,13 +252,13 @@ const Checkout = () => {
                 <p className="text-xs text-foreground/55 inline-flex items-center gap-1 mb-2">
                   <Lock className="h-3 w-3" /> Secure payment handoff
                 </p>
-                <div className="rounded-lg border border-dashed border-brand/30 bg-brand/5 p-4 text-sm text-foreground/75" data-testid="checkout-razorpay-mocked-notice">
-                  Razorpay is currently running in <strong>MOCKED</strong> mode. The order is still validated server-side before it is saved.
+                <div className="rounded-lg border border-brand/30 bg-brand/5 p-4 text-sm text-foreground/75" data-testid="checkout-razorpay-live-notice">
+                  Razorpay test checkout is active. The order is created through Razorpay and the payment signature is verified before saving.
                 </div>
                 <div className="grid sm:grid-cols-3 gap-3">
-                  <Field label="Payment provider" placeholder="Razorpay mocked" disabled value="" onChange={() => undefined} testId="checkout-card-number-input" />
-                  <Field label="Status" placeholder="MOCKED_PAID" disabled value="" onChange={() => undefined} testId="checkout-expiry-input" />
-                  <Field label="Verification" placeholder="Server checked" disabled value="" onChange={() => undefined} testId="checkout-cvc-input" />
+                  <Field label="Payment provider" placeholder="Razorpay Checkout" disabled value="" onChange={() => undefined} testId="checkout-card-number-input" />
+                  <Field label="Mode" placeholder="Test keys" disabled value="" onChange={() => undefined} testId="checkout-expiry-input" />
+                  <Field label="Verification" placeholder="Signature checked" disabled value="" onChange={() => undefined} testId="checkout-cvc-input" />
                 </div>
               </Section>
             </div>
@@ -230,7 +301,7 @@ const Checkout = () => {
                 data-testid="checkout-submit-button"
                 className="mt-5 w-full inline-flex items-center justify-center gap-2 rounded-md bg-brand text-brand-foreground font-semibold py-3 hover:opacity-95 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {submitting ? "Placing order…" : `Place MOCKED order · ${format(total)}`}
+                {submitting ? "Opening Razorpay..." : `Pay securely · ${format(total)}`}
               </button>
               <div className="mt-4 grid grid-cols-2 gap-2 text-[11px] text-foreground/60">
                 <span className="rounded-md bg-[#F8FAF9] border border-border px-2 py-2 inline-flex items-center gap-1"><ShieldCheck className="h-3.5 w-3.5" /> Server-checked totals</span>
@@ -253,10 +324,17 @@ function Section({ title, icon, children }: { title: string; icon: React.ReactNo
   );
 }
 
-function Field({ label, value, onChange, testId, error, ...props }: { label: string; value: string; onChange: (value: string) => void; testId: string; error?: string } & Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "onChange">) {
+function Field({ label, value, onChange, testId, error, hint, ...props }: { label: string; value: string; onChange: (value: string) => void; testId: string; error?: string; hint?: string } & Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "onChange">) {
   return (
     <label className="block text-sm">
-      <span className="block text-foreground/70 mb-1.5 font-medium">{label}</span>
+      <span className="mb-1.5 flex items-center gap-1.5 font-medium text-foreground/70">
+        {label}
+        {hint && (
+          <span title={hint} aria-label={hint} className="inline-flex h-4 w-4 items-center justify-center rounded-full text-amber-600">
+            <Info className="h-3.5 w-3.5" />
+          </span>
+        )}
+      </span>
       <input
         {...props}
         value={value}
