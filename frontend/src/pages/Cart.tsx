@@ -1,9 +1,9 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Minus, Plus, Trash2, ShoppingBag, ArrowRight } from "lucide-react";
 import { SiteLayout } from "@/components/layout/SiteLayout";
 import { useShop } from "@/store/shop";
 import { calculateShippingInr, FREE_SHIPPING_THRESHOLD_INR } from "@/services/shipping";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { PaymentMethods } from "@/components/shop/PaymentMethods";
 
 const Cart = () => {
   const { cartLines, cartSubtotal, updateQty, removeFromCart } = useShop();
@@ -14,79 +14,82 @@ const Cart = () => {
 
   return (
     <SiteLayout>
-      <div className="mx-auto max-w-[1200px] px-4 md:px-8 py-8 md:py-12">
-        <h1 className="text-foreground italic font-bold tracking-tight text-2xl md:text-4xl mb-6 md:mb-10">
-          Your cart
-        </h1>
+      <div className="vibe-admin mx-auto max-w-[1200px] px-4 py-8 md:px-8 md:py-12">
+        <div className="mb-6 flex items-end justify-between gap-4">
+          <div>
+            <p className="text-[10px] font-medium uppercase tracking-widest text-[rgb(var(--vibe-muted))]">Checkout queue</p>
+            <h1 className="mt-1 text-[20px] font-semibold tracking-tight md:text-[24px]">Cart</h1>
+          </div>
+          <Link to="/shop" className="hidden h-8 items-center rounded-md border border-[rgb(var(--vibe-border))] px-3 text-[12px] text-[rgb(var(--vibe-muted))] hover:bg-[rgb(var(--vibe-accent))] sm:inline-flex">Continue shopping</Link>
+        </div>
 
         {cartLines.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-border p-10 md:p-16 text-center">
-            <ShoppingBag className="h-10 w-10 mx-auto text-foreground/30" />
-            <h2 className="mt-4 text-lg font-semibold">Your cart is empty</h2>
-            <p className="mt-1 text-sm text-foreground/60">Find something you'll love.</p>
+          <div className="vibe-card p-10 text-center md:p-16">
+            <h2 className="mt-4 text-[15px] font-semibold">Your cart is empty</h2>
+            <p className="mt-1 text-[12px] text-[rgb(var(--vibe-muted))]">Find something you'll love.</p>
             <Link
               to="/shop"
-              className="mt-6 inline-flex items-center gap-2 rounded-md bg-brand text-brand-foreground font-semibold px-6 py-3 hover:opacity-95 transition-opacity"
+              className="mt-6 inline-flex h-9 items-center gap-2 rounded-md bg-[rgb(var(--vibe-foreground))] px-3 text-[12px] font-medium text-white hover:opacity-90"
             >
               Browse products
-              <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
         ) : (
-          <div className="grid lg:grid-cols-[1fr_360px] gap-8">
-            <ul className="divide-y divide-border rounded-2xl border border-border bg-background">
+          <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+            <ul className="vibe-card divide-y divide-[rgb(var(--vibe-border))] overflow-hidden">
               {cartLines.map((line) => {
                 const link = `/product/${line.slug ?? line.productId}`;
                 return (
-                  <li key={line.productId} className="p-4 md:p-5 flex gap-4">
+                  <li key={line.productId} className="flex gap-4 p-4 transition-colors hover:bg-[rgb(var(--vibe-accent))]/45 md:p-5">
                     <Link
                       to={link}
-                      className="shrink-0 h-24 w-20 md:h-28 md:w-24 rounded-lg bg-placeholder overflow-hidden"
+                      className="h-24 w-20 shrink-0 overflow-hidden rounded-md bg-white md:h-28 md:w-24"
                     >
                       {line.image && (
                         <img
                           src={line.image}
                           alt={line.name}
-                          loading="lazy"
+                          loading="eager"
+                          decoding="async"
                           className="h-full w-full object-cover"
                         />
                       )}
                     </Link>
                     <div className="flex-1 min-w-0">
                       <Link to={link} className="block">
-                        <h3 className="text-sm md:text-base font-medium text-foreground hover:text-brand line-clamp-1">
+                        <h3 className="line-clamp-1 text-[13px] font-medium hover:text-zinc-600 md:text-[14px]">
                           {line.name}
                         </h3>
                       </Link>
-                      <p className="mt-1 text-sm md:text-base font-semibold text-hero-foreground">
+                      <p className="mt-1 font-mono text-[12px] font-medium md:text-[13px]">
                         {format(line.price)}
                       </p>
                       <div className="mt-3 flex items-center justify-between">
-                        <div className="inline-flex items-center rounded-full border border-border">
+                        <div className="inline-grid grid-cols-[32px_32px_32px] overflow-hidden rounded-md border border-[rgb(var(--vibe-border))] bg-white">
                           <button
                             onClick={() => updateQty(line.productId, line.qty - 1)}
                             aria-label="Decrease quantity"
                             data-testid={`cart-decrease-quantity-${line.productId}`}
-                            className="h-8 w-8 grid place-items-center hover:bg-foreground/5 rounded-l-full"
+                            className="grid h-8 place-items-center hover:bg-[rgb(var(--vibe-accent))]"
                           >
-                            <Minus className="h-3.5 w-3.5" />
+                            -
                           </button>
-                          <span className="w-8 text-center text-sm font-medium">{line.qty}</span>
+                          <span className="grid h-8 place-items-center border-x border-[rgb(var(--vibe-border))] font-mono text-[12px] font-medium">{line.qty}</span>
                           <button
                             onClick={() => updateQty(line.productId, line.qty + 1)}
                             aria-label="Increase quantity"
                             data-testid={`cart-increase-quantity-${line.productId}`}
-                            className="h-8 w-8 grid place-items-center hover:bg-foreground/5 rounded-r-full"
+                            className="grid h-8 place-items-center hover:bg-[rgb(var(--vibe-accent))]"
                           >
-                            <Plus className="h-3.5 w-3.5" />
+                            +
                           </button>
                         </div>
                         <button
                           onClick={() => removeFromCart(line.productId)}
                           data-testid={`cart-remove-item-${line.productId}`}
-                          className="text-xs text-foreground/55 hover:text-destructive inline-flex items-center gap-1"
+                          className="inline-flex items-center gap-1 text-[11px] text-[rgb(var(--vibe-muted))] hover:text-red-600"
                         >
-                          <Trash2 className="h-3.5 w-3.5" /> Remove
+                          Remove
                         </button>
                       </div>
                     </div>
@@ -95,33 +98,33 @@ const Cart = () => {
               })}
             </ul>
 
-            <aside className="rounded-2xl border border-border bg-hero/30 p-5 md:p-6 h-fit">
-              <h2 className="font-semibold text-foreground text-lg">Order summary</h2>
-              <dl className="mt-4 space-y-2 text-sm">
+            <aside className="vibe-card h-fit p-5 md:p-6">
+              <h2 className="text-[13px] font-medium">Order summary</h2>
+              <dl className="mt-4 space-y-2 text-[12px]">
                 <div className="flex justify-between">
-                  <dt className="text-foreground/65">Subtotal</dt>
-                  <dd className="font-medium">{format(cartSubtotal)}</dd>
+                  <dt className="text-[rgb(var(--vibe-muted))]">Subtotal</dt>
+                  <dd className="font-mono font-medium">{format(cartSubtotal)}</dd>
                 </div>
                 <div className="flex justify-between">
-                  <dt className="text-foreground/65">Shipping</dt>
-                  <dd className="font-medium">
+                  <dt className="text-[rgb(var(--vibe-muted))]">Shipping</dt>
+                  <dd className="font-mono font-medium">
                     {shipping === 0 ? "Free" : format(shipping)}
                   </dd>
                 </div>
-                <div className="border-t border-border pt-3 mt-3 flex justify-between text-base">
-                  <dt className="font-semibold">Total</dt>
-                  <dd className="font-bold text-hero-foreground">{format(total)}</dd>
+                <div className="mt-3 flex justify-between border-t border-[rgb(var(--vibe-border))] pt-3 text-[13px]">
+                  <dt className="font-medium">Total</dt>
+                  <dd className="font-mono font-semibold">{format(total)}</dd>
                 </div>
               </dl>
               <button
                 onClick={() => navigate("/checkout")}
                 data-testid="cart-checkout-button"
-                className="mt-5 w-full inline-flex items-center justify-center gap-2 rounded-md bg-brand text-brand-foreground font-semibold py-3 hover:opacity-95 transition-opacity"
+                className="mt-5 inline-flex h-9 w-full items-center justify-center gap-2 rounded-md bg-[rgb(var(--vibe-foreground))] px-3 text-[12px] font-medium text-white hover:opacity-90"
               >
                 Checkout
-                <ArrowRight className="h-4 w-4" />
               </button>
-              <p className="mt-3 text-xs text-foreground/55 text-center">
+              <PaymentMethods compact className="mt-4" />
+              <p className="mt-3 text-center text-[11px] text-[rgb(var(--vibe-muted))]">
                 Free India shipping over {format(FREE_SHIPPING_THRESHOLD_INR)} · Final charge in INR{currency !== "INR" ? " · converted prices are approximate" : ""}
               </p>
             </aside>

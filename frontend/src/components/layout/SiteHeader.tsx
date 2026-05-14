@@ -1,4 +1,4 @@
-import { Heart, LayoutDashboard, LogOut, Menu, Search, ShoppingBag, User, X } from "lucide-react";
+import { Heart, LayoutDashboard, LogOut, Menu, Package, Search, ShoppingBag, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import logo from "@/assets/logo-header.png";
@@ -6,6 +6,7 @@ import { useShop } from "@/store/shop";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { WishlistDrawer } from "@/components/shop/CommerceDrawers";
 import {
   Select,
   SelectContent,
@@ -33,8 +34,9 @@ export function SiteHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [scrolled, setScrolled] = useState(false);
+  const [wishlistOpen, setWishlistOpen] = useState(false);
   const navigate = useNavigate();
-  const { cartCount, wishlist } = useShop();
+  const { cartCount, wishlist, openCart } = useShop();
   const { user, isAdmin, signOut } = useAuth();
   const { currency, currencies, setCurrency, loading: currencyLoading } = useCurrency();
 
@@ -179,32 +181,34 @@ export function SiteHeader() {
             </Link>
 
             <div className="justify-self-end flex items-center justify-end gap-0.5 sm:gap-1 min-w-0">
-              <Link
-                to="/wishlist"
+              <button
+                type="button"
+                onClick={() => setWishlistOpen(true)}
                 aria-label={`Wishlist (${wishlist.length} items)`}
                 data-testid="site-header-wishlist-link"
                 className={cn(ICON_BUTTON, "hidden sm:inline-flex")}
               >
                 <Heart className="h-5 w-5" />
                 {wishlist.length > 0 && <span className={BADGE}>{wishlist.length}</span>}
-              </Link>
+              </button>
               <Link
-                to={user ? "/account" : "/login"}
-                aria-label={user ? "Your account" : "Sign in"}
+                to="/track"
+                aria-label="Track order"
                 data-testid="site-header-account-link"
                 className={ICON_BUTTON}
               >
-                <User className="h-5 w-5" />
+                <Package className="h-5 w-5" />
               </Link>
-              <Link
-                to="/cart"
+              <button
+                type="button"
+                onClick={openCart}
                 aria-label={`Cart (${cartCount} items)`}
                 data-testid="site-header-cart-link"
                 className={ICON_BUTTON}
               >
                 <ShoppingBag className="h-5 w-5" />
                 {cartCount > 0 && <span className={BADGE}>{cartCount}</span>}
-              </Link>
+              </button>
             </div>
           </div>
 
@@ -366,12 +370,12 @@ export function SiteHeader() {
                 {user ? (
                   <>
                     <Link
-                      to="/account"
+                      to="/track"
                       onClick={() => setMenuOpen(false)}
                       data-testid="site-header-mobile-account-link"
                       className="py-3 block text-base text-foreground hover:text-brand"
                     >
-                      Account
+                      Track order
                     </Link>
                     <Link
                       to="/wishlist"
@@ -394,12 +398,12 @@ export function SiteHeader() {
                 ) : (
                   <>
                     <Link
-                      to="/login"
+                      to="/track"
                       onClick={() => setMenuOpen(false)}
                       data-testid="site-header-mobile-login-link"
                       className="py-3 block text-base font-semibold text-brand hover:underline"
                     >
-                      Sign in / Create account
+                      Track order
                     </Link>
                     <Link
                       to="/wishlist"
@@ -416,6 +420,7 @@ export function SiteHeader() {
           </aside>
         </div>
       )}
+      <WishlistDrawer open={wishlistOpen} onClose={() => setWishlistOpen(false)} />
     </>
   );
 }

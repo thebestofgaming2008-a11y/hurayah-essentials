@@ -24,10 +24,14 @@ interface ShopState {
   cart: CartLine[];
   cartLines: CartLine[];
   wishlist: string[];
+  cartOpen: boolean;
   addToCart: (product: CartProductInput, qty?: number) => void;
   removeFromCart: (id: string) => void;
   updateQty: (id: string, qty: number) => void;
   clearCart: () => void;
+  openCart: () => void;
+  closeCart: () => void;
+  toggleCart: () => void;
   toggleWishlist: (id: string) => void;
   isWishlisted: (id: string) => boolean;
   cartCount: number;
@@ -52,6 +56,7 @@ function load<T>(k: string, fallback: T): T {
 export function ShopProvider({ children }: { children: React.ReactNode }) {
   const [cart, setCart] = useState<CartLine[]>(() => load<CartLine[]>(KEY_CART, []));
   const [wishlist, setWishlist] = useState<string[]>(() => load<string[]>(KEY_WISH, []));
+  const [cartOpen, setCartOpen] = useState(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") localStorage.setItem(KEY_CART, JSON.stringify(cart));
@@ -81,6 +86,7 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
         },
       ];
     });
+    setCartOpen(true);
     toast({ title: "Added to cart", description: product.name });
   }, []);
 
@@ -97,6 +103,9 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const clearCart = useCallback(() => setCart([]), []);
+  const openCart = useCallback(() => setCartOpen(true), []);
+  const closeCart = useCallback(() => setCartOpen(false), []);
+  const toggleCart = useCallback(() => setCartOpen((open) => !open), []);
 
   const toggleWishlist = useCallback((id: string) => {
     setWishlist((prev) => {
@@ -121,10 +130,14 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
     cart,
     cartLines: cart,
     wishlist,
+    cartOpen,
     addToCart,
     removeFromCart,
     updateQty,
     clearCart,
+    openCart,
+    closeCart,
+    toggleCart,
     toggleWishlist,
     isWishlisted,
     cartCount,

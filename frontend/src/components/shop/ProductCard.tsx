@@ -37,18 +37,20 @@ export function ProductCard({ product, className }: Props) {
 
   return (
     <article className={cn("group", className)}>
-      <div className="relative aspect-[2/3] overflow-hidden rounded-lg bg-placeholder shadow-sm group-hover:shadow-lg transition-shadow">
+      <div className="relative aspect-[2/3] overflow-hidden rounded-lg bg-white shadow-sm group-hover:shadow-lg transition-shadow">
         <Link to={link} className="absolute inset-0 z-10" aria-label={product.name} />
         {showImage ? (
           <img
             src={image as string}
             alt={product.name}
-            loading="lazy"
+            loading="eager"
+            decoding="async"
+            fetchPriority="high"
             onError={() => setImgError(true)}
             className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
           />
         ) : (
-          <div className="absolute inset-0 grid place-items-center bg-hero/40 text-foreground/35 text-xs font-medium tracking-wide">
+          <div className="absolute inset-0 grid place-items-center bg-white text-foreground/35 text-xs font-medium tracking-wide">
             No image
           </div>
         )}

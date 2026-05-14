@@ -1,6 +1,6 @@
 import { v } from "convex/values";
-import { action, mutation, query } from "./_generated/server";
-import { api } from "./_generated/api";
+import { action, internalMutation, mutation, query } from "./_generated/server";
+import { api, internal } from "./_generated/api";
 import { nowIso, publicOrder, requireAdmin, requireIdentity } from "./lib";
 import { calculateShippingInr } from "./shipping";
 
@@ -112,10 +112,95 @@ async function checkoutQuote(ctx: any, cart: Array<any>) {
   return { subtotal, shipping, total, amountPaise: Math.round(total * 100), itemCount };
 }
 
+async function savePaidOrder(ctx: any, args: {
+  cart: Array<any>;
+  customer: any;
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+}) {
+  if (!args.cart.length) throw new Error("Cart is empty.");
+  const customer = {
+    email: cleanEmail(args.customer.email),
+    phone: cleanPhone(args.customer.phone),
+    name: cleanText(args.customer.name, 120),
+    address_line_1: cleanText(args.customer.address_line_1, 180),
+    address_line_2: cleanNullable(args.customer.address_line_2, 180) ?? undefined,
+    city: cleanText(args.customer.city, 80),
+    postal_code: cleanText(args.customer.postal_code, 24),
+    country: cleanText(args.customer.country, 80),
+  };
+  if (!customer.name || !customer.address_line_1 || !customer.city || !customer.postal_code || !customer.country) {
+    throw new Error("Complete shipping details are required.");
+  }
+
+  const normalizedItems = [];
+  let computedSubtotal = 0;
+  for (const item of args.cart) {
+    const qty = Math.floor(item.qty);
+    if (!Number.isFinite(qty) || qty < 1 || qty > 99) throw new Error("Cart quantity is invalid.");
+    const product = await ctx.db.get(item.productId as any);
+    if (!product || product.is_active === false) throw new Error(`Product is no longer available: ${cleanText(item.name, 80)}`);
+    const stock = product.stock_quantity ?? 0;
+    if (stock < qty || product.in_stock === false) throw new Error(`Not enough stock for ${product.name}.`);
+    const unitPrice = product.sale_price_inr ?? product.price_inr ?? product.price;
+    if (!Number.isFinite(unitPrice) || unitPrice < 0) throw new Error(`Invalid price for ${product.name}.`);
+    computedSubtotal += unitPrice * qty;
+    normalizedItems.push({ product, qty, unitPrice });
+  }
+
+  const computedShipping = calculateShippingInr(computedSubtotal);
+  const computedTotal = computedSubtotal + computedShipping;
+  const timestamp = nowIso();
+  const orderNumber = `HE-${Date.now().toString().slice(-8)}`;
+  const orderId = await ctx.db.insert("orders", {
+    order_number: orderNumber,
+    user_id: null,
+    customer_email: customer.email,
+    customer_name: customer.name,
+    customer_phone: customer.phone,
+    status: "processing",
+    payment_status: "paid",
+    subtotal: computedSubtotal,
+    tax: 0,
+    shipping_cost: computedShipping,
+    discount: 0,
+    total: computedTotal,
+    total_inr: computedTotal,
+    currency: "INR",
+    shipping_address: customer,
+    payment_provider: "RAZORPAY",
+    payment_order_id: cleanText(args.razorpay_order_id, 120),
+    payment_id: cleanText(args.razorpay_payment_id, 120),
+    created_at: timestamp,
+    updated_at: timestamp,
+  });
+
+  for (const item of normalizedItems) {
+    await ctx.db.insert("order_items", {
+      order_id: orderId,
+      product_id: item.product._id,
+      product_name: item.product.name,
+      product_image_url: item.product.cover_image_url ?? null,
+      quantity: item.qty,
+      unit_price: item.unitPrice,
+      subtotal: item.unitPrice * item.qty,
+    });
+    const nextStock = Math.max(0, (item.product.stock_quantity ?? 0) - item.qty);
+    await ctx.db.patch(item.product._id, {
+      stock_quantity: nextStock,
+      in_stock: nextStock > 0,
+      updated_at: timestamp,
+    });
+  }
+
+  const order = await ctx.db.get(orderId);
+  return order ? publicOrder(order) : null;
+}
+
 export const quoteCheckout = query({
   args: { cart: v.array(cartItem) },
   handler: async (ctx, args) => {
-    await requireIdentity(ctx);
     return await checkoutQuote(ctx, args.cart);
   },
 });
@@ -156,8 +241,6 @@ async function hmacSha256Hex(secret: string, message: string) {
 export const createRazorpayCheckoutOrder = action({
   args: checkoutPayload,
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Authentication required.");
     const quote = await ctx.runQuery(api.orders.quoteCheckout, { cart: args.cart });
     const { keyId } = razorpayKeys();
     const receipt = `HE-${Date.now().toString().slice(-8)}`;
@@ -301,6 +384,18 @@ export const markRazorpayPaid = mutation({
   },
 });
 
+export const saveVerifiedGuestOrder = internalMutation({
+  args: {
+    ...checkoutPayload,
+    razorpay_order_id: v.string(),
+    razorpay_payment_id: v.string(),
+    razorpay_signature: v.string(),
+  },
+  handler: async (ctx, args) => {
+    return await savePaidOrder(ctx, args);
+  },
+});
+
 export const verifyRazorpayPayment = action({
   args: {
     ...checkoutPayload,
@@ -309,8 +404,6 @@ export const verifyRazorpayPayment = action({
     razorpay_signature: v.string(),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Authentication required.");
     const { keySecret } = razorpayKeys();
     const expectedSignature = await hmacSha256Hex(keySecret, `${args.razorpay_order_id}|${args.razorpay_payment_id}`);
     if (expectedSignature !== args.razorpay_signature) throw new Error("Razorpay signature verification failed.");
@@ -323,16 +416,12 @@ export const verifyRazorpayPayment = action({
       throw new Error("Razorpay amount does not match the current cart total.");
     }
 
-    const created = await ctx.runMutation(api.orders.createMockCheckoutOrder, {
+    return await ctx.runMutation(internal.orders.saveVerifiedGuestOrder, {
       cart: args.cart,
       customer: args.customer,
       subtotal: args.subtotal,
       shipping: args.shipping,
       total: args.total,
-    });
-    if (!created?.id) throw new Error("Could not save paid order.");
-    return await ctx.runMutation(api.orders.markRazorpayPaid, {
-      id: created.id,
       razorpay_order_id: args.razorpay_order_id,
       razorpay_payment_id: args.razorpay_payment_id,
       razorpay_signature: args.razorpay_signature,

@@ -16,7 +16,6 @@ import Cart from "./pages/Cart.tsx";
 import Wishlist from "./pages/Wishlist.tsx";
 import Checkout from "./pages/Checkout.tsx";
 import OrderConfirmation from "./pages/OrderConfirmation.tsx";
-import Account from "./pages/Account.tsx";
 import Login from "./pages/Login.tsx";
 import Admin from "./pages/Admin.tsx";
 import TrackOrder from "./pages/TrackOrder.tsx";
@@ -32,13 +31,6 @@ function LoadingScreen() {
       Loading…
     </div>
   );
-}
-
-function RequireAuth({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
-  if (loading) return <LoadingScreen />;
-  if (!user) return <Navigate to="/login" replace />;
-  return <>{children}</>;
 }
 
 function RequireAdmin({ children }: { children: React.ReactNode }) {
@@ -67,7 +59,7 @@ const App = () => (
                 <Route path="/wishlist" element={<Wishlist />} />
                 <Route path="/checkout" element={<Checkout />} />
                 <Route path="/order-confirmation" element={<OrderConfirmation />} />
-                <Route path="/account" element={<RequireAuth><Account /></RequireAuth>} />
+                <Route path="/account" element={<Navigate to="/track" replace />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/admin" element={<RequireAdmin><Admin /></RequireAdmin>} />
                 <Route path="/track" element={<TrackOrder />} />

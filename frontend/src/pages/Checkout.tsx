@@ -1,14 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, CreditCard, Info, Lock, MapPin, ShieldCheck, ShoppingBag, Truck } from "lucide-react";
 import { SiteLayout } from "@/components/layout/SiteLayout";
 import { useShop } from "@/store/shop";
-import { useAuth } from "@/contexts/AuthContext";
 import { createRazorpayCheckoutOrder, verifyRazorpayPayment } from "@/services/orderService";
 import { calculateShippingInr, FREE_SHIPPING_THRESHOLD_INR } from "@/services/shipping";
 import { toast } from "@/hooks/use-toast";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { cn } from "@/lib/utils";
+import { PaymentMethods } from "@/components/shop/PaymentMethods";
 
 declare global {
   interface Window {
@@ -35,14 +34,13 @@ function loadRazorpayScript() {
 }
 
 const Checkout = () => {
-  const { cartLines, cartSubtotal, clearCart } = useShop();
-  const { user } = useAuth();
+  const { cartLines, cartSubtotal, clearCart, updateQty, removeFromCart, openCart } = useShop();
   const { format, currency } = useCurrency();
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [form, setForm] = useState({
-    email: user?.email ?? "",
+    email: "",
     phone: "",
     firstName: "",
     lastName: "",
@@ -61,10 +59,6 @@ const Checkout = () => {
     { label: "Payment", done: true },
   ], [form]);
 
-  useEffect(() => {
-    if (user?.email) setForm((prev) => ({ ...prev, email: prev.email || user.email || "" }));
-  }, [user?.email]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const nextErrors: Record<string, string> = {};
@@ -81,11 +75,6 @@ const Checkout = () => {
     if (!form.country.trim()) nextErrors.country = "Country is required.";
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
-    if (!user) {
-      toast({ title: "Sign in required", description: "Create an account before checkout." });
-      navigate("/login?redirect=/checkout");
-      return;
-    }
     if (cartLines.length === 0) return;
     setSubmitting(true);
     try {
@@ -157,11 +146,8 @@ const Checkout = () => {
 
   if (cartLines.length === 0) {
     return (
-      <SiteLayout>
+      <SiteLayout hideHeader compactFooter>
         <div className="mx-auto max-w-[760px] px-4 md:px-8 py-16 md:py-24 text-center">
-          <div className="mx-auto h-14 w-14 rounded-full bg-hero text-hero-foreground grid place-items-center">
-            <ShoppingBag className="h-7 w-7" />
-          </div>
           <h1 className="mt-5 text-foreground font-semibold tracking-tight text-3xl">Your cart is empty</h1>
           <p className="mt-2 text-foreground/60 text-sm">Add items before starting checkout.</p>
           <Link
@@ -177,37 +163,34 @@ const Checkout = () => {
   }
 
   return (
-    <SiteLayout>
-      <div className="bg-[#F8FAF9] border-t border-border/70">
-        <div className="mx-auto max-w-[1180px] px-4 md:px-8 py-6 md:py-10">
-          <div className="mb-6 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+    <SiteLayout hideHeader compactFooter>
+      <div className="vibe-admin min-h-[calc(100vh-120px)] border-t border-[rgb(var(--vibe-border))] bg-[rgb(var(--vibe-page))] text-[rgb(var(--vibe-foreground))]">
+        <div className="mx-auto max-w-[1280px] px-3 sm:px-4 md:px-8 py-4 md:py-8">
+          <div className="vibe-card mb-4 px-4 py-3 md:mb-6 md:px-5 md:py-4">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <Link to="/cart" data-testid="checkout-back-to-cart-link" className="inline-flex items-center gap-1.5 text-sm text-foreground/65 hover:text-brand transition-colors mb-3">
-                <ArrowLeft className="h-4 w-4" /> Back to cart
-              </Link>
-              <h1 className="text-foreground font-semibold tracking-tight text-3xl md:text-4xl">Secure checkout</h1>
-              <p className="mt-1 text-sm text-foreground/60">Fast checkout, WhatsApp-ready tracking, final charge recorded in INR.</p>
+              <button type="button" onClick={openCart} data-testid="checkout-back-to-cart-link" className="mb-2 inline-flex items-center gap-1.5 text-[12px] text-[rgb(var(--vibe-muted))] transition-colors hover:text-[rgb(var(--vibe-foreground))]">
+                Review cart
+              </button>
+              <h1 className="text-[20px] font-semibold tracking-tight md:text-[24px]">Checkout</h1>
+              <p className="mt-1 text-[12px] text-[rgb(var(--vibe-muted))]">Guest checkout. Customers can track orders with order number and email.</p>
             </div>
             <div className="flex items-center gap-2 overflow-x-auto no-scrollbar" data-testid="checkout-progress-steps">
               {steps.map((step, index) => (
                 <div key={step.label} className="flex items-center gap-2 shrink-0">
-                  <span className={cn("h-7 w-7 rounded-full grid place-items-center border text-xs font-semibold", step.done ? "bg-brand text-brand-foreground border-brand" : "bg-background text-foreground/50 border-border")}>
-                    {step.done ? <CheckCircle2 className="h-4 w-4" /> : index + 1}
+                  <span className={cn("grid h-7 w-7 place-items-center rounded-md border text-[11px] font-medium", step.done ? "border-[rgb(var(--vibe-foreground))] bg-[rgb(var(--vibe-foreground))] text-white" : "border-[rgb(var(--vibe-border))] bg-white text-[rgb(var(--vibe-muted))]")}>
+                    {step.done ? "✓" : index + 1}
                   </span>
-                  <span className="text-xs font-medium text-foreground/70">{step.label}</span>
+                  <span className="text-[11px] font-medium text-[rgb(var(--vibe-muted))]">{step.label}</span>
                 </div>
               ))}
             </div>
+            </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="grid lg:grid-cols-[minmax(0,1fr)_400px] gap-6 lg:gap-8" data-testid="checkout-form">
+          <form onSubmit={handleSubmit} className="grid lg:grid-cols-[minmax(0,1fr)_430px] gap-4 lg:gap-6" data-testid="checkout-form">
             <div className="space-y-4">
-              {!user && (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800" data-testid="checkout-sign-in-required-notice">
-                  Sign in is required before checkout. You’ll be redirected if you submit now.
-                </div>
-              )}
-              <Section title="Contact" icon={<ShieldCheck className="h-4 w-4" />}>
+              <Section title="Contact">
                 <div className="grid sm:grid-cols-2 gap-3">
                   <Field label="Email" type="email" value={form.email} onChange={setField("email")} error={errors.email} required testId="checkout-email-input" />
                   <Field
@@ -224,7 +207,7 @@ const Checkout = () => {
                 </div>
               </Section>
 
-              <Section title="Shipping address" icon={<MapPin className="h-4 w-4" />}>
+              <Section title="Shipping address">
                 <div className="grid sm:grid-cols-2 gap-3">
                   <Field label="First name" value={form.firstName} onChange={setField("firstName")} error={errors.firstName} required testId="checkout-first-name-input" />
                   <Field label="Last name" value={form.lastName} onChange={setField("lastName")} error={errors.lastName} required testId="checkout-last-name-input" />
@@ -238,7 +221,7 @@ const Checkout = () => {
                 <Field label="Country" value={form.country} onChange={setField("country")} error={errors.country} required testId="checkout-country-input" />
               </Section>
 
-              <Section title="Delivery method" icon={<Truck className="h-4 w-4" />}>
+              <Section title="Delivery method">
                 <div className="rounded-lg border border-border bg-background p-4 flex items-center justify-between gap-3" data-testid="checkout-delivery-method-card">
                   <div>
                     <p className="text-sm font-semibold text-foreground">Standard tracked delivery</p>
@@ -248,9 +231,9 @@ const Checkout = () => {
                 </div>
               </Section>
 
-              <Section title="Payment" icon={<CreditCard className="h-4 w-4" />}>
+              <Section title="Payment">
                 <p className="text-xs text-foreground/55 inline-flex items-center gap-1 mb-2">
-                  <Lock className="h-3 w-3" /> Secure payment handoff
+                  Secure payment handoff
                 </p>
                 <div className="rounded-lg border border-brand/30 bg-brand/5 p-4 text-sm text-foreground/75" data-testid="checkout-razorpay-live-notice">
                   Razorpay test checkout is active. The order is created through Razorpay and the payment signature is verified before saving.
@@ -263,49 +246,65 @@ const Checkout = () => {
               </Section>
             </div>
 
-            <aside className="rounded-lg border border-border bg-background p-5 md:p-6 h-fit lg:sticky lg:top-[170px] shadow-sm" data-testid="checkout-order-summary">
+            <aside className="vibe-card h-fit p-4 md:p-5 lg:sticky lg:top-[150px]" data-testid="checkout-order-summary">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="font-semibold text-foreground text-lg">Order summary</h2>
-                <span className="text-xs rounded-full bg-hero px-2 py-1 text-hero-foreground font-medium">{cartLines.length} items</span>
+                <h2 className="text-[13px] font-medium">Order summary</h2>
+                <span className="rounded bg-[rgb(var(--vibe-surface))] px-2 py-1 text-[11px] text-[rgb(var(--vibe-muted))]">{cartLines.length} items</span>
               </div>
-              <ul className="mt-4 space-y-3 max-h-[330px] overflow-y-auto pr-1">
+              <ul className="mt-4 space-y-3 max-h-[360px] overflow-y-auto pr-1">
                 {cartLines.map((line) => (
-                  <li key={line.productId} className="flex items-center gap-3 text-sm" data-testid={`checkout-summary-item-${line.productId}`}>
-                    <span className="h-14 w-11 rounded-md bg-placeholder shrink-0 overflow-hidden border border-border">
-                      {line.image && <img src={line.image} alt="" className="h-full w-full object-cover" />}
+                  <li key={line.productId} className="rounded-lg border border-[rgb(var(--vibe-border))] bg-[rgb(var(--vibe-page))] p-2.5 text-[12px]" data-testid={`checkout-summary-item-${line.productId}`}>
+                    <div className="flex items-start gap-3">
+                    <span className="h-16 w-12 shrink-0 overflow-hidden rounded-md border border-[rgb(var(--vibe-border))] bg-white">
+                      {line.image && <img src={line.image} alt="" loading="eager" decoding="async" className="h-full w-full object-cover" />}
                     </span>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-foreground line-clamp-1">{line.name}</p>
-                      <p className="text-xs text-foreground/55">Qty {line.qty}</p>
+                      <p className="line-clamp-2 font-medium leading-snug">{line.name}</p>
+                      <div className="mt-2 flex items-center justify-between gap-2">
+                        <div className="inline-grid grid-cols-[30px_30px_30px] overflow-hidden rounded-md border border-[rgb(var(--vibe-border))] bg-white">
+                          <button type="button" onClick={() => updateQty(line.productId, line.qty - 1)} className="grid h-8 place-items-center hover:bg-[rgb(var(--vibe-accent))]" aria-label="Decrease quantity">
+                            -
+                          </button>
+                          <span className="grid h-8 place-items-center border-x border-[rgb(var(--vibe-border))] font-mono text-[12px] font-medium tabular-nums">{line.qty}</span>
+                          <button type="button" onClick={() => updateQty(line.productId, line.qty + 1)} className="grid h-8 place-items-center hover:bg-[rgb(var(--vibe-accent))]" aria-label="Increase quantity">
+                            +
+                          </button>
+                        </div>
+                        <button type="button" onClick={() => removeFromCart(line.productId)} className="h-8 rounded-md px-2 text-[10px] text-[rgb(var(--vibe-muted))] hover:bg-red-50 hover:text-red-600" aria-label="Remove item">
+                          Remove
+                        </button>
+                      </div>
                     </div>
-                    <span className="font-semibold tabular-nums">{format(line.price * line.qty)}</span>
+                    <span className="font-mono font-medium tabular-nums">{format(line.price * line.qty)}</span>
+                    </div>
                   </li>
                 ))}
               </ul>
-              <dl className="mt-4 space-y-2 text-sm border-t border-border pt-4">
-                <div className="flex justify-between"><dt className="text-foreground/65">Subtotal</dt><dd className="font-medium tabular-nums">{format(cartSubtotal)}</dd></div>
-                <div className="flex justify-between"><dt className="text-foreground/65">Shipping</dt><dd className="font-medium tabular-nums">{shipping === 0 ? "Free" : format(shipping)}</dd></div>
-                <div className="border-t border-border pt-3 mt-3 flex justify-between text-base">
-                  <dt className="font-semibold">Total</dt>
-                  <dd className="font-bold text-hero-foreground tabular-nums" data-testid="checkout-total-amount">{format(total)}</dd>
+              <dl className="mt-4 space-y-2 border-t border-[rgb(var(--vibe-border))] pt-4 text-[12px]">
+                <div className="flex justify-between"><dt className="text-[rgb(var(--vibe-muted))]">Subtotal</dt><dd className="font-mono font-medium tabular-nums">{format(cartSubtotal)}</dd></div>
+                <div className="flex justify-between"><dt className="text-[rgb(var(--vibe-muted))]">Shipping</dt><dd className="font-mono font-medium tabular-nums">{shipping === 0 ? "Free" : format(shipping)}</dd></div>
+                <div className="mt-3 flex justify-between border-t border-[rgb(var(--vibe-border))] pt-3 text-[13px]">
+                  <dt className="font-medium">Total</dt>
+                  <dd className="font-mono font-semibold tabular-nums" data-testid="checkout-total-amount">{format(total)}</dd>
                 </div>
               </dl>
               {currency !== "INR" && (
-                <p className="mt-3 rounded-md bg-[#F8FAF9] border border-border px-3 py-2 text-xs text-foreground/60" data-testid="checkout-currency-disclaimer">
+                <p className="mt-3 rounded-md border border-[rgb(var(--vibe-border))] bg-[rgb(var(--vibe-page))] px-3 py-2 text-[11px] text-[rgb(var(--vibe-muted))]" data-testid="checkout-currency-disclaimer">
                   Converted totals are approximate. Checkout is recorded in INR.
                 </p>
               )}
+              <PaymentMethods compact className="mt-4" />
               <button
                 type="submit"
                 disabled={submitting}
                 data-testid="checkout-submit-button"
-                className="mt-5 w-full inline-flex items-center justify-center gap-2 rounded-md bg-brand text-brand-foreground font-semibold py-3 hover:opacity-95 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                className="mt-5 inline-flex h-9 w-full items-center justify-center gap-2 rounded-md bg-[rgb(var(--vibe-foreground))] px-3 text-[12px] font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {submitting ? "Opening Razorpay..." : `Pay securely · ${format(total)}`}
               </button>
-              <div className="mt-4 grid grid-cols-2 gap-2 text-[11px] text-foreground/60">
-                <span className="rounded-md bg-[#F8FAF9] border border-border px-2 py-2 inline-flex items-center gap-1"><ShieldCheck className="h-3.5 w-3.5" /> Server-checked totals</span>
-                <span className="rounded-md bg-[#F8FAF9] border border-border px-2 py-2 inline-flex items-center gap-1"><Truck className="h-3.5 w-3.5" /> WhatsApp tracking</span>
+              <div className="mt-4 grid grid-cols-2 gap-2 text-[11px] text-[rgb(var(--vibe-muted))]">
+                <span className="rounded-md border border-[rgb(var(--vibe-border))] bg-[rgb(var(--vibe-page))] px-2 py-2">Server-checked totals</span>
+                <span className="rounded-md border border-[rgb(var(--vibe-border))] bg-[rgb(var(--vibe-page))] px-2 py-2">WhatsApp tracking</span>
               </div>
             </aside>
           </form>
@@ -315,10 +314,10 @@ const Checkout = () => {
   );
 };
 
-function Section({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-lg border border-border bg-background p-5 md:p-6 space-y-3 shadow-sm" data-testid={`checkout-section-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}>
-      <h2 className="font-semibold text-foreground text-base inline-flex items-center gap-2">{icon}{title}</h2>
+    <section className="vibe-card space-y-3 p-4 md:p-5" data-testid={`checkout-section-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}>
+      <h2 className="text-[13px] font-medium">{title}</h2>
       {children}
     </section>
   );
@@ -326,12 +325,12 @@ function Section({ title, icon, children }: { title: string; icon: React.ReactNo
 
 function Field({ label, value, onChange, testId, error, hint, ...props }: { label: string; value: string; onChange: (value: string) => void; testId: string; error?: string; hint?: string } & Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "onChange">) {
   return (
-    <label className="block text-sm">
-      <span className="mb-1.5 flex items-center gap-1.5 font-medium text-foreground/70">
+    <label className="block">
+      <span className="mb-1.5 flex items-center gap-1.5 text-[11px] text-[rgb(var(--vibe-muted))]">
         {label}
         {hint && (
           <span title={hint} aria-label={hint} className="inline-flex h-4 w-4 items-center justify-center rounded-full text-amber-600">
-            <Info className="h-3.5 w-3.5" />
+            !
           </span>
         )}
       </span>
@@ -341,9 +340,9 @@ function Field({ label, value, onChange, testId, error, hint, ...props }: { labe
         onChange={(e) => onChange(e.target.value)}
         data-testid={testId}
         aria-invalid={Boolean(error)}
-        className={cn("w-full rounded-md border bg-background px-3 py-2.5 text-foreground outline-none focus:border-brand transition-colors disabled:bg-foreground/5 disabled:text-foreground/45", error ? "border-destructive" : "border-border")}
+        className={cn("h-9 w-full rounded-md border bg-white px-3 text-[13px] text-[rgb(var(--vibe-foreground))] outline-none transition-colors focus:ring-1 focus:ring-zinc-500 disabled:bg-[rgb(var(--vibe-surface))] disabled:text-[rgb(var(--vibe-muted))]", error ? "border-red-400" : "border-[rgb(var(--vibe-border))]")}
       />
-      {error && <span className="mt-1 block text-xs text-destructive" data-testid={`${testId}-error`}>{error}</span>}
+      {error && <span className="mt-1 block text-[11px] text-red-600" data-testid={`${testId}-error`}>{error}</span>}
     </label>
   );
 }
