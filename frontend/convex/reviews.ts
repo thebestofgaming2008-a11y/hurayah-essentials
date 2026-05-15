@@ -102,6 +102,22 @@ export const submit = mutation({
   },
 });
 
+export const generateReviewMediaUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await requireIdentity(ctx);
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+export const getReviewMediaUrl = query({
+  args: { storageId: v.string() },
+  handler: async (ctx, args) => {
+    await requireIdentity(ctx);
+    return await ctx.storage.getUrl(args.storageId as any);
+  },
+});
+
 export const updateStatus = mutation({
   args: {
     id: v.string(),

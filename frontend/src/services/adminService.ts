@@ -76,12 +76,13 @@ export async function uploadProductImage(file: File): Promise<string | null> {
   const uploadUrl = await convex.mutation(api.products.generateProductImageUploadUrl, {});
   const result = await fetch(uploadUrl, {
     method: "POST",
-    headers: { "Content-Type": file.type },
+    headers: { "Content-Type": file.type || "application/octet-stream" },
     body: file,
   });
   if (!result.ok) return null;
   const { storageId } = await result.json();
-  return await convex.query(api.products.getProductImageUrl, { storageId });
+  const url = await convex.query(api.products.getProductImageUrl, { storageId });
+  return url ? `${url}#${encodeURIComponent(file.name)}` : null;
 }
 
 export interface AdminDiscount {

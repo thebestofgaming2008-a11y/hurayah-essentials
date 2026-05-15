@@ -14,7 +14,7 @@ import {
   Scale,
   Heart,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import calligraphyLeft from "@/assets/calligraphy-left.png";
 import calligraphyRight from "@/assets/calligraphy-right.png";
 import { SiteLayout } from "@/components/layout/SiteLayout";
@@ -51,6 +51,7 @@ const TESTIMONIALS = [
 const TAB_KEYS: CategoryKey[] = ["books", "clothing", "children"];
 
 const Index = () => {
+  const location = useLocation();
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCat, setActiveCat] = useState<CategoryKey>("books");
@@ -66,6 +67,14 @@ const Index = () => {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    const requested = new URLSearchParams(location.search).get("category") as CategoryKey | null;
+    if (requested && TAB_KEYS.includes(requested)) setActiveCat(requested);
+    if (location.hash === "#categories") {
+      window.setTimeout(() => document.getElementById("categories")?.scrollIntoView({ block: "start" }), 0);
+    }
+  }, [location.hash, location.search]);
 
   const activeMeta = CATEGORIES.find((c) => c.key === activeCat)!;
   const featured = useMemo(
@@ -248,7 +257,7 @@ const Index = () => {
 
           <div className="mt-8 flex justify-center">
             <Link
-              to={`/category/${activeCat}`}
+              to={`/shop?category=${activeCat}`}
               className="group inline-flex items-center gap-2 rounded-md bg-brand text-brand-foreground font-semibold text-sm md:text-base px-6 md:px-8 py-3 hover:opacity-95 transition-opacity"
             >
               Shop all {activeMeta.label.toLowerCase()}

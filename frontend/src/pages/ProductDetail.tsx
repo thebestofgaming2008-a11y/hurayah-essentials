@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
-import { ChevronRight, Heart, Minus, Plus, ShoppingBag, Star } from "lucide-react";
+import { ChevronRight, Minus, Plus, Star, X } from "lucide-react";
 import { SiteLayout } from "@/components/layout/SiteLayout";
 import { ProductCard } from "@/components/shop/ProductCard";
 import { CATEGORIES, productCompareAt, productImage, productPrice, type CategoryKey } from "@/data/products";
 import { getProductById, getProductBySlug, listByCategory, listByIds, type Product } from "@/services/productService";
-import { listPublishedReviews, submitReview, type ProductReview } from "@/services/reviewService";
+import { listPublishedReviews, submitReview, uploadReviewMedia, type ProductReview } from "@/services/reviewService";
 import { useShop } from "@/store/shop";
 import { cn } from "@/lib/utils";
 import { useCurrency } from "@/contexts/CurrencyContext";
@@ -111,11 +111,25 @@ const ProductDetail = () => {
             <span className="line-clamp-1 text-[#06133a]">{product.name}</span>
           </nav>
 
-          <section className="grid gap-10 lg:grid-cols-[420px_minmax(0,1fr)] lg:gap-32">
+          <section>
+            <div className="mb-8">
+              <h1 className="font-serif text-5xl leading-[0.95] text-[#020b2d] drop-shadow-[0_3px_3px_rgba(2,11,45,0.25)] md:text-7xl">
+                {product.name}
+              </h1>
+              {(product.author || product.publisher) && (
+                <p className="mt-2 text-right font-serif text-3xl text-black/65">By {product.author || product.publisher}</p>
+              )}
+            </div>
+
+          <div className="grid gap-10 lg:grid-cols-[420px_minmax(0,1fr)] lg:gap-32">
             <div>
-              <div className="aspect-[5/7] overflow-hidden rounded-md border border-[#06133a]/25 bg-[#d9d9d9]">
+              <div className="aspect-square overflow-hidden rounded-md border border-[#06133a]/25 bg-[#d9d9d9]">
                 {mainImage && !mainImgError ? (
-                  <img src={mainImage} alt={product.name} onError={() => setMainImgError(true)} className="h-full w-full object-cover" />
+                  isVideoUrl(mainImage) ? (
+                    <video src={mainImage} className="h-full w-full object-cover" controls playsInline />
+                  ) : (
+                    <img src={mainImage} alt={product.name} onError={() => setMainImgError(true)} className="h-full w-full object-cover" />
+                  )
                 ) : (
                   <div className="h-full w-full bg-[#d9d9d9]" />
                 )}
@@ -123,7 +137,7 @@ const ProductDetail = () => {
               <div className="mt-3 grid grid-cols-3 gap-5">
                 {gallery.slice(0, 3).map((src, index) => (
                   <button key={src} type="button" onClick={() => setActiveImage(index)} className={cn("aspect-square overflow-hidden rounded-md bg-[#d9d9d9]", activeImage === index && "ring-2 ring-[#06133a]")}>
-                    <img src={src} alt="" className="h-full w-full object-cover" />
+                    {isVideoUrl(src) ? <video src={src} className="h-full w-full object-cover" muted playsInline /> : <img src={src} alt="" className="h-full w-full object-cover" />}
                   </button>
                 ))}
               </div>
@@ -132,9 +146,6 @@ const ProductDetail = () => {
             <div className="pt-1 lg:pt-0">
               <div className="grid gap-4 lg:grid-cols-[1fr_245px] lg:items-start">
                 <div>
-                  <h1 className="font-serif text-5xl leading-[0.95] tracking-[-0.04em] text-[#020b2d] drop-shadow-[0_3px_3px_rgba(2,11,45,0.25)] md:text-7xl">
-                    {product.name}
-                  </h1>
                   <div className="mt-3 flex items-center gap-3">
                     <div className="flex text-[#e4aa00]">
                       {Array.from({ length: 5 }).map((_, index) => (
@@ -146,9 +157,6 @@ const ProductDetail = () => {
                 </div>
 
                 <div className="lg:pt-14">
-                  {(product.author || product.publisher) && (
-                    <p className="font-serif text-3xl text-black/65">By {product.author || product.publisher}</p>
-                  )}
                   {versions.length > 0 && (
                     <select
                       value={product.slug ?? product.id}
@@ -173,18 +181,16 @@ const ProductDetail = () => {
                 <button
                   type="button"
                   onClick={() => toggleWishlist(product.id)}
-                  className={cn("flex h-[3.625rem] w-full max-w-[49rem] items-center justify-center gap-2 border border-[#06133a] px-[3.1875rem] pb-[0.4375rem] pt-1 font-serif text-2xl font-semibold", wished && "bg-white/35")}
+                  className={cn("glass-cta inline-flex h-[3.625rem] w-full max-w-[49rem] items-center justify-center rounded-2xl px-[3.1875rem] pb-[0.4375rem] pt-1 text-lg font-bold tracking-tight text-hero-foreground transition-all md:text-xl", wished && "bg-white/45")}
                 >
-                  <Heart className={cn("h-6 w-6", wished && "fill-current")} />
                   Wishlist
                 </button>
                 <button
                   type="button"
                   onClick={onAdd}
                   disabled={!inStock}
-                  className="flex h-[4.5rem] w-full max-w-[49rem] items-center justify-center gap-2 bg-[#020b2d] px-[3.1875rem] pb-[0.4375rem] pt-1 font-serif text-4xl font-semibold text-white disabled:opacity-50"
+                  className="inline-flex h-[4.5rem] w-full max-w-[49rem] items-center justify-center rounded-md bg-brand px-[3.1875rem] pb-[0.4375rem] pt-1 text-2xl font-bold tracking-tight text-brand-foreground shadow-2xl transition-opacity hover:opacity-95 disabled:opacity-50 md:text-3xl"
                 >
-                  <ShoppingBag className="h-7 w-7" />
                   {inStock ? "Add to cart" : "Out of stock"}
                 </button>
               </div>
@@ -214,6 +220,7 @@ const ProductDetail = () => {
                 )}
               </section>
             </div>
+          </div>
           </section>
 
           <ReviewsSection productId={product.id} userReady={Boolean(user)} reviews={reviews} onSubmitted={async () => setReviews(await listPublishedReviews(product.id).catch(() => reviews))} />
@@ -241,21 +248,45 @@ function Fact({ label, value }: { label: string; value: string }) {
   );
 }
 
+function isVideoUrl(url: string) {
+  return /\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(url);
+}
+
 function ReviewsSection({ productId, userReady, reviews, onSubmitted }: { productId: string; userReady: boolean; reviews: ProductReview[]; onSubmitted: () => Promise<void> }) {
   const [rating, setRating] = useState(5);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
+  const [mediaUrls, setMediaUrls] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  const handleMedia = async (files?: FileList | null) => {
+    if (!files?.length) return;
+    if (!userReady) {
+      toast({ title: "Please sign in to upload review media", variant: "destructive" });
+      return;
+    }
+    setUploading(true);
+    try {
+      const uploaded = (await Promise.all(Array.from(files).slice(0, 6 - mediaUrls.length).map((file) => uploadReviewMedia(file)))).filter(Boolean) as string[];
+      setMediaUrls((current) => Array.from(new Set([...current, ...uploaded])).slice(0, 6));
+    } catch {
+      toast({ title: "Could not upload review media", variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!userReady) return toast({ title: "Please sign in to review this product", variant: "destructive" });
     setSubmitting(true);
     try {
-      await submitReview({ productId, rating, title: title || null, body: body || null, mediaUrls: [] });
+      await submitReview({ productId, rating, title: title || null, body: body || null, mediaUrls });
       toast({ title: "Review submitted", description: "It will appear after approval." });
       setTitle("");
       setBody("");
+      setMediaUrls([]);
       await onSubmitted();
     } catch {
       toast({ title: "Could not submit review", variant: "destructive" });
@@ -280,7 +311,23 @@ function ReviewsSection({ productId, userReady, reviews, onSubmitted }: { produc
         </div>
         <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Review title" className="h-11 border border-[#06133a]/40 bg-white/60 px-3 font-serif text-xl outline-none" />
         <textarea value={body} onChange={(event) => setBody(event.target.value)} placeholder="Write your review" rows={4} className="resize-none border border-[#06133a]/40 bg-white/60 px-3 py-2 font-serif text-xl outline-none" />
-        <button disabled={submitting} className="h-12 bg-[#020b2d] font-serif text-2xl font-semibold text-white disabled:opacity-50">{submitting ? "Submitting..." : "Add review"}</button>
+        <label className="inline-flex min-h-12 cursor-pointer items-center justify-center rounded-md border border-[#06133a]/35 bg-white/45 px-4 font-serif text-xl text-[#06133a]">
+          {uploading ? "Uploading media..." : "Add photos or videos"}
+          <input type="file" accept="image/*,video/*" multiple onChange={(event) => handleMedia(event.target.files)} className="sr-only" />
+        </label>
+        {mediaUrls.length > 0 && (
+          <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
+            {mediaUrls.map((url) => (
+              <div key={url} className="relative aspect-square overflow-hidden rounded-md border border-[#06133a]/20 bg-white/40">
+                {isVideoUrl(url) ? <video src={url} className="h-full w-full object-cover" muted playsInline /> : <img src={url} alt="" className="h-full w-full object-cover" />}
+                <button type="button" onClick={() => setMediaUrls((current) => current.filter((item) => item !== url))} className="absolute right-1 top-1 grid h-6 w-6 place-items-center rounded-full bg-white/90 text-[#06133a]" aria-label="Remove media">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        <button disabled={submitting || uploading} className="h-12 rounded-md bg-brand font-bold text-brand-foreground shadow-2xl disabled:opacity-50">{submitting ? "Submitting..." : "Add review"}</button>
       </form>
       <div className="mt-8 space-y-5">
         {reviews.map((review) => (
@@ -288,6 +335,15 @@ function ReviewsSection({ productId, userReady, reviews, onSubmitted }: { produc
             <div className="flex text-[#e4aa00]">{Array.from({ length: 5 }).map((_, index) => <Star key={index} className={cn("h-5 w-5", index < review.rating && "fill-current")} />)}</div>
             {review.title && <h3 className="mt-2 text-2xl text-black">{review.title}</h3>}
             {review.body && <p className="mt-1 text-xl leading-tight text-black/75">{review.body}</p>}
+            {(review.media_urls?.length ?? 0) > 0 && (
+              <div className="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-6">
+                {review.media_urls?.map((url) => (
+                  <div key={url} className="aspect-square overflow-hidden rounded-md bg-white/40">
+                    {isVideoUrl(url) ? <video src={url} className="h-full w-full object-cover" controls playsInline /> : <img src={url} alt="" className="h-full w-full object-cover" />}
+                  </div>
+                ))}
+              </div>
+            )}
           </article>
         ))}
       </div>

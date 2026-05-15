@@ -1269,6 +1269,10 @@ function variantGroupFromTags(tags: string[] | null | undefined) {
   return tag ? tag.slice(3) : "";
 }
 
+function isVideoUrl(url: string) {
+  return /\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(url);
+}
+
 function productToForm(product: Product | null): ProductFormState {
   return {
     name: product?.name ?? "",
@@ -1403,8 +1407,8 @@ function ProductEditorDialog({
                 <input type="file" accept="image/*" capture="environment" onChange={(event) => handleImage(event.target.files?.[0])} className="sr-only" />
               </label>
               <label className="inline-flex h-10 cursor-pointer items-center justify-center rounded-md border border-[rgb(var(--vibe-border))] px-3 text-[12px] hover:bg-[rgb(var(--vibe-accent))]">
-                Gallery
-                <input type="file" accept="image/*" multiple onChange={(event) => handleGalleryImages(event.target.files)} className="sr-only" />
+                Gallery media
+                <input type="file" accept="image/*,video/*" multiple onChange={(event) => handleGalleryImages(event.target.files)} className="sr-only" />
               </label>
             </div>
             <ProductInputField label="Image URL" value={form.cover_image_url} onChange={(value) => setField("cover_image_url", value)} />
@@ -1413,7 +1417,7 @@ function ProductEditorDialog({
               <div className="flex gap-2 overflow-x-auto pb-1">
                 {gallery.map((image, index) => (
                   <div key={`${image}-${index}`} className="group relative h-20 w-16 shrink-0 overflow-hidden rounded border border-[rgb(var(--vibe-border))]">
-                    <img src={image} alt="" className="h-full w-full object-cover" />
+                    {isVideoUrl(image) ? <video src={image} className="h-full w-full object-cover" muted playsInline /> : <img src={image} alt="" className="h-full w-full object-cover" />}
                     {image === form.cover_image_url ? (
                       <span className="absolute bottom-1 left-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-center text-[9px] font-medium text-white">Cover</span>
                     ) : (
@@ -1472,7 +1476,7 @@ function ProductEditorDialog({
               </div>
             </div>
             <ProductInputField label="Tags" value={form.tags} onChange={(value) => setField("tags", value)} placeholder="comma separated" />
-            <ProductTextArea label="Gallery images" value={form.images} onChange={(value) => setField("images", value)} rows={3} placeholder="one image URL per line" />
+            <ProductTextArea label="Gallery images/videos" value={form.images} onChange={(value) => setField("images", value)} rows={3} placeholder="one media URL per line" />
             <ProductTextArea label="Short description" value={form.short_description} onChange={(value) => setField("short_description", value)} rows={2} />
             <ProductTextArea label="Full description" value={form.description} onChange={(value) => setField("description", value)} rows={5} />
             <div className="grid gap-2 sm:grid-cols-2">
@@ -2099,7 +2103,15 @@ function ReviewsPanel({
             <span className="rounded bg-[rgb(var(--vibe-surface))] px-2 py-1 text-[11px] capitalize text-[rgb(var(--vibe-muted))]">{review.status}</span>
           </div>
           <p className="mt-3 text-[13px] text-[rgb(var(--vibe-muted))]">{review.body ?? review.title ?? "No review body."}</p>
-          {(review.media_urls?.length ?? 0) > 0 && <div className="mt-3 flex gap-2 overflow-x-auto">{review.media_urls?.map((url) => <img key={url} src={url} alt="" className="h-20 w-20 rounded-md object-cover" />)}</div>}
+          {(review.media_urls?.length ?? 0) > 0 && (
+            <div className="mt-3 flex gap-2 overflow-x-auto">
+              {review.media_urls?.map((url) => (
+                <div key={url} className="h-20 w-20 shrink-0 overflow-hidden rounded-md bg-[rgb(var(--vibe-surface))]">
+                  {isVideoUrl(url) ? <video src={url} className="h-full w-full object-cover" controls playsInline /> : <img src={url} alt="" className="h-full w-full object-cover" />}
+                </div>
+              ))}
+            </div>
+          )}
           {review.admin_note && <p className="mt-2 rounded bg-[rgb(var(--vibe-surface))] px-3 py-2 text-[12px] text-[rgb(var(--vibe-muted))]">Admin note: {review.admin_note}</p>}
           <div className="mt-4 grid grid-cols-3 gap-2 rounded-md bg-[rgb(var(--vibe-surface))] p-1">
             {reviewStates.map((state) => {

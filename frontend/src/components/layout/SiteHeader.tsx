@@ -82,9 +82,9 @@ export function SiteHeader() {
     navigate("/");
   };
 
-  const goShopCategory = (category: string) => {
+  const goCategorySection = (category: string) => {
     setMenuOpen(false);
-    navigate(`/shop?category=${encodeURIComponent(category)}`);
+    navigate(`/?category=${encodeURIComponent(category)}#categories`);
   };
 
   return (
@@ -240,7 +240,7 @@ export function SiteHeader() {
               <li className="shrink-0">
                 <button
                   type="button"
-                  onClick={() => goShopCategory("books")}
+                  onClick={() => goCategorySection("books")}
                   data-testid="site-header-books-link"
                   className="inline-block py-2.5 text-sm md:text-[15px] transition-colors whitespace-nowrap text-foreground/75 hover:text-brand"
                 >
@@ -249,14 +249,14 @@ export function SiteHeader() {
               </li>
 
               <li className="shrink-0">
-                <NavLink to="/shop?category=clothing" className={navLinkClass} data-testid="site-header-clothing-link">
+                <Link to="/?category=clothing#categories" className="inline-block py-2.5 text-sm md:text-[15px] transition-colors whitespace-nowrap text-foreground/75 hover:text-brand" data-testid="site-header-clothing-link">
                   Clothing
-                </NavLink>
+                </Link>
               </li>
               <li className="shrink-0">
-                <NavLink to="/shop?category=children" className={navLinkClass} data-testid="site-header-essentials-link">
+                <Link to="/?category=children#categories" className="inline-block py-2.5 text-sm md:text-[15px] transition-colors whitespace-nowrap text-foreground/75 hover:text-brand" data-testid="site-header-essentials-link">
                   Essentials
-                </NavLink>
+                </Link>
               </li>
               <li className="shrink-0">
                 <NavLink to="/contact" className={navLinkClass} data-testid="site-header-contact-link">
@@ -322,7 +322,7 @@ export function SiteHeader() {
 
               <button
                 type="button"
-                onClick={() => goShopCategory("books")}
+                onClick={() => goCategorySection("books")}
                 data-testid="site-header-mobile-books-button"
                 className="py-3 border-b border-border text-base text-foreground hover:text-brand transition-colors text-left w-full"
               >
@@ -330,7 +330,7 @@ export function SiteHeader() {
               </button>
 
               <Link
-                to="/shop?category=clothing"
+                to="/?category=clothing#categories"
                 onClick={() => setMenuOpen(false)}
                 data-testid="site-header-mobile-clothing-link"
                 className="py-3 border-b border-border text-base text-foreground hover:text-brand"
@@ -338,7 +338,7 @@ export function SiteHeader() {
                 Clothing
               </Link>
               <Link
-                to="/shop?category=children"
+                to="/?category=children#categories"
                 onClick={() => setMenuOpen(false)}
                 data-testid="site-header-mobile-essentials-link"
                 className="py-3 border-b border-border text-base text-foreground hover:text-brand"
