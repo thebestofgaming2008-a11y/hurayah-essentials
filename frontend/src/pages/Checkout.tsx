@@ -236,10 +236,10 @@ const Checkout = () => {
                   Secure payment handoff
                 </p>
                 <div className="rounded-lg border border-brand/30 bg-brand/5 p-4 text-sm text-foreground/75" data-testid="checkout-razorpay-live-notice">
-                  Razorpay test checkout is active. The order is created through Razorpay and the payment signature is verified before saving.
+                  Test checkout is active. The order is verified before saving.
                 </div>
                 <div className="grid sm:grid-cols-3 gap-3">
-                  <Field label="Payment provider" placeholder="Razorpay Checkout" disabled value="" onChange={() => undefined} testId="checkout-card-number-input" />
+                  <Field label="Payment provider" placeholder="Checkout" disabled value="" onChange={() => undefined} testId="checkout-card-number-input" />
                   <Field label="Mode" placeholder="Test keys" disabled value="" onChange={() => undefined} testId="checkout-expiry-input" />
                   <Field label="Verification" placeholder="Signature checked" disabled value="" onChange={() => undefined} testId="checkout-cvc-input" />
                 </div>
@@ -300,7 +300,7 @@ const Checkout = () => {
                 data-testid="checkout-submit-button"
                 className="mt-5 inline-flex h-9 w-full items-center justify-center gap-2 rounded-md bg-[rgb(var(--vibe-foreground))] px-3 text-[12px] font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {submitting ? "Opening Razorpay..." : `Pay securely · ${format(total)}`}
+                {submitting ? "Opening checkout..." : `Pay securely - ${format(total)}`}
               </button>
               <div className="mt-4 grid grid-cols-2 gap-2 text-[11px] text-[rgb(var(--vibe-muted))]">
                 <span className="rounded-md border border-[rgb(var(--vibe-border))] bg-[rgb(var(--vibe-page))] px-2 py-2">Server-checked totals</span>

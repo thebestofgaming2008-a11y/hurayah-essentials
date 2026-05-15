@@ -30,6 +30,15 @@ const CURRENCY_FLAGS: Record<string, string> = {
   SAR: "🇸🇦",
 };
 
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  INR: "₹",
+  USD: "$",
+  GBP: "£",
+  EUR: "€",
+  AED: "د.إ",
+  SAR: "﷼",
+};
+
 export function SiteHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -112,7 +121,10 @@ export function SiteHeader() {
             <p className="text-center truncate px-[120px] sm:px-[180px] max-w-full">
               International orders may incur customs / import duties
             </p>
-            <div className="absolute right-3 sm:right-4">
+            <div className="absolute right-0 top-0 w-[150px] sm:right-4">
+              <p className="grid h-6 place-items-center bg-[#1f1f1f] text-[10px] font-normal tracking-normal text-white/65">
+                Currency Selector
+              </p>
               <Select
                 value={currency}
                 onValueChange={setCurrency}
@@ -121,10 +133,10 @@ export function SiteHeader() {
                 <SelectTrigger
                   data-testid="site-header-currency-select"
                   aria-label="Select display currency"
-                  className="h-7 gap-1.5 rounded-full bg-white/10 hover:bg-white/15 border border-white/15 text-brand-foreground text-[11px] sm:text-xs font-semibold tracking-wide px-2.5 [&>span]:flex [&>span]:items-center [&>span]:gap-1.5 focus:ring-0 focus:ring-offset-0 transition-colors"
+                  className="h-[42px] w-full gap-3 rounded-none border-0 bg-[#031044] px-4 text-white shadow-none after:ml-auto after:text-[30px] after:leading-none after:content-['₹'] focus:ring-0 focus:ring-offset-0 [&>svg]:h-5 [&>svg]:w-5 [&>svg]:text-white [&>span]:grid [&>span]:w-full [&>span]:grid-cols-[1fr_auto] [&>span]:items-center [&>span>span:first-child]:hidden [&>span>span:nth-child(2)]:text-[26px] [&>span>span:nth-child(2)]:leading-none"
                 >
                   <SelectValue>
-                    <span aria-hidden className="text-[13px] leading-none">{CURRENCY_FLAGS[currency] ?? "🌐"}</span>
+                    <span aria-hidden className="hidden" />
                     <span className="leading-none">{currency}</span>
                   </SelectValue>
                 </SelectTrigger>
@@ -132,7 +144,7 @@ export function SiteHeader() {
                   {currencies.map((c) => (
                     <SelectItem key={c} value={c} className="text-xs">
                       <span className="inline-flex items-center gap-2">
-                        <span aria-hidden className="text-[14px] leading-none">{CURRENCY_FLAGS[c] ?? "🌐"}</span>
+                        <span aria-hidden className="text-[14px] leading-none">{CURRENCY_SYMBOLS[c] ?? c}</span>
                         <span className="font-semibold">{c}</span>
                       </span>
                     </SelectItem>

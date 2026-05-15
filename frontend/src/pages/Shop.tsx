@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
-import { ChevronRight, SlidersHorizontal, Star, X } from "lucide-react";
+import { SlidersHorizontal, Star, X } from "lucide-react";
 import { SiteLayout } from "@/components/layout/SiteLayout";
 import { ProductCard } from "@/components/shop/ProductCard";
-import { CATEGORIES, SUBJECTS, TOP_LEVEL_CATEGORIES, productPrice, type CategoryKey } from "@/data/products";
+import { CATEGORIES, SUBJECTS, productPrice, type CategoryKey } from "@/data/products";
 import { listActiveProducts, type Product } from "@/services/productService";
 import { cn } from "@/lib/utils";
 
@@ -231,69 +231,9 @@ const Shop = () => {
     </div>
   );
 
-  const activeCat = cat ? CATEGORIES.find((c) => c.key === cat) : null;
-
   return (
     <SiteLayout>
-      <section className="bg-hero/70 border-b border-border">
-        <div className="mx-auto max-w-[1440px] px-4 md:px-8 py-8 md:py-14">
-          <nav className="flex items-center gap-1.5 text-xs text-foreground/55 mb-3">
-            <Link to="/" className="hover:text-brand">
-              Home
-            </Link>
-            <ChevronRight className="h-3 w-3" />
-            <span className="text-foreground/80">Shop</span>
-            {activeCat && (
-              <>
-                <ChevronRight className="h-3 w-3" />
-                <span className="text-foreground/80">{activeCat.label}</span>
-              </>
-            )}
-          </nav>
-          <h1 className="text-hero-foreground tracking-tight text-3xl md:text-5xl font-semibold">
-            {activeCat ? activeCat.label : "The full collection"}
-          </h1>
-          <p className="mt-2 max-w-xl text-foreground/65 text-sm md:text-base">
-            {activeCat?.blurb ??
-              "Books, clothing and everyday essentials - thoughtfully chosen for the seeker."}
-          </p>
-        </div>
-      </section>
-
-      <section className="border-b border-border bg-background">
-        <div className="mx-auto max-w-[1440px] px-4 md:px-8 py-5">
-          <div className="flex gap-3 overflow-x-auto no-scrollbar -mx-1 px-1">
-            <button
-              onClick={() => setCategory(null)}
-              className={cn(
-                "shrink-0 rounded-full border px-4 py-2 text-sm transition-colors",
-                cat === null
-                  ? "bg-brand text-brand-foreground border-brand"
-                  : "border-border text-foreground/75 hover:border-brand hover:text-brand",
-              )}
-            >
-              All
-            </button>
-            {TOP_LEVEL_CATEGORIES.map((c) => (
-              <button
-                key={c.key}
-                onClick={() => setCategory(c.key)}
-                className={cn(
-                  "shrink-0 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm transition-colors",
-                  cat === c.key
-                    ? "bg-brand text-brand-foreground border-brand"
-                    : "border-border text-foreground/75 hover:border-brand hover:text-brand",
-                )}
-              >
-                <c.Icon className="h-3.5 w-3.5" />
-                {c.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <div className="mx-auto max-w-[1440px] px-4 md:px-8 py-8 md:py-12">
+      <div className="mx-auto max-w-[1440px] px-4 py-8 md:px-8 md:py-12">
         <div className="grid md:grid-cols-[240px_1fr] gap-8 lg:gap-12">
           <aside className="hidden md:block">
             <div className="sticky top-4">{Filters}</div>

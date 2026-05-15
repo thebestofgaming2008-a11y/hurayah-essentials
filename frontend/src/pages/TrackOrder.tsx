@@ -34,7 +34,7 @@ const TrackOrder = () => {
   const [notFound, setNotFound] = useState(false);
 
   return (
-    <SiteLayout hideHeader compactFooter>
+    <SiteLayout compactFooter>
       <div className="vibe-admin min-h-[calc(100vh-120px)] bg-[rgb(var(--vibe-page))] px-4 py-8 text-[rgb(var(--vibe-foreground))] md:px-8 md:py-12">
         <div className="mx-auto grid max-w-[980px] gap-4 lg:grid-cols-[360px_1fr]">
           <section className="vibe-card p-5">
