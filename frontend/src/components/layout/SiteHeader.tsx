@@ -82,21 +82,9 @@ export function SiteHeader() {
     navigate("/");
   };
 
-  const handleBooksClick = () => {
+  const goShopCategory = (category: string) => {
     setMenuOpen(false);
-    const scrollToSubjects = () => {
-      const el = document.getElementById("subjects");
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-    };
-    if (window.location.pathname === "/") {
-      scrollToSubjects();
-    } else {
-      navigate("/");
-      // Retry across the page-load progress so we land precisely on the section
-      [200, 500, 900, 1400].forEach((d) => setTimeout(scrollToSubjects, d));
-    }
+    navigate(`/shop?category=${encodeURIComponent(category)}`);
   };
 
   return (
@@ -252,7 +240,7 @@ export function SiteHeader() {
               <li className="shrink-0">
                 <button
                   type="button"
-                  onClick={handleBooksClick}
+                  onClick={() => goShopCategory("books")}
                   data-testid="site-header-books-link"
                   className="inline-block py-2.5 text-sm md:text-[15px] transition-colors whitespace-nowrap text-foreground/75 hover:text-brand"
                 >
@@ -261,12 +249,12 @@ export function SiteHeader() {
               </li>
 
               <li className="shrink-0">
-                <NavLink to="/category/clothing" className={navLinkClass} data-testid="site-header-clothing-link">
+                <NavLink to="/shop?category=clothing" className={navLinkClass} data-testid="site-header-clothing-link">
                   Clothing
                 </NavLink>
               </li>
               <li className="shrink-0">
-                <NavLink to="/category/children" className={navLinkClass} data-testid="site-header-essentials-link">
+                <NavLink to="/shop?category=children" className={navLinkClass} data-testid="site-header-essentials-link">
                   Essentials
                 </NavLink>
               </li>
@@ -334,7 +322,7 @@ export function SiteHeader() {
 
               <button
                 type="button"
-                onClick={handleBooksClick}
+                onClick={() => goShopCategory("books")}
                 data-testid="site-header-mobile-books-button"
                 className="py-3 border-b border-border text-base text-foreground hover:text-brand transition-colors text-left w-full"
               >
@@ -342,7 +330,7 @@ export function SiteHeader() {
               </button>
 
               <Link
-                to="/category/clothing"
+                to="/shop?category=clothing"
                 onClick={() => setMenuOpen(false)}
                 data-testid="site-header-mobile-clothing-link"
                 className="py-3 border-b border-border text-base text-foreground hover:text-brand"
@@ -350,7 +338,7 @@ export function SiteHeader() {
                 Clothing
               </Link>
               <Link
-                to="/category/children"
+                to="/shop?category=children"
                 onClick={() => setMenuOpen(false)}
                 data-testid="site-header-mobile-essentials-link"
                 className="py-3 border-b border-border text-base text-foreground hover:text-brand"

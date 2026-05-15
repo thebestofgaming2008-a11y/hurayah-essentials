@@ -1,37 +1,11 @@
 import { useEffect, useState } from "react";
-import { Navigate, Link, useParams } from "react-router-dom";
-import {
-  ChevronRight,
-  Heart,
-  Minus,
-  Plus,
-  RotateCcw,
-  Shield,
-  ShoppingBag,
-  Star,
-  Truck,
-} from "lucide-react";
+import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
+import { ChevronRight, Heart, Minus, Plus, ShoppingBag, Star } from "lucide-react";
 import { SiteLayout } from "@/components/layout/SiteLayout";
 import { ProductCard } from "@/components/shop/ProductCard";
-import {
-  CATEGORIES,
-  productCompareAt,
-  productImage,
-  productPrice,
-  type CategoryKey,
-} from "@/data/products";
-import {
-  getProductById,
-  getProductBySlug,
-  listByCategory,
-  listByIds,
-  type Product,
-} from "@/services/productService";
-import {
-  listPublishedReviews,
-  submitReview,
-  type ProductReview,
-} from "@/services/reviewService";
+import { CATEGORIES, productCompareAt, productImage, productPrice, type CategoryKey } from "@/data/products";
+import { getProductById, getProductBySlug, listByCategory, listByIds, type Product } from "@/services/productService";
+import { listPublishedReviews, submitReview, type ProductReview } from "@/services/reviewService";
 import { useShop } from "@/store/shop";
 import { cn } from "@/lib/utils";
 import { useCurrency } from "@/contexts/CurrencyContext";
@@ -40,6 +14,7 @@ import { toast } from "@/hooks/use-toast";
 
 const ProductDetail = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { addToCart, isWishlisted, toggleWishlist } = useShop();
   const { format } = useCurrency();
   const { user } = useAuth();
@@ -50,6 +25,7 @@ const ProductDetail = () => {
   const [loading, setLoading] = useState(true);
   const [qty, setQty] = useState(1);
   const [activeImage, setActiveImage] = useState(0);
+  const [tab, setTab] = useState<"description" | "details">("description");
   const [mainImgError, setMainImgError] = useState(false);
 
   useEffect(() => {
@@ -67,17 +43,11 @@ const ProductDetail = () => {
 
       setProduct(nextProduct);
       setReviews(nextProduct ? await listPublishedReviews(nextProduct.id).catch(() => []) : []);
-      setVersions(
-        nextProduct?.linked_product_ids?.length
-          ? await listByIds(nextProduct.linked_product_ids).catch(() => [])
-          : [],
-      );
+      setVersions(nextProduct?.linked_product_ids?.length ? await listByIds(nextProduct.linked_product_ids).catch(() => []) : []);
 
       if (nextProduct?.category) {
         const categoryProducts = await listByCategory(nextProduct.category);
-        if (!cancelled) {
-          setRelated(categoryProducts.filter((item) => item.id !== nextProduct!.id).slice(0, 4));
-        }
+        if (!cancelled) setRelated(categoryProducts.filter((item) => item.id !== nextProduct!.id).slice(0, 8));
       } else {
         setRelated([]);
       }
@@ -92,16 +62,16 @@ const ProductDetail = () => {
   if (loading) {
     return (
       <SiteLayout>
-        <div className="mx-auto max-w-[1440px] px-4 py-8 md:px-8 md:py-12">
-          <div className="grid gap-8 lg:grid-cols-[minmax(0,1.08fr)_minmax(360px,0.92fr)]">
-            <div className="aspect-[4/5] rounded-lg bg-hero/40 animate-pulse" />
+        <main className="min-h-screen bg-[#dfe7f6] px-5 py-12">
+          <div className="mx-auto grid max-w-[1220px] gap-10 lg:grid-cols-[420px_1fr]">
+            <div className="aspect-[5/7] rounded-md bg-zinc-200 animate-pulse" />
             <div className="space-y-4">
-              <div className="h-8 w-3/4 rounded bg-hero/40 animate-pulse" />
-              <div className="h-4 w-1/3 rounded bg-hero/40 animate-pulse" />
-              <div className="h-64 rounded-lg bg-hero/40 animate-pulse" />
+              <div className="h-16 w-3/4 rounded bg-zinc-200 animate-pulse" />
+              <div className="h-12 w-40 rounded bg-zinc-200 animate-pulse" />
+              <div className="h-36 rounded bg-zinc-200 animate-pulse" />
             </div>
           </div>
-        </div>
+        </main>
       </SiteLayout>
     );
   }
@@ -112,9 +82,7 @@ const ProductDetail = () => {
   const price = productPrice(product);
   const compareAt = productCompareAt(product);
   const cover = productImage(product);
-  const gallery = Array.from(
-    new Set([cover, ...(Array.isArray(product.images) ? product.images : [])].filter(Boolean) as string[]),
-  );
+  const gallery = Array.from(new Set([cover, ...(Array.isArray(product.images) ? product.images : [])].filter(Boolean) as string[]));
   const mainImage = gallery[activeImage] ?? cover;
   const categoryMeta = CATEGORIES.find((category) => category.key === (product.category as CategoryKey | null));
   const ratingValue = product.rating ?? 0;
@@ -123,304 +91,171 @@ const ProductDetail = () => {
 
   const onAdd = () => {
     if (!inStock) return;
-    addToCart(
-      {
-        id: product.id,
-        name: product.name,
-        price,
-        priceInr: product.price_inr,
-        image: cover,
-        slug: product.slug ?? undefined,
-      },
-      qty,
-    );
+    addToCart({ id: product.id, name: product.name, price, priceInr: product.price_inr, image: cover, slug: product.slug ?? undefined }, qty);
+    toast({ title: "Added to cart", description: product.name });
   };
 
   return (
     <SiteLayout>
-      <div className="mx-auto max-w-[1440px] px-4 py-6 md:px-8 md:py-10">
-        <nav className="mb-6 flex flex-wrap items-center gap-1 text-xs text-foreground/55 md:text-sm">
-          <Link to="/" className="hover:text-brand">Home</Link>
-          <ChevronRight className="h-3 w-3" />
-          {categoryMeta && (
-            <>
-              <Link to={`/category/${categoryMeta.key}`} className="hover:text-brand">
-                {categoryMeta.label}
-              </Link>
-              <ChevronRight className="h-3 w-3" />
-            </>
-          )}
-          <span className="line-clamp-1 text-foreground/80">{product.name}</span>
-        </nav>
+      <main className="min-h-screen bg-[#dfe7f6] px-4 py-8 text-[#06133a] sm:px-6 lg:px-10">
+        <div className="mx-auto max-w-[1220px]">
+          <nav className="mb-8 flex flex-wrap items-center gap-1 text-sm text-[#06133a]/65">
+            <Link to="/" className="hover:text-[#06133a]">Home</Link>
+            <ChevronRight className="h-3.5 w-3.5" />
+            {categoryMeta && (
+              <>
+                <Link to={`/shop?category=${categoryMeta.key}`} className="hover:text-[#06133a]">{categoryMeta.label}</Link>
+                <ChevronRight className="h-3.5 w-3.5" />
+              </>
+            )}
+            <span className="line-clamp-1 text-[#06133a]">{product.name}</span>
+          </nav>
 
-        <div className="mb-5 rounded-lg border border-brand/20 bg-brand/5 px-4 py-3 text-sm text-foreground/72 md:flex md:items-center md:justify-between">
-          <div className="flex items-center gap-2">
-            <Shield className="h-4 w-4 text-brand" />
-            <span className="font-medium text-foreground">Hurayah Essentials verified listing</span>
-            <span className="hidden text-foreground/45 sm:inline">·</span>
-            <span className="hidden sm:inline">Images, edition notes, and stock are managed from the webshop admin.</span>
-          </div>
-          {product.sku && <span className="mt-2 block font-mono text-xs text-foreground/50 md:mt-0">SKU {product.sku}</span>}
-        </div>
-
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,1.08fr)_minmax(360px,0.92fr)] lg:gap-12 pdp-fade-in">
-          <div className="grid gap-3 md:grid-cols-[88px_1fr] lg:sticky lg:top-28 lg:self-start">
-            {gallery.length > 1 && (
-              <div className="order-2 flex gap-2 overflow-x-auto md:order-1 md:flex-col md:overflow-visible">
-                {gallery.slice(0, 8).map((src, index) => (
-                  <button
-                    key={src}
-                    type="button"
-                    onClick={() => setActiveImage(index)}
-                    aria-label={`View image ${index + 1}`}
-                    className={cn(
-                      "h-20 w-20 shrink-0 overflow-hidden rounded-md border bg-placeholder pdp-press",
-                      activeImage === index ? "border-brand shadow-sm" : "border-border hover:border-foreground/35",
-                    )}
-                  >
+          <section className="grid gap-10 lg:grid-cols-[420px_minmax(0,1fr)] lg:gap-32">
+            <div>
+              <div className="aspect-[5/7] overflow-hidden rounded-md border border-[#06133a]/25 bg-[#d9d9d9]">
+                {mainImage && !mainImgError ? (
+                  <img src={mainImage} alt={product.name} onError={() => setMainImgError(true)} className="h-full w-full object-cover" />
+                ) : (
+                  <div className="h-full w-full bg-[#d9d9d9]" />
+                )}
+              </div>
+              <div className="mt-3 grid grid-cols-3 gap-5">
+                {gallery.slice(0, 3).map((src, index) => (
+                  <button key={src} type="button" onClick={() => setActiveImage(index)} className={cn("aspect-square overflow-hidden rounded-md bg-[#d9d9d9]", activeImage === index && "ring-2 ring-[#06133a]")}>
                     <img src={src} alt="" className="h-full w-full object-cover" />
                   </button>
                 ))}
               </div>
-            )}
-
-            <div className="order-1 aspect-[4/5] overflow-hidden rounded-lg border border-border bg-placeholder shadow-sm md:order-2">
-              {mainImage && !mainImgError ? (
-                <img
-                  key={mainImage}
-                  src={mainImage}
-                  alt={product.name}
-                  onError={() => setMainImgError(true)}
-                  className="h-full w-full object-cover pdp-image-swap"
-                />
-              ) : (
-                <div className="grid h-full w-full place-items-center bg-hero/40 text-sm font-medium text-foreground/35">
-                  No image available
-                </div>
-              )}
             </div>
-          </div>
 
-          <div className="space-y-6">
-            <section className="border-b border-border pb-6">
-              <div className="flex flex-wrap items-center gap-2">
-                {product.badge && (
-                  <span className="inline-flex rounded-md border border-border bg-background px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-foreground/70">
-                    {product.badge}
-                  </span>
-                )}
-                <span className={cn("rounded-md px-2 py-1 text-[11px] font-semibold", inStock ? "bg-emerald-50 text-emerald-800" : "bg-slate-100 text-slate-600")}>
-                  {inStock ? "In stock" : "Out of stock"}
-                </span>
-              </div>
-              <h1 className="mt-3 text-3xl font-semibold tracking-tight text-foreground md:text-5xl">
-                {product.name}
-              </h1>
-              {(product.author || product.publisher) && (
-                <p className="mt-2 text-sm text-foreground/60 md:text-base">
-                  {product.author ? `by ${product.author}` : product.publisher}
-                </p>
-              )}
-
-              {ratingValue > 0 && (
-                <div className="mt-4 flex items-center gap-2 text-sm text-foreground/70">
-                  <span className="flex gap-0.5 text-brand">
-                    {Array.from({ length: 5 }).map((_, index) => (
-                      <Star key={index} className={cn("h-4 w-4", index < Math.round(ratingValue) && "fill-current")} />
-                    ))}
-                  </span>
-                  <span className="font-medium text-foreground">{ratingValue.toFixed(1)}</span>
-                  {product.reviews_count != null && product.reviews_count > 0 && (
-                    <span className="text-foreground/50">
-                      · {product.reviews_count} review{product.reviews_count === 1 ? "" : "s"}
-                    </span>
-                  )}
-                </div>
-              )}
-            </section>
-
-            <aside className="rounded-lg border border-border bg-background p-5 shadow-sm lg:sticky lg:top-28">
-              <div className="flex items-end gap-3">
-                <span className="text-3xl font-semibold text-foreground">{format(price)}</span>
-                {compareAt && <span className="pb-1 text-base text-foreground/40 line-through">{format(compareAt)}</span>}
-              </div>
-
-              {product.short_description && (
-                <p className="mt-4 text-sm leading-relaxed text-foreground/72">{product.short_description}</p>
-              )}
-
-              {versions.length > 0 && (
-                <div className="mt-5">
-                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-foreground/50">Edition / variant</p>
-                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                    <span className="rounded-md border border-brand bg-brand/5 px-3 py-3 text-sm font-medium text-brand">
-                      <span className="block">{product.variant_label || product.language || "Current"}</span>
-                      <span className="mt-0.5 block text-xs font-normal text-brand/70">{format(price)} · selected</span>
-                    </span>
-                    {versions.map((version) => (
-                      <Link
-                        key={version.id}
-                        to={`/product/${version.slug ?? version.id}`}
-                        className="rounded-md border border-border px-3 py-3 text-sm font-medium text-foreground/75 pdp-press hover:border-brand hover:text-brand"
-                      >
-                        <span className="block line-clamp-1">{version.variant_label || version.language || version.name}</span>
-                        <span className="mt-0.5 block text-xs font-normal text-foreground/45">{format(productPrice(version))}</span>
-                      </Link>
-                    ))}
+            <div className="pt-1 lg:pt-0">
+              <div className="grid gap-4 lg:grid-cols-[1fr_245px] lg:items-start">
+                <div>
+                  <h1 className="font-serif text-5xl leading-[0.95] tracking-[-0.04em] text-[#020b2d] drop-shadow-[0_3px_3px_rgba(2,11,45,0.25)] md:text-7xl">
+                    {product.name}
+                  </h1>
+                  <div className="mt-3 flex items-center gap-3">
+                    <div className="flex text-[#e4aa00]">
+                      {Array.from({ length: 5 }).map((_, index) => (
+                        <Star key={index} className={cn("h-9 w-9 stroke-[1.8]", index < Math.round(ratingValue) && "fill-current")} />
+                      ))}
+                    </div>
+                    <span className="font-serif text-2xl text-black">({product.reviews_count ?? reviews.length})</span>
                   </div>
                 </div>
-              )}
 
-              <div className="mt-5 flex items-center justify-between rounded-md border border-border px-3 py-2">
-                <span className="text-sm font-medium text-foreground/70">Quantity</span>
-                <div className="inline-flex items-center rounded-md border border-border">
-                  <button type="button" onClick={() => setQty((q) => Math.max(1, q - 1))} aria-label="Decrease quantity" className="grid h-9 w-9 place-items-center hover:bg-foreground/5">
-                    <Minus className="h-4 w-4" />
-                  </button>
-                  <span className="w-10 text-center text-sm font-medium">{qty}</span>
-                  <button type="button" onClick={() => setQty((q) => q + 1)} aria-label="Increase quantity" className="grid h-9 w-9 place-items-center hover:bg-foreground/5">
-                    <Plus className="h-4 w-4" />
-                  </button>
+                <div className="lg:pt-14">
+                  {(product.author || product.publisher) && (
+                    <p className="font-serif text-3xl text-black/65">By {product.author || product.publisher}</p>
+                  )}
+                  {versions.length > 0 && (
+                    <select
+                      value={product.slug ?? product.id}
+                      onChange={(event) => navigate(`/product/${event.target.value}`)}
+                      className="mt-2 h-14 bg-[#1f1f1f] px-4 font-serif text-2xl font-semibold text-white outline-none"
+                    >
+                      <option value={product.slug ?? product.id}>{product.variant_label || "Current variant"}</option>
+                      {versions.map((version) => (
+                        <option key={version.id} value={version.slug ?? version.id}>{version.variant_label || version.name}</option>
+                      ))}
+                    </select>
+                  )}
                 </div>
               </div>
 
-              <div className="mt-4 grid gap-2">
+              <div className="mt-7 font-serif text-6xl leading-none text-black drop-shadow-[0_3px_3px_rgba(0,0,0,0.25)]">
+                {format(price)}
+                {compareAt && <span className="ml-4 text-2xl text-black/35 line-through">{format(compareAt)}</span>}
+              </div>
+
+              <div className="mt-5 grid max-w-[49rem] gap-2">
+                <button
+                  type="button"
+                  onClick={() => toggleWishlist(product.id)}
+                  className={cn("flex h-[3.625rem] w-full max-w-[49rem] items-center justify-center gap-2 border border-[#06133a] px-[3.1875rem] pb-[0.4375rem] pt-1 font-serif text-2xl font-semibold", wished && "bg-white/35")}
+                >
+                  <Heart className={cn("h-6 w-6", wished && "fill-current")} />
+                  Wishlist
+                </button>
                 <button
                   type="button"
                   onClick={onAdd}
                   disabled={!inStock}
-                  className="inline-flex items-center justify-center gap-2 rounded-md bg-brand px-6 py-3.5 text-base font-semibold text-brand-foreground pdp-press hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-55"
+                  className="flex h-[4.5rem] w-full max-w-[49rem] items-center justify-center gap-2 bg-[#020b2d] px-[3.1875rem] pb-[0.4375rem] pt-1 font-serif text-4xl font-semibold text-white disabled:opacity-50"
                 >
-                  <ShoppingBag className="h-5 w-5" />
+                  <ShoppingBag className="h-7 w-7" />
                   {inStock ? "Add to cart" : "Out of stock"}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => toggleWishlist(product.id)}
-                  aria-label="Toggle wishlist"
-                  className={cn(
-                    "inline-flex items-center justify-center gap-2 rounded-md border px-5 py-3 text-sm font-semibold pdp-press",
-                    wished ? "border-brand bg-brand/10 text-brand" : "border-border text-foreground/80 hover:border-brand hover:text-brand",
-                  )}
-                >
-                  <Heart className={cn("h-5 w-5", wished && "fill-current")} />
-                  {wished ? "Saved" : "Save for later"}
-                </button>
               </div>
 
-              <ul className="mt-5 space-y-2 text-sm text-foreground/70">
-                <li className="flex items-center gap-2"><Truck className="h-4 w-4 text-brand" /> Free India shipping over ₹999</li>
-                <li className="flex items-center gap-2"><RotateCcw className="h-4 w-4 text-brand" /> 7-day returns where eligible</li>
-                <li className="flex items-center gap-2"><Shield className="h-4 w-4 text-brand" /> Secure checkout, totals verified server-side</li>
-              </ul>
-            </aside>
+              <div className="mt-5 inline-flex h-16 items-center gap-4 bg-[#d9d9d9] px-2 font-serif text-4xl text-black">
+                <button type="button" onClick={() => setQty((q) => Math.max(1, q - 1))} aria-label="Decrease quantity"><Minus className="h-9 w-9" /></button>
+                <span className="w-10 text-center">{qty}</span>
+                <button type="button" onClick={() => setQty((q) => q + 1)} aria-label="Increase quantity"><Plus className="h-9 w-9" /></button>
+              </div>
 
-            <section className="rounded-lg border border-border bg-background p-5 shadow-sm">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-brand">Hurayah product file</p>
-                  <h2 className="mt-1 text-lg font-semibold text-foreground">Details and specifications</h2>
+              <section className="mt-24 max-w-[49rem]">
+                <div className="flex gap-8 font-serif text-3xl">
+                  <button type="button" onClick={() => setTab("description")} className={cn("pb-2", tab === "description" ? "border-b border-[#06133a] font-semibold text-[#06133a]" : "text-black/60")}>Product Description</button>
+                  <button type="button" onClick={() => setTab("details")} className={cn("pb-2", tab === "details" ? "border-b border-[#06133a] font-semibold text-[#06133a]" : "text-black/60")}>Product Details</button>
                 </div>
-                {product.edition && <span className="rounded-md bg-hero px-2.5 py-1 text-xs font-medium text-foreground/65">{product.edition}</span>}
-              </div>
-              {product.description && (
-                <p className="mt-3 whitespace-pre-line text-sm leading-7 text-foreground/70">{product.description}</p>
-              )}
-              {(product.publisher || product.language || product.pages != null || product.binding || product.isbn || product.author || product.edition || product.sku) && (
-                <dl className="mt-5 grid overflow-hidden rounded-md border border-border text-sm sm:grid-cols-2">
-                  {product.author && <ProductFact label="Author" value={product.author} />}
-                  {product.publisher && <ProductFact label="Publisher" value={product.publisher} />}
-                  {product.language && <ProductFact label="Language" value={product.language} />}
-                  {product.pages != null && <ProductFact label="Pages" value={String(product.pages)} />}
-                  {product.binding && <ProductFact label="Binding" value={product.binding} />}
-                  {product.edition && <ProductFact label="Edition" value={product.edition} />}
-                  {product.isbn && <ProductFact label="ISBN" value={product.isbn} mono />}
-                  {product.sku && <ProductFact label="Reference" value={product.sku} mono />}
-                </dl>
-              )}
-            </section>
-          </div>
-        </div>
-
-        <ReviewsSection
-          productId={product.id}
-          userReady={Boolean(user)}
-          reviews={reviews}
-          onSubmitted={async () => {
-            setReviews(await listPublishedReviews(product.id).catch(() => reviews));
-          }}
-        />
-
-        {related.length > 0 && (
-          <section className="mt-16 md:mt-24">
-            <h2 className="mb-6 text-xl tracking-tight text-foreground md:text-3xl">You may also like</h2>
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-6">
-              {related.map((item) => (
-                <ProductCard key={item.id} product={item} />
-              ))}
+                {tab === "description" ? (
+                  <p className="mt-9 whitespace-pre-line font-serif text-3xl leading-[1.05] text-black">{product.description || product.short_description || "Product details coming soon."}</p>
+                ) : (
+                  <dl className="mt-9 grid gap-3 font-serif text-2xl text-black sm:grid-cols-2">
+                    <Fact label="Category" value={categoryMeta?.label || product.category || "Product"} />
+                    {product.binding && <Fact label="Binding" value={product.binding} />}
+                    {product.language && <Fact label="Language" value={product.language} />}
+                    {product.pages != null && <Fact label="Pages" value={String(product.pages)} />}
+                    {product.isbn && <Fact label="ISBN" value={product.isbn} />}
+                    {product.sku && <Fact label="SKU" value={product.sku} />}
+                  </dl>
+                )}
+              </section>
             </div>
           </section>
-        )}
-      </div>
+
+          <ReviewsSection productId={product.id} userReady={Boolean(user)} reviews={reviews} onSubmitted={async () => setReviews(await listPublishedReviews(product.id).catch(() => reviews))} />
+
+          {related.length > 0 && (
+            <section className="mt-20 border-t border-[#06133a] pt-10">
+              <h2 className="mb-8 font-serif text-4xl text-[#06133a]">More from {categoryMeta?.label ?? "this category"}</h2>
+              <div className="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-6">
+                {related.map((item) => <ProductCard key={item.id} product={item} />)}
+              </div>
+            </section>
+          )}
+        </div>
+      </main>
     </SiteLayout>
   );
 };
 
-function ProductFact({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+function Fact({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md bg-foreground/[0.025] px-3 py-2">
-      <dt className="text-xs text-foreground/50">{label}</dt>
-      <dd className={cn("mt-0.5 font-medium text-foreground", mono && "font-mono text-xs")}>{value}</dd>
+    <div>
+      <dt className="text-black/45">{label}</dt>
+      <dd>{value}</dd>
     </div>
   );
 }
 
-function ReviewsSection({
-  productId,
-  userReady,
-  reviews,
-  onSubmitted,
-}: {
-  productId: string;
-  userReady: boolean;
-  reviews: ProductReview[];
-  onSubmitted: () => Promise<void>;
-}) {
+function ReviewsSection({ productId, userReady, reviews, onSubmitted }: { productId: string; userReady: boolean; reviews: ProductReview[]; onSubmitted: () => Promise<void> }) {
   const [rating, setRating] = useState(5);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
-  const [mediaUrls, setMediaUrls] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
-
-  const uploadMedia = async (files: FileList | null) => {
-    if (!files?.length) return;
-    const next = await Promise.all(
-      Array.from(files).slice(0, 4).map(
-        (file) =>
-          new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(String(reader.result));
-            reader.onerror = reject;
-            reader.readAsDataURL(file);
-          }),
-      ),
-    );
-    setMediaUrls((current) => [...current, ...next].slice(0, 6));
-  };
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!userReady) {
-      toast({ title: "Please sign in to review this product", variant: "destructive" });
-      return;
-    }
+    if (!userReady) return toast({ title: "Please sign in to review this product", variant: "destructive" });
     setSubmitting(true);
     try {
-      await submitReview({ productId, rating, title: title || null, body: body || null, mediaUrls });
+      await submitReview({ productId, rating, title: title || null, body: body || null, mediaUrls: [] });
       toast({ title: "Review submitted", description: "It will appear after approval." });
       setTitle("");
       setBody("");
-      setMediaUrls([]);
       await onSubmitted();
     } catch {
       toast({ title: "Could not submit review", variant: "destructive" });
@@ -429,84 +264,32 @@ function ReviewsSection({
     }
   };
 
-  const reviewMedia = reviews.flatMap((review) => review.media_urls ?? []).slice(0, 8);
-
   return (
-    <section className="mt-16 border-t border-border pt-10 pdp-fade-in">
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight text-foreground">Customer reviews</h2>
-          <p className="mt-1 text-sm text-foreground/60">Photos, videos and written feedback from customers.</p>
-        </div>
-        <span className="rounded-md border border-border px-3 py-1.5 text-sm text-foreground/65">
-          {reviews.length} published
-        </span>
+    <section className="mt-20 max-w-[49rem] lg:ml-[calc(420px+8rem)]">
+      <div className="flex items-center gap-6 border-b border-[#06133a] pb-6">
+        <h2 className="font-serif text-4xl text-black">Customer Reviews</h2>
+        <div className="flex text-[#e4aa00]">{Array.from({ length: 5 }).map((_, index) => <Star key={index} className="h-5 w-5 fill-current" />)}</div>
       </div>
-
-      {reviewMedia.length > 0 && (
-        <div className="mb-6 flex gap-3 overflow-x-auto no-scrollbar">
-          {reviewMedia.map((url) => (
-            <a key={url} href={url} target="_blank" rel="noreferrer" className="h-24 w-24 shrink-0 overflow-hidden rounded-md border border-border bg-placeholder">
-              {url.startsWith("data:video") ? (
-                <video src={url} className="h-full w-full object-cover" />
-              ) : (
-                <img src={url} alt="Customer review media" className="h-full w-full object-cover" />
-              )}
-            </a>
+      <form onSubmit={submit} className="mt-6 grid gap-3">
+        <div className="flex gap-1">
+          {Array.from({ length: 5 }).map((_, index) => (
+            <button key={index} type="button" onClick={() => setRating(index + 1)} aria-label={`${index + 1} stars`}>
+              <Star className={cn("h-7 w-7 text-[#e4aa00]", index < rating && "fill-current")} />
+            </button>
           ))}
         </div>
-      )}
-
-      <div className="grid gap-8 lg:grid-cols-[0.82fr_1.18fr]">
-        <form onSubmit={submit} className="rounded-lg border border-border bg-background p-5">
-          <h3 className="text-base font-semibold text-foreground">Write a review</h3>
-          <div className="mt-4 flex gap-1">
-            {Array.from({ length: 5 }).map((_, index) => (
-              <button key={index} type="button" onClick={() => setRating(index + 1)} aria-label={`${index + 1} stars`}>
-                <Star className={cn("h-5 w-5 text-brand", index < rating && "fill-current")} />
-              </button>
-            ))}
-          </div>
-          <input
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            placeholder="Short title"
-            className="mt-4 w-full rounded-md border border-border px-3 py-2 text-sm outline-none focus:border-brand"
-          />
-          <textarea
-            value={body}
-            onChange={(event) => setBody(event.target.value)}
-            placeholder="What should other customers know?"
-            rows={4}
-            className="mt-3 w-full resize-none rounded-md border border-border px-3 py-2 text-sm outline-none focus:border-brand"
-          />
-          <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-md border border-border px-3 py-2 text-sm pdp-press hover:border-brand">
-            Upload photos or videos
-            <input type="file" accept="image/*,video/*" multiple className="hidden" onChange={(event) => void uploadMedia(event.target.files)} />
-          </label>
-          {mediaUrls.length > 0 && <p className="mt-2 text-xs text-foreground/55">{mediaUrls.length} media file(s) added</p>}
-          <button disabled={submitting} className="mt-4 w-full rounded-md bg-brand px-4 py-2.5 text-sm font-semibold text-brand-foreground pdp-press disabled:opacity-60">
-            {submitting ? "Submitting..." : "Submit review"}
-          </button>
-        </form>
-
-        <div className="space-y-4">
-          {reviews.length === 0 && <p className="rounded-lg border border-border p-5 text-sm text-foreground/60">No published reviews yet.</p>}
-          {reviews.map((review) => (
-            <article key={review.id} className="rounded-lg border border-border p-5">
-              <div className="flex items-center gap-1 text-brand">
-                {Array.from({ length: 5 }).map((_, index) => (
-                  <Star key={index} className={cn("h-4 w-4", index < review.rating && "fill-current")} />
-                ))}
-              </div>
-              {review.title && <h3 className="mt-2 font-medium text-foreground">{review.title}</h3>}
-              {review.body && <p className="mt-1 text-sm leading-relaxed text-foreground/70">{review.body}</p>}
-              <p className="mt-3 text-xs text-foreground/45">
-                {review.customer_name || review.customer_email || "Verified customer"}
-              </p>
-            </article>
-          ))}
-        </div>
+        <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Review title" className="h-11 border border-[#06133a]/40 bg-white/60 px-3 font-serif text-xl outline-none" />
+        <textarea value={body} onChange={(event) => setBody(event.target.value)} placeholder="Write your review" rows={4} className="resize-none border border-[#06133a]/40 bg-white/60 px-3 py-2 font-serif text-xl outline-none" />
+        <button disabled={submitting} className="h-12 bg-[#020b2d] font-serif text-2xl font-semibold text-white disabled:opacity-50">{submitting ? "Submitting..." : "Add review"}</button>
+      </form>
+      <div className="mt-8 space-y-5">
+        {reviews.map((review) => (
+          <article key={review.id} className="border-b border-[#06133a]/20 pb-4 font-serif">
+            <div className="flex text-[#e4aa00]">{Array.from({ length: 5 }).map((_, index) => <Star key={index} className={cn("h-5 w-5", index < review.rating && "fill-current")} />)}</div>
+            {review.title && <h3 className="mt-2 text-2xl text-black">{review.title}</h3>}
+            {review.body && <p className="mt-1 text-xl leading-tight text-black/75">{review.body}</p>}
+          </article>
+        ))}
       </div>
     </section>
   );

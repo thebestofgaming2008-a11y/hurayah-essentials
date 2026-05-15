@@ -28,6 +28,7 @@ import {
   Trash2,
   Users,
   X,
+  Image as ImageIcon,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -71,7 +72,7 @@ import {
   type ShippingRate,
 } from "@/services/adminService";
 import type { Product } from "@/services/productService";
-import { formatPrice } from "@/data/products";
+import { CATEGORIES, formatPrice } from "@/data/products";
 import { toast } from "@/hooks/use-toast";
 
 type SectionKey =
@@ -103,6 +104,8 @@ type ProductFormState = {
   sku: string;
   stock_quantity: string;
   category: string;
+  variant_group: string;
+  variant_label: string;
   cover_image_url: string;
   images: string;
   badge: string;
@@ -475,6 +478,13 @@ export default function Admin() {
       toast({ title: "Name, slug, price, and category are required", variant: "destructive" });
       return;
     }
+    const currentProduct = productEditor && productEditor !== "new" ? productEditor : null;
+    const variantGroup = slugifyAdmin(form.variant_group);
+    const oldGroup = currentProduct ? variantGroupFromTags(currentProduct.tags) : "";
+    const rawTags = form.tags.split(",").map((tag) => tag.trim()).filter(Boolean).filter((tag) => !tag.startsWith("vg:"));
+    const variantPeers = variantGroup
+      ? products.filter((product) => product.id !== currentProduct?.id && variantGroupFromTags(product.tags) === variantGroup)
+      : [];
     const payload = {
       name: form.name.trim(),
       slug: form.slug.trim() || null,
@@ -489,27 +499,57 @@ export default function Admin() {
       sku: form.sku.trim() || null,
       stock_quantity: Number(form.stock_quantity) || 0,
       category: form.category.trim() || "books",
+      category_id: form.category.trim() || "books",
       cover_image_url: form.cover_image_url.trim() || null,
       images: form.images.split("\n").map((image) => image.trim()).filter(Boolean),
+      linked_product_ids: variantPeers.map((product) => product.id),
+      variant_label: form.variant_label.trim() || null,
       badge: form.badge.trim() || null,
       is_active: form.is_active,
       is_featured: form.is_featured,
       is_bestseller: form.is_bestseller,
       is_new_arrival: form.is_new_arrival,
       is_on_sale: Number(form.sale_price_inr) > 0,
-      tags: form.tags.split(",").map((tag) => tag.trim()).filter(Boolean),
+      tags: Array.from(new Set([...rawTags, ...(variantGroup ? [`vg:${variantGroup}`] : [])])),
     };
     try {
+      let savedProduct: Product;
       if (productEditor && productEditor !== "new") {
         const updated = await updateProduct(productEditor.id, payload);
         if (!updated) throw new Error("Update failed");
+        savedProduct = updated;
         setProducts((current) => current.map((product) => (product.id === updated.id ? updated : product)));
         toast({ title: "Product updated", description: updated.name });
       } else {
         const created = await createProduct(payload);
         if (!created) throw new Error("Create failed");
+        savedProduct = created;
         setProducts((current) => [created, ...current]);
         toast({ title: "Product added", description: created.name });
+      }
+      if (variantGroup) {
+        const groupIds = [savedProduct.id, ...variantPeers.map((product) => product.id)];
+        for (const peer of variantPeers) {
+          const peerTags = Array.from(new Set([...(peer.tags ?? []).filter((tag) => !tag.startsWith("vg:")), `vg:${variantGroup}`]));
+          const updatedPeer = await updateProduct(peer.id, {
+            tags: peerTags,
+            linked_product_ids: groupIds.filter((id) => id !== peer.id),
+          });
+          if (updatedPeer) {
+            setProducts((current) => current.map((product) => (product.id === updatedPeer.id ? updatedPeer : product)));
+          }
+        }
+      }
+      if (currentProduct && oldGroup && oldGroup !== variantGroup) {
+        const oldPeers = products.filter((product) => product.id !== currentProduct.id && variantGroupFromTags(product.tags) === oldGroup);
+        for (const peer of oldPeers) {
+          const updatedPeer = await updateProduct(peer.id, {
+            linked_product_ids: (peer.linked_product_ids ?? []).filter((id) => id !== currentProduct.id),
+          });
+          if (updatedPeer) {
+            setProducts((current) => current.map((product) => (product.id === updatedPeer.id ? updatedPeer : product)));
+          }
+        }
       }
       void refreshNotifications();
       setProductEditor(null);
@@ -862,6 +902,7 @@ export default function Admin() {
       {productEditor && (
         <ProductEditorDialog
           product={productEditor === "new" ? null : productEditor}
+          products={products}
           onClose={() => setProductEditor(null)}
           onSave={handleSaveProduct}
         />
@@ -1219,6 +1260,15 @@ function SearchRow({ query, setQuery, placeholder }: { query: string; setQuery: 
   );
 }
 
+function slugifyAdmin(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 80);
+}
+
+function variantGroupFromTags(tags: string[] | null | undefined) {
+  const tag = (tags ?? []).find((item) => item.startsWith("vg:"));
+  return tag ? tag.slice(3) : "";
+}
+
 function productToForm(product: Product | null): ProductFormState {
   return {
     name: product?.name ?? "",
@@ -1234,6 +1284,8 @@ function productToForm(product: Product | null): ProductFormState {
     sku: product?.sku ?? "",
     stock_quantity: String(product?.stock_quantity ?? 0),
     category: product?.category ?? "books",
+    variant_group: variantGroupFromTags(product?.tags),
+    variant_label: product?.variant_label ?? "",
     cover_image_url: product?.cover_image_url ?? "",
     images: (product?.images ?? []).join("\n"),
     badge: product?.badge ?? "",
@@ -1247,17 +1299,24 @@ function productToForm(product: Product | null): ProductFormState {
 
 function ProductEditorDialog({
   product,
+  products,
   onClose,
   onSave,
 }: {
   product: Product | null;
+  products: Product[];
   onClose: () => void;
   onSave: (form: ProductFormState) => Promise<void>;
 }) {
   const [form, setForm] = useState<ProductFormState>(() => productToForm(product));
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const gallery = [form.cover_image_url, ...form.images.split("\n")].map((image) => image.trim()).filter(Boolean);
+  const galleryImages = form.images.split("\n").map((image) => image.trim()).filter(Boolean);
+  const gallery = Array.from(new Set([form.cover_image_url, ...galleryImages].map((image) => image.trim()).filter(Boolean)));
+  const variantGroups = Array.from(new Set(products.map((item) => variantGroupFromTags(item.tags)).filter(Boolean))).sort();
+  const selectedVariantProducts = form.variant_group
+    ? products.filter((item) => item.id !== product?.id && variantGroupFromTags(item.tags) === slugifyAdmin(form.variant_group))
+    : [];
   const setField = <K extends keyof ProductFormState>(key: K, value: ProductFormState[K]) => {
     setForm((current) => ({ ...current, [key]: value }));
   };
@@ -1287,11 +1346,29 @@ function ProductEditorDialog({
       const uploaded = (await Promise.all(Array.from(files).map((file) => uploadProductImage(file)))).filter(Boolean);
       if (uploaded.length) {
         const existing = form.images.split("\n").map((image) => image.trim()).filter(Boolean);
-        setField("images", [...existing, ...uploaded].join("\n"));
+        const [first, ...rest] = uploaded;
+        if (!form.cover_image_url && first) {
+          setField("cover_image_url", first);
+          setField("images", Array.from(new Set([...existing, ...rest])).join("\n"));
+        } else {
+          setField("images", Array.from(new Set([...existing, ...uploaded])).join("\n"));
+        }
       }
     } finally {
       setUploading(false);
     }
+  };
+  const makeCoverImage = (image: string) => {
+    const selected = image.trim();
+    if (!selected || selected === form.cover_image_url) return;
+    const currentImages = form.images.split("\n").map((item) => item.trim()).filter(Boolean);
+    const previousCover = form.cover_image_url.trim();
+    const nextImages = Array.from(new Set([...currentImages, previousCover].filter((item) => item && item !== selected)));
+    setForm((current) => ({
+      ...current,
+      cover_image_url: selected,
+      images: nextImages.join("\n"),
+    }));
   };
   const removeGalleryImage = (image: string) => {
     const next = form.images.split("\n").map((item) => item.trim()).filter((item) => item && item !== image);
@@ -1335,8 +1412,13 @@ function ProductEditorDialog({
             {gallery.length > 0 && (
               <div className="flex gap-2 overflow-x-auto pb-1">
                 {gallery.map((image, index) => (
-                  <div key={`${image}-${index}`} className="relative h-20 w-16 shrink-0 overflow-hidden rounded border border-[rgb(var(--vibe-border))]">
+                  <div key={`${image}-${index}`} className="group relative h-20 w-16 shrink-0 overflow-hidden rounded border border-[rgb(var(--vibe-border))]">
                     <img src={image} alt="" className="h-full w-full object-cover" />
+                    {image === form.cover_image_url ? (
+                      <span className="absolute bottom-1 left-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-center text-[9px] font-medium text-white">Cover</span>
+                    ) : (
+                      <button type="button" onClick={() => makeCoverImage(image)} className="absolute bottom-1 left-1 grid h-6 w-6 place-items-center rounded bg-white/90 text-zinc-700 shadow opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100" aria-label="Make cover image"><ImageIcon className="h-3 w-3" /></button>
+                    )}
                     <button type="button" onClick={() => removeGalleryImage(image)} className="absolute right-1 top-1 grid h-6 w-6 place-items-center rounded bg-white/90 text-zinc-700 shadow" aria-label="Remove image"><X className="h-3 w-3" /></button>
                   </div>
                 ))}
@@ -1348,7 +1430,14 @@ function ProductEditorDialog({
               <ProductInputField label="Name" value={form.name} onChange={(value) => setField("name", value)} required />
               <ProductInputField label="Slug" value={form.slug} onChange={(value) => setField("slug", value)} placeholder="auto-generated if blank" />
               <ProductInputField label="SKU" value={form.sku} onChange={(value) => setField("sku", value)} />
-              <ProductInputField label="Category" value={form.category} onChange={(value) => setField("category", value)} />
+              <label className="space-y-1 text-[11px] font-medium text-[rgb(var(--vibe-muted))]">
+                <span>Category</span>
+                <select value={form.category} onChange={(event) => setField("category", event.target.value)} className="h-9 w-full rounded-md border border-[rgb(var(--vibe-border))] bg-white px-3 text-[13px] text-[rgb(var(--vibe-foreground))] outline-none focus:ring-1 focus:ring-zinc-500">
+                  {CATEGORIES.map((category) => (
+                    <option key={category.key} value={category.key}>{category.parent ? `${category.label} (${category.parent})` : category.label}</option>
+                  ))}
+                </select>
+              </label>
               <ProductInputField label="Price" type="number" value={form.price_inr} onChange={(value) => setField("price_inr", value)} required />
               <ProductInputField label="Sale price" type="number" value={form.sale_price_inr} onChange={(value) => setField("sale_price_inr", value)} />
               <ProductInputField label="Stock" type="number" value={form.stock_quantity} onChange={(value) => setField("stock_quantity", value)} />
@@ -1357,6 +1446,30 @@ function ProductEditorDialog({
               <ProductInputField label="Publisher" value={form.publisher} onChange={(value) => setField("publisher", value)} />
               <ProductInputField label="Language" value={form.language} onChange={(value) => setField("language", value)} />
               <ProductInputField label="Binding" value={form.binding} onChange={(value) => setField("binding", value)} />
+            </div>
+            <div className="grid gap-3 rounded-lg border border-[rgb(var(--vibe-border))] p-3 sm:grid-cols-2">
+              <ProductInputField label="Variant group" value={form.variant_group} onChange={(value) => setField("variant_group", slugifyAdmin(value))} placeholder="kufi-prayer-cap" list="variant-groups" />
+              <ProductInputField label="Variant label" value={form.variant_label} onChange={(value) => setField("variant_label", value)} placeholder="Brown, Large, Urdu..." />
+              <datalist id="variant-groups">
+                {variantGroups.map((group) => <option key={group} value={group} />)}
+              </datalist>
+              <div className="sm:col-span-2">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[11px] text-[rgb(var(--vibe-muted))]">
+                    {selectedVariantProducts.length ? `${selectedVariantProducts.length} product(s) already in this group.` : "Type a new group name to create one, or clear it to remove this product from variants."}
+                  </p>
+                  {form.variant_group && (
+                    <button type="button" onClick={() => setField("variant_group", "")} className="h-8 rounded-md border border-[rgb(var(--vibe-border))] px-3 text-[11px]">Remove from group</button>
+                  )}
+                </div>
+                {selectedVariantProducts.length > 0 && (
+                  <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+                    {selectedVariantProducts.slice(0, 10).map((item) => (
+                      <span key={item.id} className="shrink-0 rounded-full bg-[rgb(var(--vibe-surface))] px-2.5 py-1 text-[11px] text-[rgb(var(--vibe-muted))]">{item.variant_label || item.name}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
             <ProductInputField label="Tags" value={form.tags} onChange={(value) => setField("tags", value)} placeholder="comma separated" />
             <ProductTextArea label="Gallery images" value={form.images} onChange={(value) => setField("images", value)} rows={3} placeholder="one image URL per line" />
@@ -1386,6 +1499,7 @@ function ProductInputField({
   type = "text",
   required,
   placeholder,
+  list,
 }: {
   label: string;
   value: string;
@@ -1393,11 +1507,12 @@ function ProductInputField({
   type?: string;
   required?: boolean;
   placeholder?: string;
+  list?: string;
 }) {
   return (
     <label className="block">
       <span className="mb-1.5 block text-[11px] text-[rgb(var(--vibe-muted))]">{label}</span>
-      <input type={type} value={value} required={required} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} className="h-9 w-full rounded-md border border-[rgb(var(--vibe-border))] bg-white px-3 text-[13px] outline-none focus:ring-1 focus:ring-zinc-500" />
+      <input type={type} value={value} required={required} placeholder={placeholder} list={list} onChange={(event) => onChange(event.target.value)} className="h-9 w-full rounded-md border border-[rgb(var(--vibe-border))] bg-white px-3 text-[13px] outline-none focus:ring-1 focus:ring-zinc-500" />
     </label>
   );
 }

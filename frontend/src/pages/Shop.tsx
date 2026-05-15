@@ -255,7 +255,7 @@ const Shop = () => {
           </h1>
           <p className="mt-2 max-w-xl text-foreground/65 text-sm md:text-base">
             {activeCat?.blurb ??
-              "Books, clothing and everyday essentials — thoughtfully chosen for the seeker."}
+              "Books, clothing and everyday essentials - thoughtfully chosen for the seeker."}
           </p>
         </div>
       </section>
@@ -366,7 +366,7 @@ const Shop = () => {
               <div className="rounded-xl border border-dashed border-border p-12 text-center">
                 <p className="text-foreground/70 mb-3">
                   {allProducts.length === 0
-                    ? "No products yet — your shop is ready for its first listing."
+                    ? "No products yet - your shop is ready for its first listing."
                     : "No products match your filters."}
                 </p>
                 <button

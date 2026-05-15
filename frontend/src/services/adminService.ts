@@ -23,6 +23,7 @@ export interface ProductInput {
   sku?: string | null;
   stock_quantity?: number | null;
   category?: string | null;
+  category_id?: string | null;
   cover_image_url?: string | null;
   images?: string[];
   linked_product_ids?: string[];
