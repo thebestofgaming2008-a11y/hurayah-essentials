@@ -95,6 +95,7 @@ async function checkoutQuote(ctx: any, cart: Array<any>) {
   if (!cart.length) throw new Error("Cart is empty.");
   let subtotal = 0;
   let itemCount = 0;
+  const shippingLines: Array<{ qty: number; weightG?: number | null }> = [];
   for (const item of cart) {
     const qty = Math.floor(item.qty);
     if (!Number.isFinite(qty) || qty < 1 || qty > 99) throw new Error("Cart quantity is invalid.");
@@ -106,8 +107,9 @@ async function checkoutQuote(ctx: any, cart: Array<any>) {
     if (!Number.isFinite(unitPrice) || unitPrice < 0) throw new Error(`Invalid price for ${product.name}.`);
     subtotal += unitPrice * qty;
     itemCount += qty;
+    shippingLines.push({ qty, weightG: product.weight_g ?? null });
   }
-  const shipping = calculateShippingInr(subtotal);
+  const shipping = calculateShippingInr(subtotal, shippingLines);
   const total = subtotal + shipping;
   return { subtotal, shipping, total, amountPaise: Math.round(total * 100), itemCount };
 }
@@ -136,6 +138,7 @@ async function savePaidOrder(ctx: any, args: {
 
   const normalizedItems = [];
   let computedSubtotal = 0;
+  const shippingLines: Array<{ qty: number; weightG?: number | null }> = [];
   for (const item of args.cart) {
     const qty = Math.floor(item.qty);
     if (!Number.isFinite(qty) || qty < 1 || qty > 99) throw new Error("Cart quantity is invalid.");
@@ -146,10 +149,11 @@ async function savePaidOrder(ctx: any, args: {
     const unitPrice = product.sale_price_inr ?? product.price_inr ?? product.price;
     if (!Number.isFinite(unitPrice) || unitPrice < 0) throw new Error(`Invalid price for ${product.name}.`);
     computedSubtotal += unitPrice * qty;
+    shippingLines.push({ qty, weightG: product.weight_g ?? null });
     normalizedItems.push({ product, qty, unitPrice });
   }
 
-  const computedShipping = calculateShippingInr(computedSubtotal);
+  const computedShipping = calculateShippingInr(computedSubtotal, shippingLines);
   const computedTotal = computedSubtotal + computedShipping;
   const timestamp = nowIso();
   const orderNumber = `HE-${Date.now().toString().slice(-8)}`;
@@ -283,6 +287,7 @@ export const createMockCheckoutOrder = mutation({
     const normalizedItems = [];
     let computedSubtotal = 0;
     let itemCount = 0;
+    const shippingLines: Array<{ qty: number; weightG?: number | null }> = [];
     for (const item of args.cart) {
       const qty = Math.floor(item.qty);
       if (!Number.isFinite(qty) || qty < 1 || qty > 99) {
@@ -302,9 +307,10 @@ export const createMockCheckoutOrder = mutation({
       }
       computedSubtotal += unitPrice * qty;
       itemCount += qty;
+      shippingLines.push({ qty, weightG: product.weight_g ?? null });
       normalizedItems.push({ product, qty, unitPrice });
     }
-    const computedShipping = calculateShippingInr(computedSubtotal);
+    const computedShipping = calculateShippingInr(computedSubtotal, shippingLines);
     const computedTotal = computedSubtotal + computedShipping;
     const timestamp = nowIso();
     const orderNumber = `HE-${Date.now().toString().slice(-8)}`;

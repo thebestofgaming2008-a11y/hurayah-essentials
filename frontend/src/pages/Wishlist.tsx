@@ -53,6 +53,8 @@ const Wishlist = () => {
                     priceInr: p.price_inr,
                     image: p.cover_image_url ?? p.images?.[0] ?? null,
                     slug: p.slug ?? undefined,
+                    weightG: p.weight_g,
+                    shippingClass: p.shipping_class,
                   }),
                 );
               }}
@@ -97,6 +99,8 @@ const Wishlist = () => {
                         priceInr: p.price_inr,
                         image: p.cover_image_url ?? p.images?.[0] ?? null,
                         slug: p.slug ?? undefined,
+                        weightG: p.weight_g,
+                        shippingClass: p.shipping_class,
                       })
                     }
                     className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md bg-[rgb(var(--vibe-foreground))] px-3 text-[11px] font-medium text-white"

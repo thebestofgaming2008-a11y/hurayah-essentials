@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
-import { ChevronRight, Minus, Plus, Star, X } from "lucide-react";
+import { ChevronRight, Minus, Plus, Star } from "lucide-react";
 import { SiteLayout } from "@/components/layout/SiteLayout";
 import { ProductCard } from "@/components/shop/ProductCard";
 import { CATEGORIES, productCompareAt, productImage, productPrice, type CategoryKey } from "@/data/products";
 import { getProductById, getProductBySlug, listByCategory, listByIds, type Product } from "@/services/productService";
-import { listPublishedReviews, submitReview, uploadReviewMedia, type ProductReview } from "@/services/reviewService";
+import { canReviewProduct, listPublishedReviews, submitReview, type ProductReview } from "@/services/reviewService";
 import { useShop } from "@/store/shop";
 import { cn } from "@/lib/utils";
 import { useCurrency } from "@/contexts/CurrencyContext";
@@ -22,6 +22,7 @@ const ProductDetail = () => {
   const [related, setRelated] = useState<Product[]>([]);
   const [versions, setVersions] = useState<Product[]>([]);
   const [reviews, setReviews] = useState<ProductReview[]>([]);
+  const [canReview, setCanReview] = useState(false);
   const [loading, setLoading] = useState(true);
   const [qty, setQty] = useState(1);
   const [activeImage, setActiveImage] = useState(0);
@@ -43,6 +44,7 @@ const ProductDetail = () => {
 
       setProduct(nextProduct);
       setReviews(nextProduct ? await listPublishedReviews(nextProduct.id).catch(() => []) : []);
+      setCanReview(nextProduct && user ? await canReviewProduct(nextProduct.id).catch(() => false) : false);
       setVersions(nextProduct?.linked_product_ids?.length ? await listByIds(nextProduct.linked_product_ids).catch(() => []) : []);
 
       if (nextProduct?.category) {
@@ -57,7 +59,7 @@ const ProductDetail = () => {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, user]);
 
   if (loading) {
     return (
@@ -91,7 +93,7 @@ const ProductDetail = () => {
 
   const onAdd = () => {
     if (!inStock) return;
-    addToCart({ id: product.id, name: product.name, price, priceInr: product.price_inr, image: cover, slug: product.slug ?? undefined }, qty);
+    addToCart({ id: product.id, name: product.name, price, priceInr: product.price_inr, image: cover, slug: product.slug ?? undefined, weightG: product.weight_g, shippingClass: product.shipping_class }, qty);
     toast({ title: "Added to cart", description: product.name });
   };
 
@@ -223,7 +225,7 @@ const ProductDetail = () => {
           </div>
           </section>
 
-          <ReviewsSection productId={product.id} userReady={Boolean(user)} reviews={reviews} onSubmitted={async () => setReviews(await listPublishedReviews(product.id).catch(() => reviews))} />
+          <ReviewsSection productId={product.id} userReady={Boolean(user)} canReview={canReview} reviews={reviews} onSubmitted={async () => setReviews(await listPublishedReviews(product.id).catch(() => reviews))} />
 
           {related.length > 0 && (
             <section className="mt-20 border-t border-[#06133a] pt-10">
@@ -252,41 +254,22 @@ function isVideoUrl(url: string) {
   return /\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(url);
 }
 
-function ReviewsSection({ productId, userReady, reviews, onSubmitted }: { productId: string; userReady: boolean; reviews: ProductReview[]; onSubmitted: () => Promise<void> }) {
+function ReviewsSection({ productId, userReady, canReview, reviews, onSubmitted }: { productId: string; userReady: boolean; canReview: boolean; reviews: ProductReview[]; onSubmitted: () => Promise<void> }) {
   const [rating, setRating] = useState(5);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
-  const [mediaUrls, setMediaUrls] = useState<string[]>([]);
-  const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-
-  const handleMedia = async (files?: FileList | null) => {
-    if (!files?.length) return;
-    if (!userReady) {
-      toast({ title: "Please sign in to upload review media", variant: "destructive" });
-      return;
-    }
-    setUploading(true);
-    try {
-      const uploaded = (await Promise.all(Array.from(files).slice(0, 6 - mediaUrls.length).map((file) => uploadReviewMedia(file)))).filter(Boolean) as string[];
-      setMediaUrls((current) => Array.from(new Set([...current, ...uploaded])).slice(0, 6));
-    } catch {
-      toast({ title: "Could not upload review media", variant: "destructive" });
-    } finally {
-      setUploading(false);
-    }
-  };
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!userReady) return toast({ title: "Please sign in to review this product", variant: "destructive" });
+    if (!canReview) return toast({ title: "Only verified customers can review this product", variant: "destructive" });
     setSubmitting(true);
     try {
-      await submitReview({ productId, rating, title: title || null, body: body || null, mediaUrls });
+      await submitReview({ productId, rating, title: title || null, body: body || null, mediaUrls: [] });
       toast({ title: "Review submitted", description: "It will appear after approval." });
       setTitle("");
       setBody("");
-      setMediaUrls([]);
       await onSubmitted();
     } catch {
       toast({ title: "Could not submit review", variant: "destructive" });
@@ -302,32 +285,39 @@ function ReviewsSection({ productId, userReady, reviews, onSubmitted }: { produc
         <div className="flex text-[#e4aa00]">{Array.from({ length: 5 }).map((_, index) => <Star key={index} className="h-5 w-5 fill-current" />)}</div>
       </div>
       <form onSubmit={submit} className="mt-6 grid gap-3">
-        <div className="flex gap-1">
-          {Array.from({ length: 5 }).map((_, index) => (
-            <button key={index} type="button" onClick={() => setRating(index + 1)} aria-label={`${index + 1} stars`}>
-              <Star className={cn("h-7 w-7 text-[#e4aa00]", index < rating && "fill-current")} />
-            </button>
-          ))}
+        <div className="rounded-md border border-[#06133a]/30 bg-white/45 p-3">
+          <div className="flex items-center justify-between gap-3">
+            <label htmlFor="review-rating" className="font-serif text-xl text-[#06133a]">Your rating</label>
+            <input
+              id="review-rating"
+              type="number"
+              min={1}
+              max={5}
+              step={0.1}
+              value={rating}
+              onChange={(event) => setRating(Math.max(1, Math.min(5, Number(event.target.value) || 1)))}
+              className="h-10 w-24 border border-[#06133a]/35 bg-white/70 px-3 text-right font-serif text-xl outline-none"
+            />
+          </div>
+          <input
+            type="range"
+            min={1}
+            max={5}
+            step={0.1}
+            value={rating}
+            onChange={(event) => setRating(Number(event.target.value))}
+            className="mt-3 w-full accent-[#06133a]"
+            aria-label="Review rating"
+          />
         </div>
         <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Review title" className="h-11 border border-[#06133a]/40 bg-white/60 px-3 font-serif text-xl outline-none" />
         <textarea value={body} onChange={(event) => setBody(event.target.value)} placeholder="Write your review" rows={4} className="resize-none border border-[#06133a]/40 bg-white/60 px-3 py-2 font-serif text-xl outline-none" />
-        <label className="inline-flex min-h-12 cursor-pointer items-center justify-center rounded-md border border-[#06133a]/35 bg-white/45 px-4 font-serif text-xl text-[#06133a]">
-          {uploading ? "Uploading media..." : "Add photos or videos"}
-          <input type="file" accept="image/*,video/*" multiple onChange={(event) => handleMedia(event.target.files)} className="sr-only" />
-        </label>
-        {mediaUrls.length > 0 && (
-          <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
-            {mediaUrls.map((url) => (
-              <div key={url} className="relative aspect-square overflow-hidden rounded-md border border-[#06133a]/20 bg-white/40">
-                {isVideoUrl(url) ? <video src={url} className="h-full w-full object-cover" muted playsInline /> : <img src={url} alt="" className="h-full w-full object-cover" />}
-                <button type="button" onClick={() => setMediaUrls((current) => current.filter((item) => item !== url))} className="absolute right-1 top-1 grid h-6 w-6 place-items-center rounded-full bg-white/90 text-[#06133a]" aria-label="Remove media">
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ))}
-          </div>
+        {!canReview && (
+          <p className="rounded-md border border-[#06133a]/20 bg-white/45 px-3 py-2 font-serif text-lg text-[#06133a]/75">
+            Reviews are text-only at launch and open after a verified purchase on this account email.
+          </p>
         )}
-        <button disabled={submitting || uploading} className="h-12 rounded-md bg-brand font-bold text-brand-foreground shadow-2xl disabled:opacity-50">{submitting ? "Submitting..." : "Add review"}</button>
+        <button disabled={submitting || !canReview} className="h-12 rounded-md bg-brand font-bold text-brand-foreground shadow-2xl disabled:opacity-50">{submitting ? "Submitting..." : "Add review"}</button>
       </form>
       <div className="mt-8 space-y-5">
         {reviews.map((review) => (

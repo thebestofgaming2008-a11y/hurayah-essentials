@@ -28,6 +28,11 @@ export async function submitReview(input: {
   return (await convex.mutation(api.reviews.submit, input)) as ProductReview | null;
 }
 
+export async function canReviewProduct(productId: string): Promise<boolean> {
+  const result = (await convex.query(api.reviews.canReviewProduct, { productId })) as { canReview?: boolean };
+  return Boolean(result?.canReview);
+}
+
 export async function uploadReviewMedia(file: File): Promise<string | null> {
   const uploadUrl = await convex.mutation(api.reviews.generateReviewMediaUploadUrl, {});
   const result = await fetch(uploadUrl, {

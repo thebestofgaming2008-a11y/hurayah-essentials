@@ -9,7 +9,7 @@ const Cart = () => {
   const { cartLines, cartSubtotal, updateQty, removeFromCart } = useShop();
   const { format, currency } = useCurrency();
   const navigate = useNavigate();
-  const shipping = calculateShippingInr(cartSubtotal);
+  const shipping = calculateShippingInr(cartSubtotal, cartLines);
   const total = cartSubtotal + shipping;
 
   return (

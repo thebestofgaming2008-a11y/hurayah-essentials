@@ -1,4 +1,4 @@
-import { Heart, LayoutDashboard, LogOut, Menu, Package, Search, ShoppingBag, X } from "lucide-react";
+﻿import { Heart, LayoutDashboard, LogOut, Menu, Package, Search, ShoppingBag, User, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import logo from "@/assets/logo-header.png";
@@ -14,6 +14,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const ICON_BUTTON =
   "relative inline-flex h-10 w-10 items-center justify-center rounded-full text-foreground transition-all duration-150 hover:bg-foreground/[0.06] active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-1 focus-visible:ring-offset-hero";
@@ -21,22 +29,13 @@ const ICON_BUTTON =
 const BADGE =
   "absolute -top-1 -right-1 h-[18px] min-w-[18px] px-1 grid place-items-center rounded-full bg-brand text-brand-foreground text-[10px] font-semibold leading-none tabular-nums shadow-sm";
 
-const CURRENCY_FLAGS: Record<string, string> = {
-  INR: "🇮🇳",
-  USD: "🇺🇸",
-  GBP: "🇬🇧",
-  EUR: "🇪🇺",
-  AED: "🇦🇪",
-  SAR: "🇸🇦",
-};
-
 const CURRENCY_SYMBOLS: Record<string, string> = {
-  INR: "₹",
+  INR: "INR",
   USD: "$",
-  GBP: "£",
-  EUR: "€",
-  AED: "د.إ",
-  SAR: "﷼",
+  GBP: "GBP",
+  EUR: "EUR",
+  AED: "AED",
+  SAR: "SAR",
 };
 
 export function SiteHeader() {
@@ -121,10 +120,7 @@ export function SiteHeader() {
             <p className="text-center truncate px-[120px] sm:px-[180px] max-w-full">
               International orders may incur customs / import duties
             </p>
-            <div className="absolute right-0 top-0 w-[150px] sm:right-4">
-              <p className="grid h-6 place-items-center bg-[#1f1f1f] text-[10px] font-normal tracking-normal text-white/65">
-                Currency Selector
-              </p>
+            <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center sm:right-4">
               <Select
                 value={currency}
                 onValueChange={setCurrency}
@@ -133,11 +129,10 @@ export function SiteHeader() {
                 <SelectTrigger
                   data-testid="site-header-currency-select"
                   aria-label="Select display currency"
-                  className="h-[42px] w-full gap-3 rounded-none border-0 bg-[#031044] px-4 text-white shadow-none after:ml-auto after:text-[30px] after:leading-none after:content-['₹'] focus:ring-0 focus:ring-offset-0 [&>svg]:h-5 [&>svg]:w-5 [&>svg]:text-white [&>span]:grid [&>span]:w-full [&>span]:grid-cols-[1fr_auto] [&>span]:items-center [&>span>span:first-child]:hidden [&>span>span:nth-child(2)]:text-[26px] [&>span>span:nth-child(2)]:leading-none"
+                  className="h-7 w-[92px] rounded-sm border-0 bg-transparent px-2 text-[11px] text-brand-foreground shadow-none transition-colors hover:bg-white/10 focus:ring-0 focus:ring-offset-0 [&>svg]:h-3 [&>svg]:w-3 [&>svg]:text-brand-foreground/70"
                 >
                   <SelectValue>
-                    <span aria-hidden className="hidden" />
-                    <span className="leading-none">{currency}</span>
+                    <span className="inline-flex items-center gap-1.5 leading-none"><span>{CURRENCY_SYMBOLS[currency] ?? currency}</span><span>{currency}</span></span>
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent align="end" className="min-w-[120px]">
@@ -191,14 +186,51 @@ export function SiteHeader() {
                 <Heart className="h-5 w-5" />
                 {wishlist.length > 0 && <span className={BADGE}>{wishlist.length}</span>}
               </button>
-              <Link
-                to="/track"
-                aria-label="Track order"
-                data-testid="site-header-account-link"
-                className={ICON_BUTTON}
-              >
-                <Package className="h-5 w-5" />
-              </Link>
+              {user ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button type="button" aria-label="Open account menu" data-testid="site-header-account-menu-button" className={ICON_BUTTON}>
+                      <User className="h-5 w-5" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-[224px] rounded-md border border-border bg-background p-0 shadow-lg">
+                    <DropdownMenuLabel className="px-4 py-3">
+                      <p className="truncate text-sm font-semibold">{user.name || user.email?.split("@")[0] || "Account"}</p>
+                      <p className="truncate text-[12px] font-normal text-foreground/60">{user.email}</p>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator className="m-0" />
+                    <DropdownMenuItem asChild className="cursor-pointer px-4 py-2.5">
+                      <Link to="/account" className="flex items-center gap-3"><User className="h-4 w-4" /> My Account</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild className="cursor-pointer px-4 py-2.5">
+                      <Link to="/track" className="flex items-center gap-3"><Package className="h-4 w-4" /> My Orders</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild className="cursor-pointer px-4 py-2.5">
+                      <Link to="/wishlist" className="flex items-center gap-3"><Heart className="h-4 w-4" /> Wishlist</Link>
+                    </DropdownMenuItem>
+                    {isAdmin && (
+                      <>
+                        <DropdownMenuSeparator className="m-0" />
+                        <DropdownMenuItem asChild className="cursor-pointer px-4 py-2.5">
+                          <Link to="/admin" className="flex items-center gap-3"><LayoutDashboard className="h-4 w-4" /> Admin Dashboard</Link>
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                    <DropdownMenuSeparator className="m-0" />
+                    <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer px-4 py-2.5 text-red-600 focus:text-red-600">
+                      <LogOut className="mr-3 h-4 w-4" /> Sign Out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <Link
+                  to="/login?redirect=/account"
+                  data-testid="site-header-sign-in-link"
+                  className="inline-flex h-9 items-center rounded-md px-3 text-[13px] font-medium text-foreground transition-all duration-200 hover:bg-foreground/[0.06] hover:text-brand active:scale-[0.98]"
+                >
+                  Sign in
+                </Link>
+              )}
               <button
                 type="button"
                 onClick={openCart}
@@ -222,7 +254,7 @@ export function SiteHeader() {
                 type="search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search by title, author, ISBN, publisher…"
+                placeholder="Search by title, author, ISBN, publisherâ€¦"
                 className="bg-transparent flex-1 min-w-0 text-sm md:text-[15px] outline-none placeholder:text-muted-foreground"
                 aria-label="Search products"
                 data-testid="site-header-search-input"

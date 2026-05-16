@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams, Link } from "react-router-dom";
-import { SlidersHorizontal, Star, X } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+import { SlidersHorizontal, X } from "lucide-react";
 import { SiteLayout } from "@/components/layout/SiteLayout";
 import { ProductCard } from "@/components/shop/ProductCard";
-import { CATEGORIES, SUBJECTS, productPrice, type CategoryKey } from "@/data/products";
+import { CATEGORIES, productPrice, type CategoryKey } from "@/data/products";
 import { listActiveProducts, type Product } from "@/services/productService";
 import { cn } from "@/lib/utils";
 
@@ -174,49 +174,29 @@ const Shop = () => {
         <h3 className="text-xs uppercase tracking-wider text-foreground/50 font-semibold mb-3">
           Rating
         </h3>
-        <div className="flex flex-col gap-1">
-          {[0, 4, 4.5, 4.8].map((r) => (
-            <button
-              key={r}
-              onClick={() => setMinRating(r)}
-              className={cn(
-                "flex items-center gap-2 text-sm rounded-md px-2.5 py-1.5 transition-colors",
-                minRating === r
-                  ? "bg-hero text-hero-foreground"
-                  : "text-foreground/75 hover:bg-hero/60",
-              )}
-            >
-              <Star
-                className={cn(
-                  "h-3.5 w-3.5",
-                  r > 0 ? "fill-brand text-brand" : "text-foreground/40",
-                )}
-              />
-              {r === 0 ? "All ratings" : `${r}+ stars`}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div>
-        <h3 className="text-xs uppercase tracking-wider text-foreground/50 font-semibold mb-3">
-          Subjects
-        </h3>
-        <div className="flex flex-wrap gap-1.5">
-          {SUBJECTS.map((s) => (
-            <Link
-              key={s}
-              to={`/shop?category=books&subject=${encodeURIComponent(s)}`}
-              className={cn(
-                "text-xs rounded-full border px-3 py-1.5 transition-colors",
-                subject === s
-                  ? "bg-brand text-brand-foreground border-brand"
-                  : "border-border text-foreground/70 hover:border-brand hover:text-brand",
-              )}
-            >
-              {s}
-            </Link>
-          ))}
+        <div className="rounded-md border border-border bg-background p-3">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-sm text-foreground/70">Minimum rating</span>
+            <input
+              type="number"
+              min={0}
+              max={5}
+              step={0.1}
+              value={minRating}
+              onChange={(event) => setMinRating(Math.max(0, Math.min(5, Number(event.target.value) || 0)))}
+              className="h-8 w-20 rounded-md border border-border bg-background px-2 text-right text-sm outline-none transition-colors focus:border-brand"
+            />
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={5}
+            step={0.1}
+            value={minRating}
+            onChange={(event) => setMinRating(Number(event.target.value))}
+            className="mt-3 w-full accent-brand"
+          />
+          <p className="mt-1.5 text-xs text-foreground/55">{minRating === 0 ? "Showing all ratings" : `${minRating.toFixed(1)} stars and up`}</p>
         </div>
       </div>
 

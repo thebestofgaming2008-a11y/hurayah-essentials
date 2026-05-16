@@ -1,7 +1,15 @@
 export const FREE_SHIPPING_THRESHOLD_INR = 999;
 export const STANDARD_SHIPPING_INR = 79;
+const DEFAULT_PRODUCT_WEIGHT_G = 350;
 
-export function calculateShippingInr(subtotal: number): number {
+export function calculateShippingInr(subtotal: number, lines: Array<{ qty: number; weightG?: number | null }> = []): number {
   if (!Number.isFinite(subtotal) || subtotal <= 0) return 0;
-  return subtotal >= FREE_SHIPPING_THRESHOLD_INR ? 0 : STANDARD_SHIPPING_INR;
+  if (subtotal >= FREE_SHIPPING_THRESHOLD_INR) return 0;
+  const totalWeight = lines.reduce((sum, line) => {
+    const qty = Math.max(1, Math.floor(line.qty || 1));
+    const weight = Number.isFinite(line.weightG ?? NaN) && (line.weightG ?? 0) > 0 ? Number(line.weightG) : DEFAULT_PRODUCT_WEIGHT_G;
+    return sum + weight * qty;
+  }, 0);
+  if (totalWeight <= 500) return STANDARD_SHIPPING_INR;
+  return STANDARD_SHIPPING_INR + Math.ceil((totalWeight - 500) / 500) * 45;
 }

@@ -14,6 +14,13 @@ const productInput = {
   isbn: v.optional(v.union(v.string(), v.null())),
   binding: v.optional(v.union(v.string(), v.null())),
   edition: v.optional(v.union(v.string(), v.null())),
+  weight_g: v.optional(v.union(v.number(), v.null())),
+  length_cm: v.optional(v.union(v.number(), v.null())),
+  width_cm: v.optional(v.union(v.number(), v.null())),
+  height_cm: v.optional(v.union(v.number(), v.null())),
+  shipping_class: v.optional(v.union(v.string(), v.null())),
+  weight_source_url: v.optional(v.union(v.string(), v.null())),
+  weight_confidence: v.optional(v.union(v.string(), v.null())),
   price: v.optional(v.number()),
   price_inr: v.number(),
   sale_price: v.optional(v.union(v.number(), v.null())),
@@ -50,6 +57,13 @@ const productPatch = {
   isbn: v.optional(v.union(v.string(), v.null())),
   binding: v.optional(v.union(v.string(), v.null())),
   edition: v.optional(v.union(v.string(), v.null())),
+  weight_g: v.optional(v.union(v.number(), v.null())),
+  length_cm: v.optional(v.union(v.number(), v.null())),
+  width_cm: v.optional(v.union(v.number(), v.null())),
+  height_cm: v.optional(v.union(v.number(), v.null())),
+  shipping_class: v.optional(v.union(v.string(), v.null())),
+  weight_source_url: v.optional(v.union(v.string(), v.null())),
+  weight_confidence: v.optional(v.union(v.string(), v.null())),
   price: v.optional(v.number()),
   price_inr: v.optional(v.number()),
   sale_price: v.optional(v.union(v.number(), v.null())),
@@ -142,6 +156,9 @@ function normalize(input: any, isPatch = false, existingPrice?: number) {
     ["isbn", 40],
     ["binding", 80],
     ["edition", 80],
+    ["shipping_class", 80],
+    ["weight_source_url", 500],
+    ["weight_confidence", 40],
     ["sku", 80],
     ["category", 80],
     ["category_id", 80],
@@ -150,6 +167,13 @@ function normalize(input: any, isPatch = false, existingPrice?: number) {
   ];
   for (const [field, max] of stringFields) {
     if (input[field] !== undefined || !isPatch) output[field] = cleanNullable(input[field], max);
+  }
+  for (const field of ["weight_g", "length_cm", "width_cm", "height_cm"]) {
+    if (input[field] !== undefined || !isPatch) {
+      const value = input[field] == null || input[field] === "" ? null : Number(input[field]);
+      if (value != null && (!Number.isFinite(value) || value < 0)) throw new Error(`${field} must be a positive number.`);
+      output[field] = value;
+    }
   }
   if (input.cover_image_url !== undefined || !isPatch) output.cover_image_url = cleanUrl(input.cover_image_url);
   if (input.tags !== undefined || !isPatch) {

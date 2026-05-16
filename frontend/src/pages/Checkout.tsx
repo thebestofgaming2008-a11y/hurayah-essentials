@@ -50,7 +50,7 @@ const Checkout = () => {
     postalCode: "",
     country: "India",
   });
-  const shipping = calculateShippingInr(cartSubtotal);
+  const shipping = calculateShippingInr(cartSubtotal, cartLines);
   const total = cartSubtotal + shipping;
 
   const steps = useMemo(() => [
@@ -169,9 +169,14 @@ const Checkout = () => {
           <div className="vibe-card mb-4 px-4 py-3 md:mb-6 md:px-5 md:py-4">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <button type="button" onClick={openCart} data-testid="checkout-back-to-cart-link" className="mb-2 inline-flex items-center gap-1.5 text-[12px] text-[rgb(var(--vibe-muted))] transition-colors hover:text-[rgb(var(--vibe-foreground))]">
-                Review cart
-              </button>
+              <div className="mb-2 flex flex-wrap items-center gap-3">
+                <button type="button" onClick={() => navigate(-1)} data-testid="checkout-go-back-button" className="inline-flex items-center gap-1.5 text-[12px] text-[rgb(var(--vibe-muted))] transition-colors hover:text-[rgb(var(--vibe-foreground))]">
+                  ← Back
+                </button>
+                <button type="button" onClick={openCart} data-testid="checkout-back-to-cart-link" className="inline-flex items-center gap-1.5 text-[12px] text-[rgb(var(--vibe-muted))] transition-colors hover:text-[rgb(var(--vibe-foreground))]">
+                  Review cart
+                </button>
+              </div>
               <h1 className="text-[20px] font-semibold tracking-tight md:text-[24px]">Checkout</h1>
               <p className="mt-1 text-[12px] text-[rgb(var(--vibe-muted))]">Guest checkout. Customers can track orders with order number and email.</p>
             </div>

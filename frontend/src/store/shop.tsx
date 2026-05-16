@@ -8,6 +8,8 @@ export interface CartProductInput {
   priceInr?: number | null;
   image?: string | null;
   slug?: string | null;
+  weightG?: number | null;
+  shippingClass?: string | null;
 }
 
 export interface CartLine {
@@ -18,6 +20,8 @@ export interface CartLine {
   priceInr: number | null;
   image: string | null;
   slug: string | null;
+  weightG: number | null;
+  shippingClass: string | null;
 }
 
 interface ShopState {
@@ -83,6 +87,8 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
           priceInr: product.priceInr ?? null,
           image: product.image ?? null,
           slug: product.slug ?? null,
+          weightG: product.weightG ?? null,
+          shippingClass: product.shippingClass ?? null,
         },
       ];
     });

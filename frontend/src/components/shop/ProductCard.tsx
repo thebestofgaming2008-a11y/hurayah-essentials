@@ -32,6 +32,8 @@ export function ProductCard({ product, className }: Props) {
       priceInr: product.price_inr,
       image,
       slug: product.slug ?? undefined,
+      weightG: product.weight_g,
+      shippingClass: product.shipping_class,
     });
   };
 

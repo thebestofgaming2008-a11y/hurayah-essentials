@@ -23,6 +23,7 @@ type CurrencyContextValue = {
 
 const CurrencyContext = createContext<CurrencyContextValue | null>(null);
 const STORAGE_KEY = "he_currency_v1";
+const MANUAL_KEY = "he_currency_manual_v1";
 const RATES_CACHE_KEY = "he_currency_rates_v2";
 const CACHE_TTL_MS = 1000 * 60 * 60 * 6; // 6h
 
@@ -40,6 +41,11 @@ function symbolFor(currency: string) {
 }
 
 async function fetchExchangeRates(): Promise<RatesResponse> {
+  const appRates = await fetch("/api/rates", { headers: { accept: "application/json" } }).catch(() => null);
+  if (appRates?.ok) {
+    const data = await appRates.json();
+    if (data?.rates) return data as RatesResponse;
+  }
   const apiKey = import.meta.env.VITE_EXCHANGE_RATE_API_KEY;
   if (!apiKey) {
     console.warn("VITE_EXCHANGE_RATE_API_KEY missing; using fallback rates");
@@ -123,6 +129,25 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (localStorage.getItem(STORAGE_KEY) || localStorage.getItem(MANUAL_KEY)) return;
+    let cancelled = false;
+    fetch("/api/geo", { headers: { accept: "application/json" } })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        const detected = typeof data?.currency === "string" ? data.currency : null;
+        if (!cancelled && detected && PREFERRED_CURRENCIES.includes(detected)) {
+          setCurrencyState(detected);
+          localStorage.setItem(STORAGE_KEY, detected);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const currencies = useMemo(() => {
     const available = Object.keys(rates.rates ?? {});
     return PREFERRED_CURRENCIES.filter((c) => available.includes(c));
@@ -130,7 +155,10 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
 
   const setCurrency = useCallback((next: string) => {
     setCurrencyState(next);
-    if (typeof window !== "undefined") localStorage.setItem(STORAGE_KEY, next);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(STORAGE_KEY, next);
+      localStorage.setItem(MANUAL_KEY, "1");
+    }
   }, []);
 
   const convertFromInr = useCallback(

@@ -99,6 +99,13 @@ type ProductFormState = {
   publisher: string;
   language: string;
   binding: string;
+  weight_g: string;
+  length_cm: string;
+  width_cm: string;
+  height_cm: string;
+  shipping_class: string;
+  weight_source_url: string;
+  weight_confidence: string;
   price_inr: string;
   sale_price_inr: string;
   sku: string;
@@ -480,6 +487,14 @@ export default function Admin() {
     }
     const currentProduct = productEditor && productEditor !== "new" ? productEditor : null;
     const variantGroup = slugifyAdmin(form.variant_group);
+    if (variantGroup) {
+      try {
+        const savedGroups = JSON.parse(window.localStorage.getItem("he_variant_groups_v1") || "[]") as string[];
+        window.localStorage.setItem("he_variant_groups_v1", JSON.stringify(Array.from(new Set([...savedGroups, variantGroup])).sort()));
+      } catch {
+        window.localStorage.setItem("he_variant_groups_v1", JSON.stringify([variantGroup]));
+      }
+    }
     const oldGroup = currentProduct ? variantGroupFromTags(currentProduct.tags) : "";
     const rawTags = form.tags.split(",").map((tag) => tag.trim()).filter(Boolean).filter((tag) => !tag.startsWith("vg:"));
     const variantPeers = variantGroup
@@ -494,6 +509,13 @@ export default function Admin() {
       publisher: form.publisher.trim() || null,
       language: form.language.trim() || null,
       binding: form.binding.trim() || null,
+      weight_g: form.weight_g ? Number(form.weight_g) : null,
+      length_cm: form.length_cm ? Number(form.length_cm) : null,
+      width_cm: form.width_cm ? Number(form.width_cm) : null,
+      height_cm: form.height_cm ? Number(form.height_cm) : null,
+      shipping_class: form.shipping_class.trim() || null,
+      weight_source_url: form.weight_source_url.trim() || null,
+      weight_confidence: form.weight_confidence.trim() || null,
       price_inr: Number(form.price_inr) || 0,
       sale_price_inr: Number(form.sale_price_inr) > 0 ? Number(form.sale_price_inr) : null,
       sku: form.sku.trim() || null,
@@ -1283,6 +1305,13 @@ function productToForm(product: Product | null): ProductFormState {
     publisher: product?.publisher ?? "",
     language: product?.language ?? "",
     binding: product?.binding ?? "",
+    weight_g: String(product?.weight_g ?? ""),
+    length_cm: String(product?.length_cm ?? ""),
+    width_cm: String(product?.width_cm ?? ""),
+    height_cm: String(product?.height_cm ?? ""),
+    shipping_class: product?.shipping_class ?? "",
+    weight_source_url: product?.weight_source_url ?? "",
+    weight_confidence: product?.weight_confidence ?? "",
     price_inr: String(product?.price_inr ?? product?.price ?? ""),
     sale_price_inr: String(product?.sale_price_inr ?? product?.sale_price ?? ""),
     sku: product?.sku ?? "",
@@ -1317,7 +1346,14 @@ function ProductEditorDialog({
   const [uploading, setUploading] = useState(false);
   const galleryImages = form.images.split("\n").map((image) => image.trim()).filter(Boolean);
   const gallery = Array.from(new Set([form.cover_image_url, ...galleryImages].map((image) => image.trim()).filter(Boolean)));
-  const variantGroups = Array.from(new Set(products.map((item) => variantGroupFromTags(item.tags)).filter(Boolean))).sort();
+  const savedVariantGroups = (() => {
+    try {
+      return JSON.parse(window.localStorage.getItem("he_variant_groups_v1") || "[]") as string[];
+    } catch {
+      return [];
+    }
+  })();
+  const variantGroups = Array.from(new Set([...savedVariantGroups, form.variant_group, ...products.map((item) => variantGroupFromTags(item.tags))].filter(Boolean))).sort();
   const selectedVariantProducts = form.variant_group
     ? products.filter((item) => item.id !== product?.id && variantGroupFromTags(item.tags) === slugifyAdmin(form.variant_group))
     : [];
@@ -1451,12 +1487,42 @@ function ProductEditorDialog({
               <ProductInputField label="Language" value={form.language} onChange={(value) => setField("language", value)} />
               <ProductInputField label="Binding" value={form.binding} onChange={(value) => setField("binding", value)} />
             </div>
+            <div className="grid gap-3 rounded-lg border border-[rgb(var(--vibe-border))] p-3 sm:grid-cols-4">
+              <div className="sm:col-span-4">
+                <p className="text-[12px] font-medium text-[rgb(var(--vibe-foreground))]">Shipping weight</p>
+                <p className="mt-0.5 text-[11px] text-[rgb(var(--vibe-muted))]">Use researched product data first; mark confidence so low-confidence rows can be reviewed before launch.</p>
+              </div>
+              <ProductInputField label="Weight (g)" type="number" value={form.weight_g} onChange={(value) => setField("weight_g", value)} />
+              <ProductInputField label="Length (cm)" type="number" value={form.length_cm} onChange={(value) => setField("length_cm", value)} />
+              <ProductInputField label="Width (cm)" type="number" value={form.width_cm} onChange={(value) => setField("width_cm", value)} />
+              <ProductInputField label="Height (cm)" type="number" value={form.height_cm} onChange={(value) => setField("height_cm", value)} />
+              <ProductInputField label="Shipping class" value={form.shipping_class} onChange={(value) => setField("shipping_class", value)} placeholder="book, kufi, clothing..." />
+              <label className="space-y-1 text-[11px] font-medium text-[rgb(var(--vibe-muted))]">
+                <span>Confidence</span>
+                <select value={form.weight_confidence} onChange={(event) => setField("weight_confidence", event.target.value)} className="h-9 w-full rounded-md border border-[rgb(var(--vibe-border))] bg-white px-3 text-[13px] text-[rgb(var(--vibe-foreground))] outline-none focus:ring-1 focus:ring-zinc-500">
+                  <option value="">Unreviewed</option>
+                  <option value="source">Source verified</option>
+                  <option value="measured">Measured manually</option>
+                  <option value="estimated">Estimated fallback</option>
+                </select>
+              </label>
+              <ProductInputField label="Weight source URL" value={form.weight_source_url} onChange={(value) => setField("weight_source_url", value)} className="sm:col-span-2" />
+            </div>
             <div className="grid gap-3 rounded-lg border border-[rgb(var(--vibe-border))] p-3 sm:grid-cols-2">
               <ProductInputField label="Variant group" value={form.variant_group} onChange={(value) => setField("variant_group", slugifyAdmin(value))} placeholder="kufi-prayer-cap" list="variant-groups" />
               <ProductInputField label="Variant label" value={form.variant_label} onChange={(value) => setField("variant_label", value)} placeholder="Brown, Large, Urdu..." />
               <datalist id="variant-groups">
                 {variantGroups.map((group) => <option key={group} value={group} />)}
               </datalist>
+              {variantGroups.length > 0 && (
+                <div className="sm:col-span-2 flex flex-wrap gap-2">
+                  {variantGroups.map((group) => (
+                    <button key={group} type="button" onClick={() => setField("variant_group", group)} className={cn("rounded-full border px-3 py-1 text-[11px] transition-all duration-200 hover:border-zinc-500", form.variant_group === group ? "border-zinc-900 bg-zinc-900 text-white" : "border-[rgb(var(--vibe-border))] text-[rgb(var(--vibe-muted))]")}>
+                      {group}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="sm:col-span-2">
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-[11px] text-[rgb(var(--vibe-muted))]">
@@ -1504,6 +1570,7 @@ function ProductInputField({
   required,
   placeholder,
   list,
+  className,
 }: {
   label: string;
   value: string;
@@ -1512,9 +1579,10 @@ function ProductInputField({
   required?: boolean;
   placeholder?: string;
   list?: string;
+  className?: string;
 }) {
   return (
-    <label className="block">
+    <label className={cn("block", className)}>
       <span className="mb-1.5 block text-[11px] text-[rgb(var(--vibe-muted))]">{label}</span>
       <input type={type} value={value} required={required} placeholder={placeholder} list={list} onChange={(event) => onChange(event.target.value)} className="h-9 w-full rounded-md border border-[rgb(var(--vibe-border))] bg-white px-3 text-[13px] outline-none focus:ring-1 focus:ring-zinc-500" />
     </label>

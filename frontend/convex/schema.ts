@@ -52,6 +52,13 @@ export default defineSchema({
     isbn: optionalString,
     binding: optionalString,
     edition: optionalString,
+    weight_g: optionalNumber,
+    length_cm: optionalNumber,
+    width_cm: optionalNumber,
+    height_cm: optionalNumber,
+    shipping_class: optionalString,
+    weight_source_url: optionalString,
+    weight_confidence: optionalString,
     price: v.number(),
     price_inr: v.number(),
     sale_price: optionalNumber,
@@ -109,6 +116,7 @@ export default defineSchema({
     updated_at: optionalString,
   })
     .index("by_user_id", ["user_id"])
+    .index("by_customer_email", ["customer_email"])
     .index("by_order_number", ["order_number"])
     .index("by_created_at", ["created_at"]),
   order_items: defineTable({

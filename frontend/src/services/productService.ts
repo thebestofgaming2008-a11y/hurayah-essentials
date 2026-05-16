@@ -139,6 +139,13 @@ export interface Product {
   isbn: string | null;
   binding: string | null;
   edition: string | null;
+  weight_g: number | null;
+  length_cm: number | null;
+  width_cm: number | null;
+  height_cm: number | null;
+  shipping_class: string | null;
+  weight_source_url: string | null;
+  weight_confidence: string | null;
   price: number;
   price_inr: number;
   sale_price: number | null;

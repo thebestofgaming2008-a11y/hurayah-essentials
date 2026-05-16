@@ -79,7 +79,7 @@ export function CartDrawer() {
   const { format, currency } = useCurrency();
   const navigate = useNavigate();
   const [recommendations, setRecommendations] = useState<Product[]>([]);
-  const shipping = calculateShippingInr(cartSubtotal);
+  const shipping = calculateShippingInr(cartSubtotal, cartLines);
   const total = cartSubtotal + shipping;
 
   useEffect(() => {
@@ -184,7 +184,7 @@ export function CartDrawer() {
                         <div className="mt-2 grid grid-cols-2 gap-1">
                           <button
                             type="button"
-                            onClick={() => addToCart({ id: product.id, name: product.name, price, priceInr: product.price_inr, image, slug: product.slug ?? undefined })}
+                            onClick={() => addToCart({ id: product.id, name: product.name, price, priceInr: product.price_inr, image, slug: product.slug ?? undefined, weightG: product.weight_g, shippingClass: product.shipping_class })}
                             className="h-7 rounded-md bg-[rgb(var(--vibe-foreground))] px-1 text-[10px] font-medium text-white"
                           >
                             Add
@@ -275,7 +275,7 @@ export function WishlistDrawer({ open, onClose }: { open: boolean; onClose: () =
                       <div className="mt-3 flex gap-2">
                         <button
                           type="button"
-                          onClick={() => addToCart({ id: product.id, name: product.name, price, priceInr: product.price_inr, image, slug: product.slug ?? undefined })}
+                          onClick={() => addToCart({ id: product.id, name: product.name, price, priceInr: product.price_inr, image, slug: product.slug ?? undefined, weightG: product.weight_g, shippingClass: product.shipping_class })}
                           className="h-8 flex-1 rounded-md bg-[rgb(var(--vibe-foreground))] px-3 text-[11px] font-medium text-white"
                         >
                           Add to cart

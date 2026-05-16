@@ -6,7 +6,10 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ShopProvider } from "@/store/shop";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import { convex } from "@/integrations/convex/client";
+import { upsertProfile } from "@/services/accountService";
+import { useEffect, useRef } from "react";
 import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import Shop from "./pages/Shop.tsx";
@@ -17,6 +20,7 @@ import Wishlist from "./pages/Wishlist.tsx";
 import Checkout from "./pages/Checkout.tsx";
 import OrderConfirmation from "./pages/OrderConfirmation.tsx";
 import Login from "./pages/Login.tsx";
+import Account from "./pages/Account.tsx";
 import Admin from "./pages/Admin.tsx";
 import TrackOrder from "./pages/TrackOrder.tsx";
 import About from "./pages/About.tsx";
@@ -41,14 +45,50 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function CurrencyProfileSync() {
+  const { user, profile } = useAuth();
+  const { currency, setCurrency } = useCurrency();
+  const syncedUserRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!user?.id || syncedUserRef.current === user.id) return;
+    syncedUserRef.current = user.id;
+    if (profile?.preferred_currency && profile.preferred_currency !== currency && !localStorage.getItem("he_currency_manual_v1")) {
+      setCurrency(profile.preferred_currency);
+    }
+  }, [currency, profile?.preferred_currency, setCurrency, user?.id]);
+  useEffect(() => {
+    if (!user?.id || !currency || profile?.preferred_currency === currency) return;
+    const timer = window.setTimeout(() => {
+      void upsertProfile(user.id, user.email ?? null, { preferred_currency: currency });
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [currency, profile?.preferred_currency, user?.email, user?.id]);
+  return null;
+}
+
+function BasicAnalytics() {
+  useEffect(() => {
+    const token = import.meta.env.VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN;
+    if (!token || document.querySelector("script[data-cf-beacon]")) return;
+    const script = document.createElement("script");
+    script.defer = true;
+    script.src = "https://static.cloudflareinsights.com/beacon.min.js";
+    script.setAttribute("data-cf-beacon", JSON.stringify({ token, spa: true }));
+    document.head.appendChild(script);
+  }, []);
+  return null;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <BasicAnalytics />
         <ConvexAuthProvider client={convex}>
           <AuthProvider>
+            <CurrencyProfileSync />
             <ShopProvider>
               <Routes>
                 <Route path="/" element={<Index />} />
@@ -59,7 +99,7 @@ const App = () => (
                 <Route path="/wishlist" element={<Wishlist />} />
                 <Route path="/checkout" element={<Checkout />} />
                 <Route path="/order-confirmation" element={<OrderConfirmation />} />
-                <Route path="/account" element={<Navigate to="/track" replace />} />
+                <Route path="/account" element={<Account />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/admin" element={<RequireAdmin><Admin /></RequireAdmin>} />
                 <Route path="/track" element={<TrackOrder />} />

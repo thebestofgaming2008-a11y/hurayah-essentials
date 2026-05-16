@@ -40,6 +40,19 @@ async function recalculateProductRating(ctx: any, productId: string) {
   });
 }
 
+async function hasVerifiedPurchase(ctx: any, userId: string, email: string | null | undefined, productId: string) {
+  const byUser = await ctx.db.query("orders").withIndex("by_user_id", (q: any) => q.eq("user_id", userId)).collect();
+  const byEmail = email
+    ? await ctx.db.query("orders").withIndex("by_customer_email", (q: any) => q.eq("customer_email", email.trim().toLowerCase())).collect()
+    : [];
+  const orders = [...byUser, ...byEmail].filter((order: any) => order.payment_status === "paid" || order.payment_status === "MOCKED_PAID");
+  for (const order of orders) {
+    const items = await ctx.db.query("order_items").withIndex("by_order_id", (q: any) => q.eq("order_id", order._id)).collect();
+    if (items.some((item: any) => String(item.product_id) === productId)) return true;
+  }
+  return false;
+}
+
 function publicReview(doc: Record<string, any>) {
   const { _id, _creationTime, ...rest } = doc;
   return { id: _id, ...rest };
@@ -80,8 +93,10 @@ export const submit = mutation({
     const auth = await requireIdentity(ctx);
     const product = await ctx.db.get(args.productId as any);
     if (!product || product.is_active === false) throw new Error("Product not found.");
-    const rating = Math.max(1, Math.min(5, Math.round(args.rating)));
+    const rating = Math.max(1, Math.min(5, Math.round(args.rating * 10) / 10));
     const user = auth.user as any;
+    const verified = await hasVerifiedPurchase(ctx, auth.userId, user.email, args.productId);
+    if (!verified) throw new Error("Only verified customers can review this product.");
     const timestamp = nowIso();
     const id = await ctx.db.insert("reviews", {
       product_id: args.productId,
@@ -91,7 +106,7 @@ export const submit = mutation({
       rating,
       title: cleanNullable(args.title, 100),
       body: cleanNullable(args.body, 1600),
-      media_urls: cleanMedia(args.mediaUrls),
+      media_urls: [],
       status: "pending",
       admin_note: null,
       created_at: timestamp,
@@ -99,6 +114,16 @@ export const submit = mutation({
     });
     const doc = await ctx.db.get(id);
     return doc ? publicReview(doc) : null;
+  },
+});
+
+export const canReviewProduct = query({
+  args: { productId: v.string() },
+  handler: async (ctx, args) => {
+    const auth = await requireIdentity(ctx).catch(() => null);
+    if (!auth) return { canReview: false };
+    const user = auth.user as any;
+    return { canReview: await hasVerifiedPurchase(ctx, auth.userId, user.email, args.productId) };
   },
 });
 
