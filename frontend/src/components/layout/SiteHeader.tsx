@@ -30,12 +30,12 @@ const BADGE =
   "absolute -top-1 -right-1 h-[18px] min-w-[18px] px-1 grid place-items-center rounded-full bg-brand text-brand-foreground text-[10px] font-semibold leading-none tabular-nums shadow-sm";
 
 const CURRENCY_SYMBOLS: Record<string, string> = {
-  INR: "INR",
+  INR: "₹",
   USD: "$",
-  GBP: "GBP",
-  EUR: "EUR",
-  AED: "AED",
-  SAR: "SAR",
+  GBP: "£",
+  EUR: "€",
+  AED: "د.إ",
+  SAR: "﷼",
 };
 
 export function SiteHeader() {
@@ -132,15 +132,15 @@ export function SiteHeader() {
                   className="h-7 w-[92px] rounded-sm border-0 bg-transparent px-2 text-[11px] text-brand-foreground shadow-none transition-colors hover:bg-white/10 focus:ring-0 focus:ring-offset-0 [&>svg]:h-3 [&>svg]:w-3 [&>svg]:text-brand-foreground/70"
                 >
                   <SelectValue>
-                    <span className="inline-flex items-center gap-1.5 leading-none"><span>{CURRENCY_SYMBOLS[currency] ?? currency}</span><span>{currency}</span></span>
+                    <span className="inline-flex items-center gap-1.5 leading-none"><span>{currency}</span><span>{CURRENCY_SYMBOLS[currency] ?? currency}</span></span>
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent align="end" className="min-w-[120px]">
                   {currencies.map((c) => (
                     <SelectItem key={c} value={c} className="text-xs">
                       <span className="inline-flex items-center gap-2">
-                        <span aria-hidden className="text-[14px] leading-none">{CURRENCY_SYMBOLS[c] ?? c}</span>
                         <span className="font-semibold">{c}</span>
+                        <span aria-hidden className="text-[14px] leading-none">{CURRENCY_SYMBOLS[c] ?? c}</span>
                       </span>
                     </SelectItem>
                   ))}
@@ -319,12 +319,15 @@ export function SiteHeader() {
           data-testid="site-header-mobile-menu-overlay"
         >
           <aside
-            className="absolute left-0 top-0 h-full w-[85%] max-w-[340px] bg-background shadow-xl p-5 flex flex-col gap-1 overflow-y-auto"
+            className="absolute left-0 top-0 h-full w-[86%] max-w-[360px] border-r border-foreground/10 bg-hero shadow-2xl flex flex-col overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
             data-testid="site-header-mobile-menu-panel"
           >
-            <div className="flex items-center justify-between mb-3">
-              <span className="font-bold italic text-lg">Menu</span>
+            <div className="flex items-center justify-between border-b border-foreground/10 px-5 py-4">
+              <Link to="/" onClick={() => setMenuOpen(false)} className="inline-flex items-center gap-3">
+                <img src={logo} alt="" className="h-9 w-auto object-contain" />
+                <span className="text-[13px] font-semibold text-hero-foreground">Back to store</span>
+              </Link>
               <button
                 type="button"
                 onClick={() => setMenuOpen(false)}
@@ -337,19 +340,19 @@ export function SiteHeader() {
             </div>
 
             {user && (
-              <div className="mb-2 rounded-lg bg-hero/60 px-3 py-2.5">
+              <div className="mx-5 mt-5 rounded-md border border-foreground/10 bg-white/55 px-4 py-3">
                 <p className="text-[11px] uppercase tracking-wider text-foreground/50">Signed in as</p>
-                <p className="text-sm font-medium text-foreground truncate">{user.email}</p>
+                <p className="mt-1 truncate text-sm font-medium text-foreground">{user.email}</p>
               </div>
             )}
 
-            <nav className="flex flex-col">
+            <nav className="flex flex-col gap-1 px-3 py-5">
               {isAdmin && (
                 <Link
                   to="/admin"
                   onClick={() => setMenuOpen(false)}
                   data-testid="site-header-admin-link"
-                  className="py-3 border-b border-border text-base font-semibold text-brand hover:underline inline-flex items-center gap-2"
+                  className="rounded-md px-3 py-3 text-[14px] font-semibold text-brand hover:bg-white/55 inline-flex items-center gap-2"
                 >
                   Admin dashboard
                 </Link>
@@ -359,7 +362,7 @@ export function SiteHeader() {
                 to="/shop"
                 onClick={() => setMenuOpen(false)}
                 data-testid="site-header-mobile-shop-link"
-                className="py-3 border-b border-border text-base text-foreground hover:text-brand transition-colors"
+                className="rounded-md px-3 py-3 text-[14px] text-foreground hover:bg-white/55 hover:text-brand transition-colors"
               >
                 Shop all
               </Link>
@@ -368,7 +371,7 @@ export function SiteHeader() {
                 type="button"
                 onClick={() => goCategorySection("books")}
                 data-testid="site-header-mobile-books-button"
-                className="py-3 border-b border-border text-base text-foreground hover:text-brand transition-colors text-left w-full"
+                className="rounded-md px-3 py-3 text-[14px] text-foreground hover:bg-white/55 hover:text-brand transition-colors text-left w-full"
               >
                 Books
               </button>
@@ -377,7 +380,7 @@ export function SiteHeader() {
                 to="/?category=clothing#categories"
                 onClick={() => setMenuOpen(false)}
                 data-testid="site-header-mobile-clothing-link"
-                className="py-3 border-b border-border text-base text-foreground hover:text-brand"
+                className="rounded-md px-3 py-3 text-[14px] text-foreground hover:bg-white/55 hover:text-brand"
               >
                 Clothing
               </Link>
@@ -385,7 +388,7 @@ export function SiteHeader() {
                 to="/?category=children#categories"
                 onClick={() => setMenuOpen(false)}
                 data-testid="site-header-mobile-essentials-link"
-                className="py-3 border-b border-border text-base text-foreground hover:text-brand"
+                className="rounded-md px-3 py-3 text-[14px] text-foreground hover:bg-white/55 hover:text-brand"
               >
                 Essentials
               </Link>
@@ -393,19 +396,19 @@ export function SiteHeader() {
                 to="/contact"
                 onClick={() => setMenuOpen(false)}
                 data-testid="site-header-mobile-contact-link"
-                className="py-3 border-b border-border text-base text-foreground hover:text-brand"
+                className="rounded-md px-3 py-3 text-[14px] text-foreground hover:bg-white/55 hover:text-brand"
               >
                 Contact
               </Link>
 
-              <div className="mt-3 pt-3 border-t border-border">
+              <div className="mt-3 border-t border-foreground/10 pt-3">
                 {user ? (
                   <>
                     <Link
                       to="/track"
                       onClick={() => setMenuOpen(false)}
                       data-testid="site-header-mobile-account-link"
-                      className="py-3 block text-base text-foreground hover:text-brand"
+                      className="block rounded-md px-3 py-3 text-[14px] text-foreground hover:bg-white/55 hover:text-brand"
                     >
                       Track order
                     </Link>
@@ -413,7 +416,7 @@ export function SiteHeader() {
                       to="/wishlist"
                       onClick={() => setMenuOpen(false)}
                       data-testid="site-header-mobile-wishlist-link"
-                      className="py-3 block text-base text-foreground hover:text-brand"
+                      className="block rounded-md px-3 py-3 text-[14px] text-foreground hover:bg-white/55 hover:text-brand"
                     >
                       Wishlist
                     </Link>
@@ -421,7 +424,7 @@ export function SiteHeader() {
                       type="button"
                       onClick={handleSignOut}
                       data-testid="site-header-sign-out-button"
-                      className="py-3 inline-flex items-center gap-2 text-base text-foreground/70 hover:text-brand transition-colors"
+                      className="inline-flex w-full items-center gap-2 rounded-md px-3 py-3 text-[14px] text-red-600 hover:bg-white/55 transition-colors"
                     >
                       <LogOut className="h-4 w-4" />
                       Sign out
@@ -433,7 +436,7 @@ export function SiteHeader() {
                       to="/track"
                       onClick={() => setMenuOpen(false)}
                       data-testid="site-header-mobile-login-link"
-                      className="py-3 block text-base font-semibold text-brand hover:underline"
+                      className="block rounded-md px-3 py-3 text-[14px] font-semibold text-brand hover:bg-white/55"
                     >
                       Track order
                     </Link>
@@ -441,7 +444,7 @@ export function SiteHeader() {
                       to="/wishlist"
                       onClick={() => setMenuOpen(false)}
                       data-testid="site-header-mobile-anonymous-wishlist-link"
-                      className="py-3 block text-base text-foreground hover:text-brand"
+                      className="block rounded-md px-3 py-3 text-[14px] text-foreground hover:bg-white/55 hover:text-brand"
                     >
                       Wishlist
                     </Link>
