@@ -30,7 +30,35 @@ export async function requireAdmin(ctx: GenericQueryCtx<DataModel> | GenericMuta
 
 export function publicProduct(doc: Record<string, any>) {
   const { _id, _creationTime, ...rest } = doc;
-  return { id: _id, ...rest };
+  return { id: _id, ...normalizeBookCategory(rest) };
+}
+
+const BOOK_SUBJECTS = new Set(["aqeedah", "arabic", "fiqh", "hadith", "purification", "seerah", "tafsir", "urdu"]);
+const BOOK_SUBJECT_LABELS: Record<string, string> = {
+  aqeedah: "Aqeedah",
+  arabic: "Arabic",
+  fiqh: "Fiqh",
+  hadith: "Hadith",
+  purification: "Purification",
+  seerah: "Seerah",
+  tafsir: "Tafsir",
+  urdu: "Urdu",
+};
+
+function normalizeBookCategory(product: Record<string, any>) {
+  const category = String(product.category ?? "").toLowerCase();
+  const categoryId = String(product.category_id ?? "").toLowerCase();
+  const subject = BOOK_SUBJECTS.has(category) ? category : BOOK_SUBJECTS.has(categoryId) ? categoryId : "";
+  const looksLikeBook = Boolean(product.author || product.publisher || product.isbn || product.pages || product.binding);
+  if (!subject && !(category === "books" || looksLikeBook)) return product;
+  const tags = Array.isArray(product.tags) ? product.tags : [];
+  const subjectLabel = subject ? BOOK_SUBJECT_LABELS[subject] : null;
+  return {
+    ...product,
+    category: "books",
+    category_id: subject || product.category_id || "books",
+    tags: subjectLabel ? Array.from(new Set([...tags, subjectLabel])) : tags,
+  };
 }
 
 export function publicProfile(doc: Record<string, any>) {

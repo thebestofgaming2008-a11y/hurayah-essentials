@@ -118,6 +118,10 @@ All colors MUST be HSL.
     font-family: 'Philosopher', 'Georgia', serif;
   }
 
+  html {
+    scroll-behavior: smooth;
+  }
+
   button,
   a,
   input,

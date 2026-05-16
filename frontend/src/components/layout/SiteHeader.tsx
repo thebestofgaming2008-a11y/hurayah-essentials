@@ -203,7 +203,7 @@ export function SiteHeader() {
                       <Link to="/account" className="flex items-center gap-3"><User className="h-4 w-4" /> My Account</Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild className="cursor-pointer px-4 py-2.5">
-                      <Link to="/track" className="flex items-center gap-3"><Package className="h-4 w-4" /> My Orders</Link>
+                      <Link to="/track" className="flex items-center gap-3"><Package className="h-4 w-4" /> Track Order</Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild className="cursor-pointer px-4 py-2.5">
                       <Link to="/wishlist" className="flex items-center gap-3"><Heart className="h-4 w-4" /> Wishlist</Link>

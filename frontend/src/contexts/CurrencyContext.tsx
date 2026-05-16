@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+﻿import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 type RatesResponse = {
   base: string;
@@ -176,9 +176,9 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
   const format = useCallback(
     (amountInr: number | null | undefined) => {
       const converted = convertFromInr(amountInr);
-      if (converted == null) return "—";
+      if (converted == null) return "-";
       if (currency === "INR") return `₹${Math.round(converted).toLocaleString("en-IN")}`;
-      return `≈ ${symbolFor(currency)}${converted.toLocaleString("en-US", {
+      return `${symbolFor(currency)}${converted.toLocaleString("en-US", {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
       })}`;

@@ -500,6 +500,10 @@ export default function Admin() {
     const variantPeers = variantGroup
       ? products.filter((product) => product.id !== currentProduct?.id && variantGroupFromTags(product.tags) === variantGroup)
       : [];
+    const selectedCategory = form.category.trim() || "books";
+    const selectedMeta = CATEGORIES.find((category) => category.key === selectedCategory);
+    const topCategory = selectedMeta?.parent || selectedCategory;
+    const subjectTag = selectedMeta?.parent === "books" ? selectedMeta.label : null;
     const payload = {
       name: form.name.trim(),
       slug: form.slug.trim() || null,
@@ -520,8 +524,8 @@ export default function Admin() {
       sale_price_inr: Number(form.sale_price_inr) > 0 ? Number(form.sale_price_inr) : null,
       sku: form.sku.trim() || null,
       stock_quantity: Number(form.stock_quantity) || 0,
-      category: form.category.trim() || "books",
-      category_id: form.category.trim() || "books",
+      category: topCategory,
+      category_id: selectedCategory,
       cover_image_url: form.cover_image_url.trim() || null,
       images: form.images.split("\n").map((image) => image.trim()).filter(Boolean),
       linked_product_ids: variantPeers.map((product) => product.id),
@@ -532,7 +536,7 @@ export default function Admin() {
       is_bestseller: form.is_bestseller,
       is_new_arrival: form.is_new_arrival,
       is_on_sale: Number(form.sale_price_inr) > 0,
-      tags: Array.from(new Set([...rawTags, ...(variantGroup ? [`vg:${variantGroup}`] : [])])),
+      tags: Array.from(new Set([...rawTags, ...(subjectTag ? [subjectTag] : []), ...(variantGroup ? [`vg:${variantGroup}`] : [])])),
     };
     try {
       let savedProduct: Product;

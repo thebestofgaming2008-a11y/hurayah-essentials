@@ -239,6 +239,10 @@ export const getProductBySlug = query({
 export const listByCategory = query({
   args: { category: v.string() },
   handler: async (ctx, args) => {
+    if (args.category === "books") {
+      const rows = await ctx.db.query("products").collect();
+      return rows.map(publicProduct).filter((p: any) => p.is_active !== false && p.category === "books");
+    }
     const rows = await ctx.db
       .query("products")
       .withIndex("by_category", (q) => q.eq("category", args.category))

@@ -29,7 +29,7 @@ const Wishlist = () => {
   }, [wishlist]);
 
   return (
-    <SiteLayout hideHeader compactFooter>
+    <SiteLayout compactFooter>
       <div className="vibe-admin mx-auto max-w-[1440px] px-4 py-8 md:px-8 md:py-12">
         <div className="vibe-card mb-6 flex flex-col gap-4 p-4 sm:flex-row sm:items-end sm:justify-between md:mb-8 md:p-5">
           <div>

@@ -46,13 +46,13 @@ export function SiteFooter({ compact = false }: { compact?: boolean }) {
               Seeking knowledge, made affordable. Authentic books, clothing and essentials shipped worldwide.
             </p>
             <a
-              href="https://instagram.com/hurayrahessentials"
+              href="https://instagram.com/hurayrah_essentials"
               target="_blank"
               rel="noopener noreferrer"
               className="mt-4 inline-flex items-center gap-2 text-sm text-foreground/70 transition-colors hover:text-brand"
             >
               <Instagram className="h-4 w-4" />
-              @hurayrahessentials
+              @hurayrah_essentials
             </a>
           </div>
           {COLS.map((col) => (

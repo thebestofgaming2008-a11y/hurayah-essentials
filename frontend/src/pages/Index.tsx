@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
   Truck,
@@ -26,7 +26,7 @@ const GUARANTEES = ["Authentic titles", "Worldwide shipping", "Secure checkout"]
 
 const SUBJECTS = [
   { name: "Aqeedah", desc: "Creed & belief", Icon: Shield },
-  { name: "Seerah", desc: "The Prophet's life ﷺ", Icon: Scroll },
+  { name: "Seerah", desc: "The Prophet's life ï·º", Icon: Scroll },
   { name: "Tafsir", desc: "Qur'anic exegesis", Icon: BookOpen },
   { name: "Hadith", desc: "Prophetic traditions", Icon: Quote },
   { name: "Fiqh", desc: "Islamic jurisprudence", Icon: Scale },
@@ -43,9 +43,9 @@ const VALUE_PROPS = [
 ];
 
 const TESTIMONIALS = [
-  { quote: "Beautifully curated collection. The books arrived in perfect condition.", name: "Amina S." },
-  { quote: "Authentic titles at honest prices — my go-to for building my library.", name: "Yusuf R." },
-  { quote: "Modest, comfortable and well-priced — exactly what I was looking for.", name: "Khadija M." },
+  { quote: "I'm truly delighted to receive my books, honey and saffron along with free miswak. The packaging was so secure and well done. Everything arrived perfectly intact. JazakAllahu khayran!", name: "Customer" },
+  { quote: "Your book Mukhtasar al-'Uluww is truly amazing - the print, the quality, the content... everything is so pleasing to the eyes and a coolness to the heart especially since it speaks about our Rabb.", name: "Customer" },
+  { quote: "The delivery was extremely quick they came in less than 2 weeks and they arrived in good condition. The books are in extremely good condition as they are brand new. My only regret is not getting more sub'han'Allah.", name: "Customer" },
 ];
 
 const TAB_KEYS: CategoryKey[] = ["books", "clothing", "children"];
@@ -72,7 +72,7 @@ const Index = () => {
     const requested = new URLSearchParams(location.search).get("category") as CategoryKey | null;
     if (requested && TAB_KEYS.includes(requested)) setActiveCat(requested);
     if (location.hash === "#categories") {
-      window.setTimeout(() => document.getElementById("categories")?.scrollIntoView({ block: "start" }), 0);
+      window.setTimeout(() => document.getElementById("categories")?.scrollIntoView({ block: "start", behavior: "smooth" }), 0);
     }
   }, [location.hash, location.search]);
 
@@ -187,7 +187,7 @@ const Index = () => {
             </div>
           ) : featuredView.length === 0 ? (
             <p className="text-sm text-foreground/60">
-              No products yet — your shop is ready for its first listing.
+              No products yet â€” your shop is ready for its first listing.
             </p>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
@@ -298,7 +298,7 @@ const Index = () => {
                 Choose your subject
               </h2>
               <p className="mt-3 text-foreground/60 text-sm md:text-base">
-                Start where your heart is drawn — explore titles by field of study.
+                Start where your heart is drawn â€” explore titles by field of study.
               </p>
             </div>
             <Link
@@ -389,7 +389,7 @@ const Index = () => {
               More reviews shared by customers on our Instagram stories.
             </p>
             <a
-              href="https://instagram.com/hurayrahessentials"
+              href="https://www.instagram.com/stories/highlights/18086224496025327/"
               target="_blank"
               rel="noopener noreferrer"
               className="group inline-flex items-center gap-2.5 rounded-full bg-brand text-brand-foreground px-6 md:px-7 py-3 md:py-3.5 font-semibold text-sm md:text-base shadow-md hover:shadow-xl transition-all"
