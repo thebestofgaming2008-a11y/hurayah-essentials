@@ -11,6 +11,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  Home,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -884,8 +885,12 @@ export default function Admin() {
                 disabled={!["orders", "products"].includes(section)}
               />
             </div>
-            <Link to="/" className="grid h-8 w-8 place-items-center rounded-md bg-[rgb(var(--vibe-surface))] text-[11px] font-medium">
-              JD
+            <Link
+              to="/"
+              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[rgb(var(--vibe-border))] bg-white px-2.5 text-[12px] font-medium text-[rgb(var(--vibe-muted))] hover:bg-[rgb(var(--vibe-accent))] hover:text-[rgb(var(--vibe-foreground))]"
+            >
+              <Home className="h-3.5 w-3.5" />
+              Store
             </Link>
           </div>
         </header>
