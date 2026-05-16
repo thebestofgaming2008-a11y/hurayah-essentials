@@ -1513,6 +1513,28 @@ function ProductEditorDialog({
                 <p className="mt-0.5 text-[11px] text-[rgb(var(--vibe-muted))]">Use researched product data first; mark confidence so low-confidence rows can be reviewed before launch.</p>
               </div>
               <ProductInputField label="Weight (g)" type="number" value={form.weight_g} onChange={(value) => setField("weight_g", value)} />
+              <div className="sm:col-span-3">
+                <p className="mb-1 text-[11px] font-medium text-[rgb(var(--vibe-muted))]">Quick weight presets</p>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { label: "Small item", value: "350" },
+                    { label: "Up to 500g", value: "500" },
+                    { label: "Around 1kg", value: "1000" },
+                  ].map((preset) => (
+                    <button
+                      key={preset.value}
+                      type="button"
+                      onClick={() => {
+                        setField("weight_g", preset.value);
+                        if (!form.weight_confidence) setField("weight_confidence", "estimated");
+                      }}
+                      className={cn("h-8 rounded-md border px-3 text-[11px] transition-colors", form.weight_g === preset.value ? "border-zinc-900 bg-zinc-900 text-white" : "border-[rgb(var(--vibe-border))] bg-white hover:bg-[rgb(var(--vibe-accent))]")}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <ProductInputField label="Length (cm)" type="number" value={form.length_cm} onChange={(value) => setField("length_cm", value)} />
               <ProductInputField label="Width (cm)" type="number" value={form.width_cm} onChange={(value) => setField("width_cm", value)} />
               <ProductInputField label="Height (cm)" type="number" value={form.height_cm} onChange={(value) => setField("height_cm", value)} />
@@ -1531,8 +1553,8 @@ function ProductEditorDialog({
             <div className="grid gap-3 rounded-lg border border-[rgb(var(--vibe-border))] p-3 sm:grid-cols-2">
               <ProductInputField label="Variant group" value={form.variant_group} onChange={(value) => setField("variant_group", slugifyAdmin(value))} placeholder="kufi-prayer-cap" list="variant-groups" />
               <ProductInputField label="Variant label" value={form.variant_label} onChange={(value) => setField("variant_label", value)} placeholder="Brown, Large, Urdu..." />
-              <ProductTextArea label="Colour options" value={form.color_options} onChange={(value) => setField("color_options", value)} rows={3} placeholder={"Black\nWhite\nOlive"} />
-              <ProductTextArea label="Size options" value={form.size_options} onChange={(value) => setField("size_options", value)} rows={3} placeholder={"S\nM\nL\nXL"} />
+              <ProductOptionField label="Colours" value={form.color_options} onChange={(value) => setField("color_options", value)} placeholder="Black, White, Olive" suggestions={["Black", "White", "Grey", "Brown", "Olive", "Navy"]} />
+              <ProductOptionField label="Sizes" value={form.size_options} onChange={(value) => setField("size_options", value)} placeholder="S, M, L, XL" suggestions={["XS", "S", "M", "L", "XL", "XXL", "Free size"]} />
               <datalist id="variant-groups">
                 {variantGroups.map((group) => <option key={group} value={group} />)}
               </datalist>
@@ -1617,6 +1639,58 @@ function ProductTextArea({ label, value, onChange, rows, placeholder }: { label:
       <span className="mb-1.5 block text-[11px] text-[rgb(var(--vibe-muted))]">{label}</span>
       <textarea value={value} rows={rows} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} className="w-full resize-y rounded-md border border-[rgb(var(--vibe-border))] bg-white px-3 py-2 text-[13px] outline-none focus:ring-1 focus:ring-zinc-500" />
     </label>
+  );
+}
+
+function ProductOptionField({ label, value, onChange, placeholder, suggestions }: { label: string; value: string; onChange: (value: string) => void; placeholder: string; suggestions: string[] }) {
+  const [draft, setDraft] = useState("");
+  const options = splitOptionInput(value);
+  const commit = (next = draft) => {
+    const clean = next.trim();
+    if (!clean) return;
+    onChange(Array.from(new Set([...options, clean])).join("\n"));
+    setDraft("");
+  };
+  const remove = (option: string) => onChange(options.filter((item) => item !== option).join("\n"));
+  return (
+    <div className="rounded-md border border-[rgb(var(--vibe-border))] bg-white p-3">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <span className="text-[11px] font-medium text-[rgb(var(--vibe-muted))]">{label}</span>
+        {options.length > 0 && (
+          <button type="button" onClick={() => onChange("")} className="text-[10px] text-[rgb(var(--vibe-muted))] hover:text-red-600">Clear</button>
+        )}
+      </div>
+      <div className="flex gap-2">
+        <input
+          value={draft}
+          placeholder={placeholder}
+          onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === ",") {
+              event.preventDefault();
+              commit();
+            }
+          }}
+          className="h-9 min-w-0 flex-1 rounded-md border border-[rgb(var(--vibe-border))] px-3 text-[13px] outline-none focus:ring-1 focus:ring-zinc-500"
+        />
+        <button type="button" onClick={() => commit()} className="h-9 rounded-md bg-[rgb(var(--vibe-foreground))] px-3 text-[12px] text-white">Add</button>
+      </div>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {options.map((option) => (
+          <button key={option} type="button" onClick={() => remove(option)} className="rounded-full border border-zinc-300 bg-zinc-50 px-2.5 py-1 text-[11px] text-zinc-700 hover:border-red-200 hover:bg-red-50 hover:text-red-600">
+            {option} ×
+          </button>
+        ))}
+        {options.length === 0 && <span className="text-[11px] text-[rgb(var(--vibe-muted))]">No {label.toLowerCase()} yet.</span>}
+      </div>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {suggestions.filter((item) => !options.includes(item)).slice(0, 7).map((item) => (
+          <button key={item} type="button" onClick={() => commit(item)} className="rounded-full bg-[rgb(var(--vibe-surface))] px-2.5 py-1 text-[10px] text-[rgb(var(--vibe-muted))] hover:text-[rgb(var(--vibe-foreground))]">
+            + {item}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 
