@@ -75,6 +75,7 @@ import {
 import type { Product } from "@/services/productService";
 import { CATEGORIES, formatPrice } from "@/data/products";
 import { toast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 type SectionKey =
   | "dashboard"
