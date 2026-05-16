@@ -189,7 +189,7 @@ const ProductDetail = () => {
 
               {(colorOptions.length > 0 || sizeOptions.length > 0) && (
                 <div className="mt-6 grid max-w-[49rem] gap-4 sm:grid-cols-2">
-                  {colorOptions.length > 0 && <OptionGroup label="Colour" options={colorOptions} value={activeColor} onChange={setSelectedColor} type="color" />}
+                  {colorOptions.length > 0 && <OptionGroup label="Colour" options={colorOptions} value={activeColor} onChange={setSelectedColor} />}
                   {sizeOptions.length > 0 && <OptionGroup label="Size" options={sizeOptions} value={activeSize} onChange={setSelectedSize} />}
                 </div>
               )}
@@ -256,7 +256,7 @@ const ProductDetail = () => {
   );
 };
 
-function OptionGroup({ label, options, value, onChange, type = "text" }: { label: string; options: string[]; value: string; onChange: (value: string) => void; type?: "text" | "color" }) {
+function OptionGroup({ label, options, value, onChange }: { label: string; options: string[]; value: string; onChange: (value: string) => void }) {
   return (
     <div>
       <p className="mb-2 font-serif text-xl text-black/70">{label}: <span className="text-black">{value}</span></p>
@@ -271,10 +271,8 @@ function OptionGroup({ label, options, value, onChange, type = "text" }: { label
               className={cn(
                 "min-h-10 rounded-md border px-3 font-serif text-lg text-black transition-colors",
                 active ? "border-[#06133a] bg-white shadow-sm" : "border-[#06133a]/25 bg-white/45 hover:border-[#06133a]/60",
-                type === "color" && "inline-flex items-center gap-2",
               )}
             >
-              {type === "color" && <span className="h-4 w-4 rounded-full border border-black/20" style={{ backgroundColor: colorToCss(option) }} />}
               {option}
             </button>
           );
@@ -282,28 +280,6 @@ function OptionGroup({ label, options, value, onChange, type = "text" }: { label
       </div>
     </div>
   );
-}
-
-function colorToCss(value: string) {
-  const named: Record<string, string> = {
-    black: "#111111",
-    white: "#ffffff",
-    grey: "#9ca3af",
-    gray: "#9ca3af",
-    brown: "#7c4a2d",
-    beige: "#d6c3a3",
-    cream: "#f2ead3",
-    navy: "#07143b",
-    blue: "#2563eb",
-    green: "#15803d",
-    olive: "#708238",
-    red: "#dc2626",
-    maroon: "#7f1d1d",
-    pink: "#ec4899",
-    purple: "#7c3aed",
-    gold: "#d4a017",
-  };
-  return named[value.trim().toLowerCase()] ?? value;
 }
 
 function Fact({ label, value }: { label: string; value: string }) {
