@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { SiteLayout } from "@/components/layout/SiteLayout";
 import { useShop } from "@/store/shop";
 import { createRazorpayCheckoutOrder, verifyRazorpayPayment } from "@/services/orderService";
-import { calculateShippingInr, FREE_SHIPPING_THRESHOLD_INR } from "@/services/shipping";
+import { calculateShippingInr } from "@/services/shipping";
 import { toast } from "@/hooks/use-toast";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { cn } from "@/lib/utils";
@@ -230,7 +230,7 @@ const Checkout = () => {
                 <div className="rounded-lg border border-border bg-background p-4 flex items-center justify-between gap-3" data-testid="checkout-delivery-method-card">
                   <div>
                     <p className="text-sm font-semibold text-foreground">Standard tracked delivery</p>
-                    <p className="text-xs text-foreground/55 mt-0.5">Flat India rate. Free over {format(FREE_SHIPPING_THRESHOLD_INR)}. Tracking is shared by WhatsApp after dispatch.</p>
+                    <p className="text-xs text-foreground/55 mt-0.5">India rate: ₹50 up to 500g, ₹80 around 1kg. Tracking is shared by WhatsApp after dispatch.</p>
                   </div>
                   <span className="text-sm font-semibold tabular-nums">{shipping === 0 ? "Free" : format(shipping)}</span>
                 </div>
@@ -258,24 +258,29 @@ const Checkout = () => {
               </div>
               <ul className="mt-4 space-y-3 max-h-[360px] overflow-y-auto pr-1">
                 {cartLines.map((line) => (
-                  <li key={line.productId} className="rounded-lg border border-[rgb(var(--vibe-border))] bg-[rgb(var(--vibe-page))] p-2.5 text-[12px]" data-testid={`checkout-summary-item-${line.productId}`}>
+                  <li key={line.cartKey ?? line.productId} className="rounded-lg border border-[rgb(var(--vibe-border))] bg-[rgb(var(--vibe-page))] p-2.5 text-[12px]" data-testid={`checkout-summary-item-${line.cartKey ?? line.productId}`}>
                     <div className="flex items-start gap-3">
                     <span className="h-16 w-12 shrink-0 overflow-hidden rounded-md border border-[rgb(var(--vibe-border))] bg-white">
                       {line.image && <img src={line.image} alt="" loading="eager" decoding="async" className="h-full w-full object-cover" />}
                     </span>
                     <div className="flex-1 min-w-0">
                       <p className="line-clamp-2 font-medium leading-snug">{line.name}</p>
+                      {(line.selectedColor || line.selectedSize) && (
+                        <p className="mt-1 text-[11px] text-[rgb(var(--vibe-muted))]">
+                          {[line.selectedColor && `Colour: ${line.selectedColor}`, line.selectedSize && `Size: ${line.selectedSize}`].filter(Boolean).join(" · ")}
+                        </p>
+                      )}
                       <div className="mt-2 flex items-center justify-between gap-2">
                         <div className="inline-grid grid-cols-[30px_30px_30px] overflow-hidden rounded-md border border-[rgb(var(--vibe-border))] bg-white">
-                          <button type="button" onClick={() => updateQty(line.productId, line.qty - 1)} className="grid h-8 place-items-center hover:bg-[rgb(var(--vibe-accent))]" aria-label="Decrease quantity">
+                          <button type="button" onClick={() => updateQty(line.cartKey ?? line.productId, line.qty - 1)} className="grid h-8 place-items-center hover:bg-[rgb(var(--vibe-accent))]" aria-label="Decrease quantity">
                             -
                           </button>
                           <span className="grid h-8 place-items-center border-x border-[rgb(var(--vibe-border))] font-mono text-[12px] font-medium tabular-nums">{line.qty}</span>
-                          <button type="button" onClick={() => updateQty(line.productId, line.qty + 1)} className="grid h-8 place-items-center hover:bg-[rgb(var(--vibe-accent))]" aria-label="Increase quantity">
+                          <button type="button" onClick={() => updateQty(line.cartKey ?? line.productId, line.qty + 1)} className="grid h-8 place-items-center hover:bg-[rgb(var(--vibe-accent))]" aria-label="Increase quantity">
                             +
                           </button>
                         </div>
-                        <button type="button" onClick={() => removeFromCart(line.productId)} className="h-8 rounded-md px-2 text-[10px] text-[rgb(var(--vibe-muted))] hover:bg-red-50 hover:text-red-600" aria-label="Remove item">
+                        <button type="button" onClick={() => removeFromCart(line.cartKey ?? line.productId)} className="h-8 rounded-md px-2 text-[10px] text-[rgb(var(--vibe-muted))] hover:bg-red-50 hover:text-red-600" aria-label="Remove item">
                           Remove
                         </button>
                       </div>

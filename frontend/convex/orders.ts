@@ -5,6 +5,7 @@ import { nowIso, publicOrder, requireAdmin, requireIdentity } from "./lib";
 import { calculateShippingInr } from "./shipping";
 
 const cartItem = v.object({
+  cartKey: v.optional(v.string()),
   productId: v.string(),
   qty: v.number(),
   name: v.string(),
@@ -12,6 +13,8 @@ const cartItem = v.object({
   priceInr: v.optional(v.union(v.number(), v.null())),
   image: v.optional(v.union(v.string(), v.null())),
   slug: v.optional(v.union(v.string(), v.null())),
+  selectedColor: v.optional(v.union(v.string(), v.null())),
+  selectedSize: v.optional(v.union(v.string(), v.null())),
 });
 
 const checkoutCustomer = v.object({
@@ -52,6 +55,11 @@ function cleanText(value: string | null | undefined, max = 160) {
 function cleanNullable(value: string | null | undefined, max = 160) {
   const next = cleanText(value, max);
   return next.length ? next : null;
+}
+
+function productNameWithOptions(name: string, color?: string | null, size?: string | null) {
+  const options = [color ? `Colour: ${color}` : "", size ? `Size: ${size}` : ""].filter(Boolean);
+  return options.length ? `${name} (${options.join(", ")})` : name;
 }
 
 function cleanEmail(value: string) {
@@ -150,7 +158,7 @@ async function savePaidOrder(ctx: any, args: {
     if (!Number.isFinite(unitPrice) || unitPrice < 0) throw new Error(`Invalid price for ${product.name}.`);
     computedSubtotal += unitPrice * qty;
     shippingLines.push({ qty, weightG: product.weight_g ?? null });
-    normalizedItems.push({ product, qty, unitPrice });
+    normalizedItems.push({ product, qty, unitPrice, selectedColor: cleanNullable(item.selectedColor, 60), selectedSize: cleanNullable(item.selectedSize, 60) });
   }
 
   const computedShipping = calculateShippingInr(computedSubtotal, shippingLines);
@@ -184,8 +192,10 @@ async function savePaidOrder(ctx: any, args: {
     await ctx.db.insert("order_items", {
       order_id: orderId,
       product_id: item.product._id,
-      product_name: item.product.name,
+      product_name: productNameWithOptions(item.product.name, item.selectedColor, item.selectedSize),
       product_image_url: item.product.cover_image_url ?? null,
+      selected_color: item.selectedColor,
+      selected_size: item.selectedSize,
       quantity: item.qty,
       unit_price: item.unitPrice,
       subtotal: item.unitPrice * item.qty,
@@ -308,7 +318,7 @@ export const createMockCheckoutOrder = mutation({
       computedSubtotal += unitPrice * qty;
       itemCount += qty;
       shippingLines.push({ qty, weightG: product.weight_g ?? null });
-      normalizedItems.push({ product, qty, unitPrice });
+      normalizedItems.push({ product, qty, unitPrice, selectedColor: cleanNullable(item.selectedColor, 60), selectedSize: cleanNullable(item.selectedSize, 60) });
     }
     const computedShipping = calculateShippingInr(computedSubtotal, shippingLines);
     const computedTotal = computedSubtotal + computedShipping;
@@ -340,8 +350,10 @@ export const createMockCheckoutOrder = mutation({
       await ctx.db.insert("order_items", {
         order_id: orderId,
         product_id: item.product._id,
-        product_name: item.product.name,
+        product_name: productNameWithOptions(item.product.name, item.selectedColor, item.selectedSize),
         product_image_url: item.product.cover_image_url ?? null,
+        selected_color: item.selectedColor,
+        selected_size: item.selectedSize,
         quantity: item.qty,
         unit_price: item.unitPrice,
         subtotal: item.unitPrice * item.qty,

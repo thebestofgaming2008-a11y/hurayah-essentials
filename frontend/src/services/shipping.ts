@@ -1,5 +1,5 @@
-export const FREE_SHIPPING_THRESHOLD_INR = 999;
-export const STANDARD_SHIPPING_INR = 79;
+export const SHIPPING_500G_INR = 50;
+export const SHIPPING_1KG_INR = 80;
 export const DEFAULT_PRODUCT_WEIGHT_G = 350;
 
 export type ShippingLine = {
@@ -16,10 +16,10 @@ function lineWeight(line: ShippingLine) {
 
 export function calculateShippingInr(subtotal: number, lines: ShippingLine[] = []): number {
   if (!Number.isFinite(subtotal) || subtotal <= 0) return 0;
-  if (subtotal >= FREE_SHIPPING_THRESHOLD_INR) return 0;
   const totalWeight = lines.reduce((sum, line) => sum + lineWeight(line), 0);
-  if (totalWeight <= 500) return STANDARD_SHIPPING_INR;
-  return STANDARD_SHIPPING_INR + Math.ceil((totalWeight - 500) / 500) * 45;
+  if (totalWeight <= 500) return SHIPPING_500G_INR;
+  if (totalWeight <= 1000) return SHIPPING_1KG_INR;
+  return Math.ceil(totalWeight / 1000) * SHIPPING_1KG_INR;
 }
 
 export function shippingLabel(subtotal: number, lines: ShippingLine[] = []): string {

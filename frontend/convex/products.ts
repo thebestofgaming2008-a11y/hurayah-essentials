@@ -34,6 +34,8 @@ const productInput = {
   images: v.optional(v.union(v.array(v.string()), v.null())),
   linked_product_ids: v.optional(v.union(v.array(v.string()), v.null())),
   variant_label: v.optional(v.union(v.string(), v.null())),
+  color_options: v.optional(v.union(v.array(v.string()), v.null())),
+  size_options: v.optional(v.union(v.array(v.string()), v.null())),
   badge: v.optional(v.union(v.string(), v.null())),
   rating: v.optional(v.union(v.number(), v.null())),
   reviews_count: v.optional(v.union(v.number(), v.null())),
@@ -77,6 +79,8 @@ const productPatch = {
   images: v.optional(v.union(v.array(v.string()), v.null())),
   linked_product_ids: v.optional(v.union(v.array(v.string()), v.null())),
   variant_label: v.optional(v.union(v.string(), v.null())),
+  color_options: v.optional(v.union(v.array(v.string()), v.null())),
+  size_options: v.optional(v.union(v.array(v.string()), v.null())),
   badge: v.optional(v.union(v.string(), v.null())),
   rating: v.optional(v.union(v.number(), v.null())),
   reviews_count: v.optional(v.union(v.number(), v.null())),
@@ -186,6 +190,13 @@ function normalize(input: any, isPatch = false, existingPrice?: number) {
     output.linked_product_ids = Array.isArray(input.linked_product_ids)
       ? input.linked_product_ids.map((id: string) => cleanText(id, 80)).filter(Boolean).slice(0, 12)
       : [];
+  }
+  for (const field of ["color_options", "size_options"]) {
+    if (input[field] !== undefined || !isPatch) {
+      output[field] = Array.isArray(input[field])
+        ? Array.from(new Set(input[field].map((option: string) => cleanText(option, 60)).filter(Boolean))).slice(0, 30)
+        : [];
+    }
   }
   output.is_active = input.is_active ?? (isPatch ? undefined : true);
   output.is_featured = input.is_featured ?? (isPatch ? undefined : false);

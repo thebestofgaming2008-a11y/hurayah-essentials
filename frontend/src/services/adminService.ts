@@ -35,6 +35,8 @@ export interface ProductInput {
   images?: string[];
   linked_product_ids?: string[];
   variant_label?: string | null;
+  color_options?: string[] | null;
+  size_options?: string[] | null;
   badge?: string | null;
   is_active?: boolean;
   is_featured?: boolean;

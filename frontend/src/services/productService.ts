@@ -159,6 +159,8 @@ export interface Product {
   images: string[] | null;
   linked_product_ids?: string[] | null;
   variant_label?: string | null;
+  color_options?: string[] | null;
+  size_options?: string[] | null;
   badge: string | null;
   rating: number | null;
   reviews_count: number | null;
@@ -178,6 +180,8 @@ function normalize(p: unknown): Product {
     ...(r as object),
     images: Array.isArray(r.images) ? (r.images as string[]) : [],
     tags: Array.isArray(r.tags) ? (r.tags as string[]) : [],
+    color_options: Array.isArray(r.color_options) ? (r.color_options as string[]) : [],
+    size_options: Array.isArray(r.size_options) ? (r.size_options as string[]) : [],
   } as Product;
 }
 

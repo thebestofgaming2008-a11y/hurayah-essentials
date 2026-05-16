@@ -26,9 +26,9 @@ async function ensureShippingDefaults(ctx: any) {
           carrier,
           zone,
           method,
-          base_fee: 60 + zoneIndex * 25 + methodIndex * 30,
-          per_item_fee: 15 + methodIndex * 10,
-          per_weight_fee: 20 + zoneIndex * 5,
+          base_fee: method === "Express" ? 80 : 50,
+          per_item_fee: 0,
+          per_weight_fee: method === "Express" ? 80 : 50,
           is_active: true,
           updated_at: timestamp,
         });

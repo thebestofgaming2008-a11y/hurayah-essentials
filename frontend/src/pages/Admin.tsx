@@ -115,6 +115,8 @@ type ProductFormState = {
   category: string;
   variant_group: string;
   variant_label: string;
+  color_options: string;
+  size_options: string;
   cover_image_url: string;
   images: string;
   badge: string;
@@ -532,6 +534,8 @@ export default function Admin() {
       images: form.images.split("\n").map((image) => image.trim()).filter(Boolean),
       linked_product_ids: variantPeers.map((product) => product.id),
       variant_label: form.variant_label.trim() || null,
+      color_options: splitOptionInput(form.color_options),
+      size_options: splitOptionInput(form.size_options),
       badge: form.badge.trim() || null,
       is_active: form.is_active,
       is_featured: form.is_featured,
@@ -1301,6 +1305,10 @@ function variantGroupFromTags(tags: string[] | null | undefined) {
   return tag ? tag.slice(3) : "";
 }
 
+function splitOptionInput(value: string) {
+  return Array.from(new Set(value.split(/[\n,]+/).map((item) => item.trim()).filter(Boolean)));
+}
+
 function isVideoUrl(url: string) {
   return /\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(url);
 }
@@ -1329,6 +1337,8 @@ function productToForm(product: Product | null): ProductFormState {
     category: product?.category ?? "books",
     variant_group: variantGroupFromTags(product?.tags),
     variant_label: product?.variant_label ?? "",
+    color_options: (product?.color_options ?? []).join("\n"),
+    size_options: (product?.size_options ?? []).join("\n"),
     cover_image_url: product?.cover_image_url ?? "",
     images: (product?.images ?? []).join("\n"),
     badge: product?.badge ?? "",
@@ -1521,6 +1531,8 @@ function ProductEditorDialog({
             <div className="grid gap-3 rounded-lg border border-[rgb(var(--vibe-border))] p-3 sm:grid-cols-2">
               <ProductInputField label="Variant group" value={form.variant_group} onChange={(value) => setField("variant_group", slugifyAdmin(value))} placeholder="kufi-prayer-cap" list="variant-groups" />
               <ProductInputField label="Variant label" value={form.variant_label} onChange={(value) => setField("variant_label", value)} placeholder="Brown, Large, Urdu..." />
+              <ProductTextArea label="Colour options" value={form.color_options} onChange={(value) => setField("color_options", value)} rows={3} placeholder={"Black\nWhite\nOlive"} />
+              <ProductTextArea label="Size options" value={form.size_options} onChange={(value) => setField("size_options", value)} rows={3} placeholder={"S\nM\nL\nXL"} />
               <datalist id="variant-groups">
                 {variantGroups.map((group) => <option key={group} value={group} />)}
               </datalist>

@@ -28,6 +28,8 @@ const ProductDetail = () => {
   const [activeImage, setActiveImage] = useState(0);
   const [tab, setTab] = useState<"description" | "details">("description");
   const [mainImgError, setMainImgError] = useState(false);
+  const [selectedColor, setSelectedColor] = useState("");
+  const [selectedSize, setSelectedSize] = useState("");
 
   useEffect(() => {
     if (!id) return;
@@ -36,6 +38,8 @@ const ProductDetail = () => {
     setQty(1);
     setActiveImage(0);
     setMainImgError(false);
+    setSelectedColor("");
+    setSelectedSize("");
 
     (async () => {
       let nextProduct = await getProductBySlug(id);
@@ -90,10 +94,14 @@ const ProductDetail = () => {
   const ratingValue = product.rating ?? 0;
   const stock = product.stock_quantity ?? 0;
   const inStock = product.in_stock !== false && stock > 0;
+  const colorOptions = product.color_options ?? [];
+  const sizeOptions = product.size_options ?? [];
+  const activeColor = selectedColor || colorOptions[0] || "";
+  const activeSize = selectedSize || sizeOptions[0] || "";
 
   const onAdd = () => {
     if (!inStock) return;
-    addToCart({ id: product.id, name: product.name, price, priceInr: product.price_inr, image: cover, slug: product.slug ?? undefined, weightG: product.weight_g, shippingClass: product.shipping_class }, qty);
+    addToCart({ id: product.id, name: product.name, price, priceInr: product.price_inr, image: cover, slug: product.slug ?? undefined, weightG: product.weight_g, shippingClass: product.shipping_class, selectedColor: activeColor || null, selectedSize: activeSize || null }, qty);
     toast({ title: "Added to cart", description: product.name });
   };
 
@@ -179,6 +187,13 @@ const ProductDetail = () => {
                 {compareAt && <span className="ml-4 text-2xl text-black/35 line-through">{format(compareAt)}</span>}
               </div>
 
+              {(colorOptions.length > 0 || sizeOptions.length > 0) && (
+                <div className="mt-6 grid max-w-[49rem] gap-4 sm:grid-cols-2">
+                  {colorOptions.length > 0 && <OptionGroup label="Colour" options={colorOptions} value={activeColor} onChange={setSelectedColor} type="color" />}
+                  {sizeOptions.length > 0 && <OptionGroup label="Size" options={sizeOptions} value={activeSize} onChange={setSelectedSize} />}
+                </div>
+              )}
+
               <div className="mt-5 grid max-w-[49rem] gap-2">
                 <button
                   type="button"
@@ -240,6 +255,56 @@ const ProductDetail = () => {
     </SiteLayout>
   );
 };
+
+function OptionGroup({ label, options, value, onChange, type = "text" }: { label: string; options: string[]; value: string; onChange: (value: string) => void; type?: "text" | "color" }) {
+  return (
+    <div>
+      <p className="mb-2 font-serif text-xl text-black/70">{label}: <span className="text-black">{value}</span></p>
+      <div className="flex flex-wrap gap-2">
+        {options.map((option) => {
+          const active = option === value;
+          return (
+            <button
+              key={option}
+              type="button"
+              onClick={() => onChange(option)}
+              className={cn(
+                "min-h-10 rounded-md border px-3 font-serif text-lg text-black transition-colors",
+                active ? "border-[#06133a] bg-white shadow-sm" : "border-[#06133a]/25 bg-white/45 hover:border-[#06133a]/60",
+                type === "color" && "inline-flex items-center gap-2",
+              )}
+            >
+              {type === "color" && <span className="h-4 w-4 rounded-full border border-black/20" style={{ backgroundColor: colorToCss(option) }} />}
+              {option}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function colorToCss(value: string) {
+  const named: Record<string, string> = {
+    black: "#111111",
+    white: "#ffffff",
+    grey: "#9ca3af",
+    gray: "#9ca3af",
+    brown: "#7c4a2d",
+    beige: "#d6c3a3",
+    cream: "#f2ead3",
+    navy: "#07143b",
+    blue: "#2563eb",
+    green: "#15803d",
+    olive: "#708238",
+    red: "#dc2626",
+    maroon: "#7f1d1d",
+    pink: "#ec4899",
+    purple: "#7c3aed",
+    gold: "#d4a017",
+  };
+  return named[value.trim().toLowerCase()] ?? value;
+}
 
 function Fact({ label, value }: { label: string; value: string }) {
   return (

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Heart, ShoppingBag } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useShop } from "@/store/shop";
 import type { Product } from "@/services/productService";
 import { productImage, productPrice, productCompareAt } from "@/data/products";
@@ -14,6 +14,7 @@ interface Props {
 
 export function ProductCard({ product, className }: Props) {
   const { toggleWishlist, isWishlisted, addToCart } = useShop();
+  const navigate = useNavigate();
   const { format } = useCurrency();
   const [imgError, setImgError] = useState(false);
   const wished = isWishlisted(product.id);
@@ -22,9 +23,14 @@ export function ProductCard({ product, className }: Props) {
   const image = productImage(product);
   const showImage = !!image && !imgError;
   const link = `/product/${product.slug ?? product.id}`;
+  const hasOptions = Boolean((product.color_options?.length ?? 0) || (product.size_options?.length ?? 0));
 
   const onAdd = (e: React.MouseEvent) => {
     e.preventDefault();
+    if (hasOptions) {
+      navigate(link);
+      return;
+    }
     addToCart({
       id: product.id,
       name: product.name,
@@ -84,7 +90,7 @@ export function ProductCard({ product, className }: Props) {
           className="absolute inset-x-3 bottom-3 z-20 inline-flex items-center justify-center gap-2 rounded-md bg-brand text-brand-foreground text-xs md:text-sm font-semibold py-2.5 shadow-lg opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 focus-visible:opacity-100 focus-visible:translate-y-0 transition-all"
         >
           <ShoppingBag className="h-4 w-4" />
-          Add to cart
+          {hasOptions ? "Choose options" : "Add to cart"}
         </button>
       </div>
       <div className="mt-3">

@@ -10,9 +10,12 @@ export interface CartProductInput {
   slug?: string | null;
   weightG?: number | null;
   shippingClass?: string | null;
+  selectedColor?: string | null;
+  selectedSize?: string | null;
 }
 
 export interface CartLine {
+  cartKey: string;
   productId: string;
   qty: number;
   name: string;
@@ -22,6 +25,8 @@ export interface CartLine {
   slug: string | null;
   weightG: number | null;
   shippingClass: string | null;
+  selectedColor: string | null;
+  selectedSize: string | null;
 }
 
 interface ShopState {
@@ -71,15 +76,18 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
 
   const addToCart = useCallback((product: CartProductInput, qty = 1) => {
     setCart((prev) => {
-      const found = prev.find((c) => c.productId === product.id);
+      const optionKey = [product.selectedColor, product.selectedSize].map((value) => value?.trim() || "_").join("|");
+      const cartKey = `${product.id}::${optionKey}`;
+      const found = prev.find((c) => (c.cartKey ?? c.productId) === cartKey);
       if (found) {
         return prev.map((c) =>
-          c.productId === product.id ? { ...c, qty: c.qty + qty } : c,
+          (c.cartKey ?? c.productId) === cartKey ? { ...c, qty: c.qty + qty } : c,
         );
       }
       return [
         ...prev,
         {
+          cartKey,
           productId: product.id,
           qty,
           name: product.name,
@@ -89,6 +97,8 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
           slug: product.slug ?? null,
           weightG: product.weightG ?? null,
           shippingClass: product.shippingClass ?? null,
+          selectedColor: product.selectedColor?.trim() || null,
+          selectedSize: product.selectedSize?.trim() || null,
         },
       ];
     });
@@ -97,14 +107,14 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const removeFromCart = useCallback((id: string) => {
-    setCart((prev) => prev.filter((c) => c.productId !== id));
+    setCart((prev) => prev.filter((c) => (c.cartKey ?? c.productId) !== id));
   }, []);
 
   const updateQty = useCallback((id: string, qty: number) => {
     setCart((prev) =>
       qty <= 0
-        ? prev.filter((c) => c.productId !== id)
-        : prev.map((c) => (c.productId === id ? { ...c, qty } : c)),
+        ? prev.filter((c) => (c.cartKey ?? c.productId) !== id)
+        : prev.map((c) => ((c.cartKey ?? c.productId) === id ? { ...c, qty } : c)),
     );
   }, []);
 

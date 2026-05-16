@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { productImage, productPrice } from "@/data/products";
 import { cn } from "@/lib/utils";
-import { calculateShippingInr, FREE_SHIPPING_THRESHOLD_INR } from "@/services/shipping";
+import { calculateShippingInr } from "@/services/shipping";
 import { listByIds, listFeatured, type Product } from "@/services/productService";
 import { useShop } from "@/store/shop";
 import { PaymentMethods } from "@/components/shop/PaymentMethods";
@@ -124,7 +124,7 @@ export function CartDrawer() {
               {cartLines.map((line) => {
                 const wished = isWishlisted(line.productId);
                 return (
-                  <li key={line.productId} className="vibe-card p-3 transition-colors hover:border-zinc-300">
+                  <li key={line.cartKey ?? line.productId} className="vibe-card p-3 transition-colors hover:border-zinc-300">
                     <div className="flex gap-3">
                       <Link to={`/product/${line.slug ?? line.productId}`} onClick={closeCart} className="h-20 w-16 shrink-0 overflow-hidden rounded-md bg-white">
                         {line.image && <img src={line.image} alt={line.name} loading="eager" decoding="async" className="h-full w-full object-cover" />}
@@ -134,13 +134,18 @@ export function CartDrawer() {
                           {line.name}
                         </Link>
                         <p className="mt-1 font-mono text-[12px] font-medium tabular-nums">{format(line.price)}</p>
+                        {(line.selectedColor || line.selectedSize) && (
+                          <p className="mt-1 text-[11px] text-[rgb(var(--vibe-muted))]">
+                            {[line.selectedColor && `Colour: ${line.selectedColor}`, line.selectedSize && `Size: ${line.selectedSize}`].filter(Boolean).join(" · ")}
+                          </p>
+                        )}
                         <div className="mt-3 flex items-center justify-between gap-2">
                           <div className="inline-grid grid-cols-[30px_30px_30px] overflow-hidden rounded-md border border-[rgb(var(--vibe-border))] bg-white">
-                            <button type="button" onClick={() => updateQty(line.productId, line.qty - 1)} className="grid h-8 place-items-center hover:bg-[rgb(var(--vibe-accent))]" aria-label="Decrease quantity">
+                            <button type="button" onClick={() => updateQty(line.cartKey ?? line.productId, line.qty - 1)} className="grid h-8 place-items-center hover:bg-[rgb(var(--vibe-accent))]" aria-label="Decrease quantity">
                               -
                             </button>
                             <span className="grid h-8 place-items-center border-x border-[rgb(var(--vibe-border))] font-mono text-[12px] font-medium tabular-nums">{line.qty}</span>
-                            <button type="button" onClick={() => updateQty(line.productId, line.qty + 1)} className="grid h-8 place-items-center hover:bg-[rgb(var(--vibe-accent))]" aria-label="Increase quantity">
+                            <button type="button" onClick={() => updateQty(line.cartKey ?? line.productId, line.qty + 1)} className="grid h-8 place-items-center hover:bg-[rgb(var(--vibe-accent))]" aria-label="Increase quantity">
                               +
                             </button>
                           </div>
@@ -153,7 +158,7 @@ export function CartDrawer() {
                             >
                               <span className="text-[10px]">{wished ? "Saved" : "Save"}</span>
                             </button>
-                            <button type="button" onClick={() => removeFromCart(line.productId)} className="h-8 rounded-md border border-[rgb(var(--vibe-border))] px-2 text-[10px] text-[rgb(var(--vibe-muted))] hover:border-red-200 hover:text-red-600" aria-label="Remove item">
+                            <button type="button" onClick={() => removeFromCart(line.cartKey ?? line.productId)} className="h-8 rounded-md border border-[rgb(var(--vibe-border))] px-2 text-[10px] text-[rgb(var(--vibe-muted))] hover:border-red-200 hover:text-red-600" aria-label="Remove item">
                               Remove
                             </button>
                           </div>
@@ -215,7 +220,7 @@ export function CartDrawer() {
             </button>
             <PaymentMethods compact className="mt-4" />
             <p className="mt-2 text-center text-[11px] text-[rgb(var(--vibe-muted))]">
-              Free India shipping over {format(FREE_SHIPPING_THRESHOLD_INR)}{currency !== "INR" ? " · checkout is charged in INR" : ""}
+              India shipping: ₹50 up to 500g, ₹80 around 1kg{currency !== "INR" ? " · checkout is charged in INR" : ""}
             </p>
           </div>
         </>
