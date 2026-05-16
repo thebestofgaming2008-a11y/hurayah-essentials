@@ -305,7 +305,7 @@ export const deleteProduct = mutation({
   args: { id: v.string() },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
-    await ctx.db.patch(args.id as any, { is_active: false, in_stock: false, updated_at: nowIso() });
+    await ctx.db.delete(args.id as any);
     return true;
   },
 });
