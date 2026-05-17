@@ -192,12 +192,17 @@ All colors MUST be HSL.
   .notice-marquee {
     display: inline-flex;
     min-width: max-content;
-    animation: notice-marquee 18s linear infinite;
   }
 
-  @keyframes notice-marquee {
-    from { transform: translateX(0); }
-    to { transform: translateX(-50%); }
+  @media (max-width: 767px) {
+    .notice-marquee {
+      animation: notice-marquee 18s linear infinite;
+    }
+
+    @keyframes notice-marquee {
+      from { transform: translateX(0); }
+      to { transform: translateX(-50%); }
+    }
   }
 
   /* Glassmorphism — replicates the soft-glass CTA from Figma.

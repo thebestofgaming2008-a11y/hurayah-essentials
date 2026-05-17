@@ -16,27 +16,27 @@ declare global {
 }
 
 const COUNTRIES = [
-  "India",
-  "United States",
-  "United Kingdom",
-  "Canada",
-  "Australia",
-  "United Arab Emirates",
-  "Saudi Arabia",
-  "Qatar",
-  "Kuwait",
-  "Oman",
-  "Bahrain",
-  "Malaysia",
-  "Singapore",
-  "South Africa",
-  "France",
-  "Germany",
-  "Netherlands",
-  "Belgium",
-  "Pakistan",
-  "Bangladesh",
-  "Indonesia",
+  { name: "India", flag: "🇮🇳" },
+  { name: "United States", flag: "🇺🇸" },
+  { name: "United Kingdom", flag: "🇬🇧" },
+  { name: "Canada", flag: "🇨🇦" },
+  { name: "Australia", flag: "🇦🇺" },
+  { name: "United Arab Emirates", flag: "🇦🇪" },
+  { name: "Saudi Arabia", flag: "🇸🇦" },
+  { name: "Qatar", flag: "🇶🇦" },
+  { name: "Kuwait", flag: "🇰🇼" },
+  { name: "Oman", flag: "🇴🇲" },
+  { name: "Bahrain", flag: "🇧🇭" },
+  { name: "Malaysia", flag: "🇲🇾" },
+  { name: "Singapore", flag: "🇸🇬" },
+  { name: "South Africa", flag: "🇿🇦" },
+  { name: "France", flag: "🇫🇷" },
+  { name: "Germany", flag: "🇩🇪" },
+  { name: "Netherlands", flag: "🇳🇱" },
+  { name: "Belgium", flag: "🇧🇪" },
+  { name: "Pakistan", flag: "🇵🇰" },
+  { name: "Bangladesh", flag: "🇧🇩" },
+  { name: "Indonesia", flag: "🇮🇩" },
 ];
 
 function addressProfile(country: string) {
@@ -72,6 +72,8 @@ const Checkout = () => {
   const { format, currency } = useCurrency();
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
+  const [countryOpen, setCountryOpen] = useState(false);
+  const [countryQuery, setCountryQuery] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [form, setForm] = useState({
     email: "",
@@ -89,10 +91,18 @@ const Checkout = () => {
   const total = cartSubtotal + shippingMeta.amount;
   const isInternational = shippingMeta.countryType === "international";
   const address = addressProfile(form.country);
+  const selectedCountry = COUNTRIES.find((country) => country.name.toLowerCase() === form.country.trim().toLowerCase());
+  const countryMatches = COUNTRIES.filter((country) => country.name.toLowerCase().includes(countryQuery.trim().toLowerCase())).slice(0, 8);
 
   const setField = (key: keyof typeof form) => (value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
     setErrors((prev) => ({ ...prev, [key]: "" }));
+  };
+
+  const chooseCountry = (country: string) => {
+    setField("country")(country);
+    setCountryQuery("");
+    setCountryOpen(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -202,10 +212,47 @@ const Checkout = () => {
               </Section>
 
               <Section title="Delivery">
-                <Field label="Country / region" value={form.country} onChange={setField("country")} error={errors.country} required testId="checkout-country-input" list="checkout-country-list" autoComplete="country-name" />
-                <datalist id="checkout-country-list">
-                  {COUNTRIES.map((country) => <option key={country} value={country} />)}
-                </datalist>
+                <div className="relative">
+                  <span className="mb-1.5 block text-[11px] text-[rgb(var(--vibe-muted))]">Country / region</span>
+                  <button
+                    type="button"
+                    onClick={() => setCountryOpen((open) => !open)}
+                    data-testid="checkout-country-input"
+                    className={cn("flex h-10 w-full items-center justify-between rounded-md border bg-white px-3 text-left text-[13px] text-[rgb(var(--vibe-foreground))] outline-none focus:ring-1 focus:ring-zinc-500", errors.country ? "border-red-400" : "border-[rgb(var(--vibe-border))]")}
+                  >
+                    <span className="inline-flex min-w-0 items-center gap-2">
+                      <span className="text-base">{selectedCountry?.flag ?? "🌍"}</span>
+                      <span className="truncate">{form.country || "Select country"}</span>
+                    </span>
+                    <span className="text-[10px] text-[rgb(var(--vibe-muted))]">▼</span>
+                  </button>
+                  {errors.country && <span className="mt-1 block text-[11px] text-red-600">{errors.country}</span>}
+                  {countryOpen && (
+                    <div className="absolute left-0 right-0 top-[64px] z-30 overflow-hidden rounded-md border border-[rgb(var(--vibe-border))] bg-white shadow-xl">
+                      <input
+                        autoFocus
+                        value={countryQuery}
+                        onChange={(event) => setCountryQuery(event.target.value)}
+                        placeholder="Search country"
+                        className="h-10 w-full border-b border-[rgb(var(--vibe-border))] px-3 text-[13px] outline-none"
+                      />
+                      <div className="max-h-64 overflow-y-auto py-1">
+                        {countryMatches.map((country) => (
+                          <button
+                            key={country.name}
+                            type="button"
+                            onClick={() => chooseCountry(country.name)}
+                            className={cn("flex h-10 w-full items-center gap-3 px-3 text-left text-[13px] hover:bg-[rgb(var(--vibe-accent))]", form.country === country.name && "bg-[rgb(var(--vibe-surface))] font-medium")}
+                          >
+                            <span className="text-base">{country.flag}</span>
+                            <span>{country.name}</span>
+                          </button>
+                        ))}
+                        {countryMatches.length === 0 && <p className="px-3 py-3 text-[12px] text-[rgb(var(--vibe-muted))]">No countries found.</p>}
+                      </div>
+                    </div>
+                  )}
+                </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field label="First name" value={form.firstName} onChange={setField("firstName")} error={errors.firstName} required testId="checkout-first-name-input" autoComplete="given-name" />
                   <Field label="Last name" value={form.lastName} onChange={setField("lastName")} error={errors.lastName} required testId="checkout-last-name-input" autoComplete="family-name" />

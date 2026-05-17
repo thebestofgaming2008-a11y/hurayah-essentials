@@ -1,4 +1,4 @@
-import { LayoutDashboard, LogOut, Package, Search, ShoppingBag, User, X } from "lucide-react";
+import { Heart, LayoutDashboard, LogOut, Package, Search, ShoppingBag, User, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import logo from "@/assets/logo-header.png";
@@ -40,8 +40,9 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
 export function SiteHeader() {
   const [query, setQuery] = useState("");
   const [scrolled, setScrolled] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const navigate = useNavigate();
-  const { cartCount, openCart } = useShop();
+  const { cartCount, wishlist, openCart } = useShop();
   const { user, isAdmin, signOut } = useAuth();
   const { currency, currencies, setCurrency, loading: currencyLoading } = useCurrency();
 
@@ -54,6 +55,7 @@ export function SiteHeader() {
   const submitSearch = (e: React.FormEvent) => {
     e.preventDefault();
     const q = query.trim();
+    setSearchOpen(false);
     navigate(q ? `/shop?q=${encodeURIComponent(q)}` : "/shop");
   };
 
@@ -124,9 +126,9 @@ export function SiteHeader() {
             </Link>
           )}
           <div className="mx-auto min-w-0 flex-1 overflow-hidden px-[96px] sm:px-[160px]">
-            <div className="notice-marquee whitespace-nowrap">
-              <span className="px-8">International orders may incur customs / import duties</span>
-              <span className="px-8">International orders may incur customs / import duties</span>
+            <div className="notice-marquee whitespace-nowrap md:mx-auto md:block md:w-fit md:animate-none">
+              <span className="mx-2 inline-flex rounded-full border border-white/25 px-3 py-0.5">International orders may incur customs / import duties</span>
+              <span className="mx-2 inline-flex rounded-full border border-white/25 px-3 py-0.5 md:hidden">International orders may incur customs / import duties</span>
             </div>
           </div>
           <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center sm:right-4">
@@ -149,12 +151,21 @@ export function SiteHeader() {
       </div>
 
       <header className="border-b border-foreground/[0.12] bg-hero/95 backdrop-blur-sm" data-testid="storefront-header">
-        <div className="mx-auto grid max-w-[1440px] grid-cols-[1fr_auto_1fr] items-center px-3 py-2 sm:px-4 sm:py-2.5 md:px-8 md:py-3">
-          <div className="justify-self-start">{accountControl}</div>
+        <div className="mx-auto grid max-w-[1440px] grid-cols-[1fr_auto_1fr] items-center px-3 py-1.5 sm:px-4 sm:py-2 md:px-8">
+          <div className="flex justify-self-start">
+            {accountControl}
+            <button type="button" onClick={() => setSearchOpen((open) => !open)} aria-label="Search products" data-testid="site-header-search-toggle" className={ICON_BUTTON}>
+              {searchOpen ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}
+            </button>
+          </div>
           <Link to="/" className="flex min-w-0 justify-self-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40" aria-label="Hurayrah Essentials home" data-testid="site-header-logo-link">
-            <img src={logo} alt="Hurayrah Essentials" className="h-9 w-auto object-contain transition-all sm:h-11 md:h-12" />
+            <img src={logo} alt="Hurayrah Essentials" className="h-8 w-auto object-contain transition-all sm:h-9 md:h-10" />
           </Link>
           <div className="flex min-w-0 justify-self-end">
+            <Link to="/wishlist" aria-label={`Wishlist (${wishlist.length} items)`} data-testid="site-header-wishlist-link" className={ICON_BUTTON}>
+              <Heart className="h-5 w-5" />
+              {wishlist.length > 0 && <span className={BADGE}>{wishlist.length}</span>}
+            </Link>
             <button type="button" onClick={openCart} aria-label={`Cart (${cartCount} items)`} data-testid="site-header-cart-link" className={ICON_BUTTON}>
               <ShoppingBag className="h-5 w-5" />
               {cartCount > 0 && <span className={BADGE}>{cartCount}</span>}
@@ -162,17 +173,19 @@ export function SiteHeader() {
           </div>
         </div>
 
-        <form onSubmit={submitSearch} className="mx-auto max-w-[1440px] px-3 pb-2 sm:px-4 sm:pb-2.5 md:px-8 md:pb-3">
-          <label className="mx-auto flex max-w-[640px] items-center gap-2 rounded-full border border-foreground/10 bg-header-surface px-3.5 py-2 transition-all focus-within:border-brand focus-within:shadow-sm sm:py-2.5">
-            <Search className="h-4 w-4 shrink-0 text-muted-foreground md:h-[18px] md:w-[18px]" aria-hidden />
-            <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="I am looking for..." className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground md:text-[15px]" aria-label="Search products" data-testid="site-header-search-input" />
-            {query && (
-              <button type="button" onClick={() => setQuery("")} aria-label="Clear search" data-testid="site-header-clear-search-button" className="text-muted-foreground hover:text-foreground">
-                <X className="h-4 w-4" />
-              </button>
-            )}
-          </label>
-        </form>
+        {searchOpen && (
+          <form onSubmit={submitSearch} className="mx-auto max-w-[1440px] px-3 pb-2 sm:px-4 md:px-8">
+            <label className="mx-auto flex max-w-[640px] items-center gap-2 rounded-md border border-foreground/15 bg-background px-3.5 py-2 shadow-sm transition-all focus-within:border-brand">
+              <Search className="h-4 w-4 shrink-0 text-muted-foreground md:h-[18px] md:w-[18px]" aria-hidden />
+              <input autoFocus type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="I am looking for..." className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground md:text-[15px]" aria-label="Search products" data-testid="site-header-search-input" />
+              {query && (
+                <button type="button" onClick={() => setQuery("")} aria-label="Clear search" data-testid="site-header-clear-search-button" className="text-muted-foreground hover:text-foreground">
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </label>
+          </form>
+        )}
 
         <nav className="mx-auto max-w-[1440px] px-3 sm:px-4 md:px-8">
           <ul className="-mx-1 flex items-center justify-center gap-4 overflow-x-auto px-1 text-center sm:gap-7 md:gap-10" data-testid="site-header-primary-nav">
