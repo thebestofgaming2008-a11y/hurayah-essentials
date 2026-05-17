@@ -1,18 +1,52 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { SiteLayout } from "@/components/layout/SiteLayout";
-import { useShop } from "@/store/shop";
-import { createRazorpayCheckoutOrder, verifyRazorpayPayment } from "@/services/orderService";
-import { checkoutShippingForCountry } from "@/services/shipping";
-import { toast } from "@/hooks/use-toast";
-import { useCurrency } from "@/contexts/CurrencyContext";
-import { cn } from "@/lib/utils";
 import { PaymentMethods } from "@/components/shop/PaymentMethods";
+import { useCurrency } from "@/contexts/CurrencyContext";
+import { toast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
+import { checkoutShippingForCountry } from "@/services/shipping";
+import { createRazorpayCheckoutOrder, verifyRazorpayPayment } from "@/services/orderService";
+import { useShop } from "@/store/shop";
 
 declare global {
   interface Window {
     Razorpay?: new (options: Record<string, unknown>) => { open: () => void; on: (event: string, handler: (response: unknown) => void) => void };
   }
+}
+
+const COUNTRIES = [
+  "India",
+  "United States",
+  "United Kingdom",
+  "Canada",
+  "Australia",
+  "United Arab Emirates",
+  "Saudi Arabia",
+  "Qatar",
+  "Kuwait",
+  "Oman",
+  "Bahrain",
+  "Malaysia",
+  "Singapore",
+  "South Africa",
+  "France",
+  "Germany",
+  "Netherlands",
+  "Belgium",
+  "Pakistan",
+  "Bangladesh",
+  "Indonesia",
+];
+
+function addressProfile(country: string) {
+  const normalized = country.trim().toLowerCase();
+  if (["united states", "usa", "us"].includes(normalized)) return { stateLabel: "State", postalLabel: "ZIP code", cityLabel: "City", stateRequired: true };
+  if (normalized === "canada") return { stateLabel: "Province", postalLabel: "Postal code", cityLabel: "City", stateRequired: true };
+  if (normalized === "australia") return { stateLabel: "State / territory", postalLabel: "Postcode", cityLabel: "Suburb / city", stateRequired: true };
+  if (["united arab emirates", "uae", "qatar", "kuwait", "oman", "bahrain"].includes(normalized)) return { stateLabel: "Emirate / region", postalLabel: "Postal code (optional)", cityLabel: "City", stateRequired: false };
+  if (["india", "in", "bharat"].includes(normalized)) return { stateLabel: "State / union territory", postalLabel: "PIN code", cityLabel: "City", stateRequired: true };
+  return { stateLabel: "State / region", postalLabel: "Postal code", cityLabel: "City", stateRequired: false };
 }
 
 function loadRazorpayScript() {
@@ -47,37 +81,36 @@ const Checkout = () => {
     address: "",
     apartment: "",
     city: "",
+    state: "",
     postalCode: "",
     country: "India",
   });
   const shippingMeta = checkoutShippingForCountry(form.country);
-  const shipping = shippingMeta.amount;
-  const total = cartSubtotal + shipping;
+  const total = cartSubtotal + shippingMeta.amount;
   const isInternational = shippingMeta.countryType === "international";
+  const address = addressProfile(form.country);
 
-  const steps = useMemo(() => [
-    { label: "Contact", done: Boolean(form.email && form.phone) },
-    { label: "Shipping", done: Boolean(form.firstName && form.lastName && form.address && form.city && form.postalCode) },
-    { label: "Payment", done: true },
-  ], [form]);
+  const setField = (key: keyof typeof form) => (value: string) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+    setErrors((prev) => ({ ...prev, [key]: "" }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const nextErrors: Record<string, string> = {};
     if (!/^\S+@\S+\.\S+$/.test(form.email.trim())) nextErrors.email = "Enter a valid email.";
     const phoneDigits = form.phone.replace(/\D/g, "");
-    if (!/^\+?[0-9\s().-]{8,20}$/.test(form.phone.trim()) || phoneDigits.length < 8 || phoneDigits.length > 15) {
-      nextErrors.phone = "Enter a valid WhatsApp number with country code, for example +91 98765 43210.";
-    }
+    if (!/^\+?[0-9\s().-]{8,20}$/.test(form.phone.trim()) || phoneDigits.length < 8 || phoneDigits.length > 15) nextErrors.phone = "Enter a valid WhatsApp number.";
     if (!form.firstName.trim()) nextErrors.firstName = "First name is required.";
     if (!form.lastName.trim()) nextErrors.lastName = "Last name is required.";
     if (!form.address.trim()) nextErrors.address = "Address is required.";
     if (!form.city.trim()) nextErrors.city = "City is required.";
-    if (!form.postalCode.trim()) nextErrors.postalCode = "Postal code is required.";
+    if (address.stateRequired && !form.state.trim()) nextErrors.state = `${address.stateLabel} is required.`;
+    if (!form.postalCode.trim() && !address.postalLabel.includes("optional")) nextErrors.postalCode = `${address.postalLabel} is required.`;
     if (!form.country.trim()) nextErrors.country = "Country is required.";
     setErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0) return;
-    if (cartLines.length === 0) return;
+    if (Object.keys(nextErrors).length > 0 || cartLines.length === 0) return;
+
     setSubmitting(true);
     try {
       const customer = {
@@ -87,16 +120,11 @@ const Checkout = () => {
         address_line_1: form.address.trim(),
         address_line_2: form.apartment.trim() || undefined,
         city: form.city.trim(),
+        state: form.state.trim() || undefined,
         postal_code: form.postalCode.trim(),
         country: form.country.trim(),
       };
-      const payload = {
-        cart: cartLines,
-        customer,
-        subtotal: cartSubtotal,
-        shipping,
-        total,
-      };
+      const payload = { cart: cartLines, customer, subtotal: cartSubtotal, shipping: shippingMeta.amount, total };
       const ready = await loadRazorpayScript();
       if (!ready || !window.Razorpay) throw new Error("Razorpay checkout could not be loaded. Check your connection and try again.");
       const RazorpayCheckout = window.Razorpay;
@@ -111,7 +139,7 @@ const Checkout = () => {
           order_id: razorpayOrder.orderId,
           prefill: { name: customer.name, email: customer.email, contact: customer.phone },
           notes: { source: "hurayah_webshop" },
-          theme: { color: "#171717" },
+          theme: { color: "#030f30" },
           handler: async (response: any) => {
             try {
               const order = await verifyRazorpayPayment({
@@ -121,8 +149,8 @@ const Checkout = () => {
                 razorpay_signature: response.razorpay_signature,
               });
               clearCart();
-              toast({ title: "Payment received", description: "Your order was verified and saved securely." });
-              navigate(`/order-confirmation?id=${order?.order_number ?? "HE-PAID"}&shipping=${shippingMeta.paymentStatus}`);
+              toast({ title: "Payment received", description: "Your order was saved." });
+              navigate(`/order-confirmation?id=${encodeURIComponent(order?.order_number ?? "#1")}&shipping=${shippingMeta.paymentStatus}`);
               resolve();
             } catch (error) {
               reject(error);
@@ -134,29 +162,18 @@ const Checkout = () => {
         checkout.open();
       });
     } catch (error) {
-      console.error("checkout", error);
       toast({ title: "Could not place order", description: error instanceof Error ? error.message : undefined, variant: "destructive" });
     } finally {
       setSubmitting(false);
     }
   };
 
-  const setField = (key: keyof typeof form) => (value: string) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
-    setErrors((prev) => ({ ...prev, [key]: "" }));
-  };
-
   if (cartLines.length === 0) {
     return (
       <SiteLayout hideHeader compactFooter>
-        <div className="mx-auto max-w-[760px] px-4 md:px-8 py-16 md:py-24 text-center">
-          <h1 className="mt-5 text-foreground font-semibold tracking-tight text-3xl">Your cart is empty</h1>
-          <p className="mt-2 text-foreground/60 text-sm">Add items before starting checkout.</p>
-          <Link
-            to="/shop"
-            data-testid="checkout-empty-browse-link"
-            className="mt-6 inline-flex items-center justify-center rounded-md bg-brand text-brand-foreground font-semibold px-6 py-3 hover:opacity-95 transition-opacity"
-          >
+        <div className="mx-auto max-w-[760px] px-4 py-16 text-center md:px-8 md:py-24">
+          <h1 className="text-3xl font-semibold tracking-tight text-foreground">Your cart is empty</h1>
+          <Link to="/shop" data-testid="checkout-empty-browse-link" className="mt-6 inline-flex items-center justify-center rounded-md bg-brand px-6 py-3 font-semibold text-brand-foreground hover:opacity-95">
             Browse products
           </Link>
         </div>
@@ -167,162 +184,83 @@ const Checkout = () => {
   return (
     <SiteLayout hideHeader compactFooter>
       <div className="vibe-admin min-h-[calc(100vh-120px)] border-t border-[rgb(var(--vibe-border))] bg-[rgb(var(--vibe-page))] text-[rgb(var(--vibe-foreground))]">
-        <div className="mx-auto max-w-[1280px] px-3 sm:px-4 md:px-8 py-4 md:py-8">
-          <div className="vibe-card mb-4 px-4 py-3 md:mb-6 md:px-5 md:py-4">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <div className="mb-2 flex flex-wrap items-center gap-3">
-                <button type="button" onClick={() => navigate(-1)} data-testid="checkout-go-back-button" className="inline-flex items-center gap-1.5 text-[12px] text-[rgb(var(--vibe-muted))] transition-colors hover:text-[rgb(var(--vibe-foreground))]">
-                  ← Back
-                </button>
-                <button type="button" onClick={openCart} data-testid="checkout-back-to-cart-link" className="inline-flex items-center gap-1.5 text-[12px] text-[rgb(var(--vibe-muted))] transition-colors hover:text-[rgb(var(--vibe-foreground))]">
-                  Review cart
-                </button>
-              </div>
-              <h1 className="text-[20px] font-semibold tracking-tight md:text-[24px]">Checkout</h1>
-              <p className="mt-1 text-[12px] text-[rgb(var(--vibe-muted))]">Guest checkout. Customers can track orders with order number and email.</p>
-            </div>
-            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar" data-testid="checkout-progress-steps">
-              {steps.map((step, index) => (
-                <div key={step.label} className="flex items-center gap-2 shrink-0">
-                  <span className={cn("grid h-7 w-7 place-items-center rounded-md border text-[11px] font-medium", step.done ? "border-[rgb(var(--vibe-foreground))] bg-[rgb(var(--vibe-foreground))] text-white" : "border-[rgb(var(--vibe-border))] bg-white text-[rgb(var(--vibe-muted))]")}>
-                    {step.done ? "✓" : index + 1}
-                  </span>
-                  <span className="text-[11px] font-medium text-[rgb(var(--vibe-muted))]">{step.label}</span>
-                </div>
-              ))}
-            </div>
-            </div>
+        <div className="mx-auto max-w-[1200px] px-3 py-4 sm:px-4 md:px-8 md:py-8">
+          <div className="mb-4 flex items-center justify-between">
+            <button type="button" onClick={() => navigate(-1)} data-testid="checkout-go-back-button" className="text-[12px] text-[rgb(var(--vibe-muted))] hover:text-[rgb(var(--vibe-foreground))]">
+              Back
+            </button>
+            <button type="button" onClick={openCart} data-testid="checkout-back-to-cart-link" className="text-[12px] text-[rgb(var(--vibe-muted))] hover:text-[rgb(var(--vibe-foreground))]">
+              Review cart
+            </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="grid lg:grid-cols-[minmax(0,1fr)_430px] gap-4 lg:gap-6" data-testid="checkout-form">
+          <form onSubmit={handleSubmit} className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_410px]" data-testid="checkout-form">
             <div className="space-y-4">
               <Section title="Contact">
-                <div className="grid sm:grid-cols-2 gap-3">
-                  <Field label="Email" type="email" value={form.email} onChange={setField("email")} error={errors.email} required testId="checkout-email-input" />
-                  <Field
-                    label="Phone / WhatsApp"
-                    type="tel"
-                    value={form.phone}
-                    onChange={setField("phone")}
-                    error={errors.phone}
-                    required
-                    testId="checkout-phone-input"
-                    hint="Important: dispatch tracking is sent by WhatsApp, so this must be the customer's real WhatsApp number with country code."
-                    placeholder="+91 98765 43210"
-                  />
-                </div>
+                <Field label="Email" type="email" value={form.email} onChange={setField("email")} error={errors.email} required testId="checkout-email-input" autoComplete="email" />
+                <Field label="Phone / WhatsApp" type="tel" value={form.phone} onChange={setField("phone")} error={errors.phone} required testId="checkout-phone-input" placeholder="+91 98765 43210" autoComplete="tel" />
               </Section>
 
-              <Section title="Shipping address">
-                <div className="grid sm:grid-cols-2 gap-3">
-                  <Field label="First name" value={form.firstName} onChange={setField("firstName")} error={errors.firstName} required testId="checkout-first-name-input" />
-                  <Field label="Last name" value={form.lastName} onChange={setField("lastName")} error={errors.lastName} required testId="checkout-last-name-input" />
+              <Section title="Delivery">
+                <Field label="Country / region" value={form.country} onChange={setField("country")} error={errors.country} required testId="checkout-country-input" list="checkout-country-list" autoComplete="country-name" />
+                <datalist id="checkout-country-list">
+                  {COUNTRIES.map((country) => <option key={country} value={country} />)}
+                </datalist>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label="First name" value={form.firstName} onChange={setField("firstName")} error={errors.firstName} required testId="checkout-first-name-input" autoComplete="given-name" />
+                  <Field label="Last name" value={form.lastName} onChange={setField("lastName")} error={errors.lastName} required testId="checkout-last-name-input" autoComplete="family-name" />
                 </div>
-                <Field label="Address" value={form.address} onChange={setField("address")} error={errors.address} required testId="checkout-address-input" />
-                <Field label="Apartment, suite (optional)" value={form.apartment} onChange={setField("apartment")} testId="checkout-apartment-input" />
-                <div className="grid sm:grid-cols-2 gap-3">
-                  <Field label="City" value={form.city} onChange={setField("city")} error={errors.city} required testId="checkout-city-input" />
-                  <Field label="Postal code" value={form.postalCode} onChange={setField("postalCode")} error={errors.postalCode} required testId="checkout-postal-code-input" />
+                <Field label="Address" value={form.address} onChange={setField("address")} error={errors.address} required testId="checkout-address-input" autoComplete="address-line1" />
+                <Field label="Apartment, suite, etc. (optional)" value={form.apartment} onChange={setField("apartment")} testId="checkout-apartment-input" autoComplete="address-line2" />
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <Field label={address.cityLabel} value={form.city} onChange={setField("city")} error={errors.city} required testId="checkout-city-input" autoComplete="address-level2" />
+                  <Field label={address.stateLabel} value={form.state} onChange={setField("state")} error={errors.state} required={address.stateRequired} testId="checkout-state-input" autoComplete="address-level1" />
+                  <Field label={address.postalLabel} value={form.postalCode} onChange={setField("postalCode")} error={errors.postalCode} required={!address.postalLabel.includes("optional")} testId="checkout-postal-code-input" autoComplete="postal-code" />
                 </div>
-                <Field label="Country" value={form.country} onChange={setField("country")} error={errors.country} required testId="checkout-country-input" />
-              </Section>
-
-              <Section title="Delivery method">
-                <div className="rounded-lg border border-border bg-background p-4 flex items-center justify-between gap-3" data-testid="checkout-delivery-method-card">
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">Standard tracked delivery</p>
-                    <p className="text-xs text-foreground/55 mt-0.5">{isInternational ? "International shipping is billed separately after order confirmation on WhatsApp." : "India shipping is included in the product prices."}</p>
-                  </div>
-                  <span className="text-sm font-semibold tabular-nums">{isInternational ? "WhatsApp follow-up" : "Included"}</span>
-                </div>
+                <p className="text-[11px] text-[rgb(var(--vibe-muted))]">
+                  {isInternational ? "International shipping is arranged on WhatsApp after confirmation." : "India shipping is included."}
+                </p>
               </Section>
 
               <Section title="Payment">
-                <p className="text-xs text-foreground/55 inline-flex items-center gap-1 mb-2">
-                  Secure payment handoff
-                </p>
-                <div className="rounded-lg border border-brand/30 bg-brand/5 p-4 text-sm text-foreground/75" data-testid="checkout-razorpay-live-notice">
-                  {isInternational
-                    ? "Pay the product total now. The store will message you on WhatsApp after ordering to collect the actual international shipping fee."
-                    : "India shipping is already included in the product prices. Your order is verified before saving."}
-                </div>
-                <div className="grid sm:grid-cols-3 gap-3">
-                  <Field label="Payment provider" placeholder="Checkout" disabled value="" onChange={() => undefined} testId="checkout-card-number-input" />
-                  <Field label="Mode" placeholder="Secure checkout" disabled value="" onChange={() => undefined} testId="checkout-expiry-input" />
-                  <Field label="Verification" placeholder="Signature checked" disabled value="" onChange={() => undefined} testId="checkout-cvc-input" />
+                <div className="rounded-md border border-[rgb(var(--vibe-border))] bg-white px-3 py-3 text-[12px] text-[rgb(var(--vibe-muted))]">
+                  You will pay securely through Razorpay.
                 </div>
               </Section>
             </div>
 
-            <aside className="vibe-card h-fit p-4 md:p-5 lg:sticky lg:top-[150px]" data-testid="checkout-order-summary">
-              <div className="flex items-center justify-between gap-3">
-                <h2 className="text-[13px] font-medium">Order summary</h2>
-                <span className="rounded bg-[rgb(var(--vibe-surface))] px-2 py-1 text-[11px] text-[rgb(var(--vibe-muted))]">{cartLines.length} items</span>
-              </div>
-              <ul className="mt-4 space-y-3 max-h-[360px] overflow-y-auto pr-1">
+            <aside className="vibe-card h-fit p-4 md:p-5 lg:sticky lg:top-[120px]" data-testid="checkout-order-summary">
+              <h2 className="text-[13px] font-medium">Order summary</h2>
+              <ul className="mt-4 space-y-3">
                 {cartLines.map((line) => (
-                  <li key={line.cartKey ?? line.productId} className="rounded-lg border border-[rgb(var(--vibe-border))] bg-[rgb(var(--vibe-page))] p-2.5 text-[12px]" data-testid={`checkout-summary-item-${line.cartKey ?? line.productId}`}>
-                    <div className="flex items-start gap-3">
+                  <li key={line.cartKey ?? line.productId} className="flex gap-3 text-[12px]" data-testid={`checkout-summary-item-${line.cartKey ?? line.productId}`}>
                     <span className="h-16 w-12 shrink-0 overflow-hidden rounded-md border border-[rgb(var(--vibe-border))] bg-white">
                       {line.image && <img src={line.image} alt="" loading="eager" decoding="async" className="h-full w-full object-cover" />}
                     </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="line-clamp-2 font-medium leading-snug">{line.name}</p>
-                      {(line.selectedColor || line.selectedSize) && (
-                        <p className="mt-1 text-[11px] text-[rgb(var(--vibe-muted))]">
-                          {[line.selectedColor && `Colour: ${line.selectedColor}`, line.selectedSize && `Size: ${line.selectedSize}`].filter(Boolean).join(" · ")}
-                        </p>
-                      )}
-                      <div className="mt-2 flex items-center justify-between gap-2">
-                        <div className="inline-grid grid-cols-[30px_30px_30px] overflow-hidden rounded-md border border-[rgb(var(--vibe-border))] bg-white">
-                          <button type="button" onClick={() => updateQty(line.cartKey ?? line.productId, line.qty - 1)} className="grid h-8 place-items-center hover:bg-[rgb(var(--vibe-accent))]" aria-label="Decrease quantity">
-                            -
-                          </button>
-                          <span className="grid h-8 place-items-center border-x border-[rgb(var(--vibe-border))] font-mono text-[12px] font-medium tabular-nums">{line.qty}</span>
-                          <button type="button" onClick={() => updateQty(line.cartKey ?? line.productId, line.qty + 1)} className="grid h-8 place-items-center hover:bg-[rgb(var(--vibe-accent))]" aria-label="Increase quantity">
-                            +
-                          </button>
-                        </div>
-                        <button type="button" onClick={() => removeFromCart(line.cartKey ?? line.productId)} className="h-8 rounded-md px-2 text-[10px] text-[rgb(var(--vibe-muted))] hover:bg-red-50 hover:text-red-600" aria-label="Remove item">
-                          Remove
-                        </button>
+                    <div className="min-w-0 flex-1">
+                      <p className="line-clamp-2 font-medium">{line.name}</p>
+                      {(line.selectedColor || line.selectedSize) && <p className="mt-1 text-[11px] text-[rgb(var(--vibe-muted))]">{[line.selectedColor, line.selectedSize].filter(Boolean).join(" / ")}</p>}
+                      <div className="mt-2 inline-grid grid-cols-[30px_30px_30px] overflow-hidden rounded-md border border-[rgb(var(--vibe-border))] bg-white">
+                        <button type="button" onClick={() => updateQty(line.cartKey ?? line.productId, line.qty - 1)} className="grid h-8 place-items-center hover:bg-[rgb(var(--vibe-accent))]" aria-label="Decrease quantity">-</button>
+                        <span className="grid h-8 place-items-center border-x border-[rgb(var(--vibe-border))] font-mono text-[12px]">{line.qty}</span>
+                        <button type="button" onClick={() => updateQty(line.cartKey ?? line.productId, line.qty + 1)} className="grid h-8 place-items-center hover:bg-[rgb(var(--vibe-accent))]" aria-label="Increase quantity">+</button>
                       </div>
+                      <button type="button" onClick={() => removeFromCart(line.cartKey ?? line.productId)} className="ml-2 text-[11px] text-[rgb(var(--vibe-muted))] hover:text-red-600">Remove</button>
                     </div>
-                    <span className="font-mono font-medium tabular-nums">{format(line.price * line.qty)}</span>
-                    </div>
+                    <span className="font-mono font-medium">{format(line.price * line.qty)}</span>
                   </li>
                 ))}
               </ul>
               <dl className="mt-4 space-y-2 border-t border-[rgb(var(--vibe-border))] pt-4 text-[12px]">
-                <div className="flex justify-between"><dt className="text-[rgb(var(--vibe-muted))]">Subtotal</dt><dd className="font-mono font-medium tabular-nums">{format(cartSubtotal)}</dd></div>
-                <div className="flex justify-between"><dt className="text-[rgb(var(--vibe-muted))]">Shipping</dt><dd className="font-mono font-medium tabular-nums">{isInternational ? "Billed later" : "Included"}</dd></div>
-                <div className="mt-3 flex justify-between border-t border-[rgb(var(--vibe-border))] pt-3 text-[13px]">
-                  <dt className="font-medium">Total</dt>
-                  <dd className="font-mono font-semibold tabular-nums" data-testid="checkout-total-amount">{format(total)}</dd>
-                </div>
+                <div className="flex justify-between"><dt className="text-[rgb(var(--vibe-muted))]">Subtotal</dt><dd className="font-mono font-medium">{format(cartSubtotal)}</dd></div>
+                <div className="flex justify-between"><dt className="text-[rgb(var(--vibe-muted))]">Shipping</dt><dd className="font-mono font-medium">{isInternational ? "Later" : "Included"}</dd></div>
+                <div className="flex justify-between border-t border-[rgb(var(--vibe-border))] pt-3 text-[13px]"><dt className="font-medium">Total</dt><dd className="font-mono font-semibold" data-testid="checkout-total-amount">{format(total)}</dd></div>
               </dl>
-              {currency !== "INR" && (
-                <p className="mt-3 rounded-md border border-[rgb(var(--vibe-border))] bg-[rgb(var(--vibe-page))] px-3 py-2 text-[11px] text-[rgb(var(--vibe-muted))]" data-testid="checkout-currency-disclaimer">
-                  Converted totals are approximate. Checkout is recorded in INR.
-                </p>
-              )}
-              <p className="mt-3 rounded-md border border-[rgb(var(--vibe-border))] bg-[rgb(var(--vibe-page))] px-3 py-2 text-[11px] text-[rgb(var(--vibe-muted))]">
-                {isInternational ? "International shipping is not charged online. You will be contacted on WhatsApp after your order." : "India shipping is included in the product prices."}
-              </p>
+              {currency !== "INR" && <p className="mt-3 text-[11px] text-[rgb(var(--vibe-muted))]">Converted prices are approximate. Payment is recorded in INR.</p>}
               <PaymentMethods compact className="mt-4" />
-              <button
-                type="submit"
-                disabled={submitting}
-                data-testid="checkout-submit-button"
-                className="mt-5 inline-flex h-9 w-full items-center justify-center gap-2 rounded-md bg-[rgb(var(--vibe-foreground))] px-3 text-[12px] font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {submitting ? "Opening checkout..." : `Pay securely - ${format(total)}`}
+              <button type="submit" disabled={submitting} data-testid="checkout-submit-button" className="mt-5 inline-flex h-10 w-full items-center justify-center rounded-md bg-[rgb(var(--vibe-foreground))] px-3 text-[12px] font-medium text-white hover:opacity-90 disabled:opacity-50">
+                {submitting ? "Opening checkout..." : `Pay ${format(total)}`}
               </button>
-              <div className="mt-4 grid grid-cols-2 gap-2 text-[11px] text-[rgb(var(--vibe-muted))]">
-                <span className="rounded-md border border-[rgb(var(--vibe-border))] bg-[rgb(var(--vibe-page))] px-2 py-2">Server-checked totals</span>
-                <span className="rounded-md border border-[rgb(var(--vibe-border))] bg-[rgb(var(--vibe-page))] px-2 py-2">WhatsApp tracking</span>
-              </div>
             </aside>
           </form>
         </div>
@@ -340,24 +278,17 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function Field({ label, value, onChange, testId, error, hint, ...props }: { label: string; value: string; onChange: (value: string) => void; testId: string; error?: string; hint?: string } & Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "onChange">) {
+function Field({ label, value, onChange, testId, error, className, ...props }: { label: string; value: string; onChange: (value: string) => void; testId: string; error?: string } & Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "onChange">) {
   return (
-    <label className="block">
-      <span className="mb-1.5 flex items-center gap-1.5 text-[11px] text-[rgb(var(--vibe-muted))]">
-        {label}
-        {hint && (
-          <span title={hint} aria-label={hint} className="inline-flex h-4 w-4 items-center justify-center rounded-full text-amber-600">
-            !
-          </span>
-        )}
-      </span>
+    <label className={cn("block", className)}>
+      <span className="mb-1.5 block text-[11px] text-[rgb(var(--vibe-muted))]">{label}</span>
       <input
         {...props}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         data-testid={testId}
         aria-invalid={Boolean(error)}
-        className={cn("h-9 w-full rounded-md border bg-white px-3 text-[13px] text-[rgb(var(--vibe-foreground))] outline-none transition-colors focus:ring-1 focus:ring-zinc-500 disabled:bg-[rgb(var(--vibe-surface))] disabled:text-[rgb(var(--vibe-muted))]", error ? "border-red-400" : "border-[rgb(var(--vibe-border))]")}
+        className={cn("h-10 w-full rounded-md border bg-white px-3 text-[13px] text-[rgb(var(--vibe-foreground))] outline-none focus:ring-1 focus:ring-zinc-500 disabled:bg-[rgb(var(--vibe-surface))] disabled:text-[rgb(var(--vibe-muted))]", error ? "border-red-400" : "border-[rgb(var(--vibe-border))]")}
       />
       {error && <span className="mt-1 block text-[11px] text-red-600" data-testid={`${testId}-error`}>{error}</span>}
     </label>

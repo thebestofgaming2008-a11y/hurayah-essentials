@@ -60,7 +60,7 @@ const TrackOrder = () => {
             >
               <label className="block">
                 <span className="mb-1.5 block text-[11px] text-[rgb(var(--vibe-muted))]">Order ID</span>
-                <input value={id} onChange={(event) => setId(event.target.value)} placeholder="HE-XXXXXXXX" required data-testid="track-order-id-input" className="h-9 w-full rounded-md border border-[rgb(var(--vibe-border))] bg-white px-3 text-[13px] outline-none focus:ring-1 focus:ring-zinc-500" />
+                <input value={id} onChange={(event) => setId(event.target.value)} placeholder="#1" required data-testid="track-order-id-input" className="h-9 w-full rounded-md border border-[rgb(var(--vibe-border))] bg-white px-3 text-[13px] outline-none focus:ring-1 focus:ring-zinc-500" />
               </label>
               <label className="block">
                 <span className="mb-1.5 block text-[11px] text-[rgb(var(--vibe-muted))]">Email</span>
@@ -91,7 +91,7 @@ const TrackOrder = () => {
               <div className="p-5" data-testid="track-order-result">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <p className="font-mono text-[12px] text-[rgb(var(--vibe-muted))]">{id || "HE-XXXXXXXX"}</p>
+                    <p className="font-mono text-[12px] text-[rgb(var(--vibe-muted))]">{id || "#1"}</p>
                     <h3 className="mt-1 text-[18px] font-semibold">{statusLabel(status)}</h3>
                   </div>
                   <span className="w-fit rounded bg-[rgb(var(--vibe-surface))] px-2 py-1 text-[11px] capitalize text-[rgb(var(--vibe-muted))]">{status}</span>

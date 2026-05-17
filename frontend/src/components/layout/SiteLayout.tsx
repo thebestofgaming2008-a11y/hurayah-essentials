@@ -14,7 +14,7 @@ export function SiteLayout({
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {!hideHeader && <SiteHeader />}
-      <main className="flex-1">{children}</main>
+      <main className="page-enter flex-1">{children}</main>
       <SiteFooter compact={compactFooter} />
       <CartDrawer />
     </div>

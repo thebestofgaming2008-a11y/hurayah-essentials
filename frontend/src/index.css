@@ -180,6 +180,26 @@ All colors MUST be HSL.
   .vibe-fade-in-2 { animation: vibe-fade-in 0.35s ease-out 0.08s both; }
   .vibe-fade-in-3 { animation: vibe-fade-in 0.35s ease-out 0.12s both; }
 
+  .page-enter {
+    animation: page-enter 360ms ease-out both;
+  }
+
+  @keyframes page-enter {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .notice-marquee {
+    display: inline-flex;
+    min-width: max-content;
+    animation: notice-marquee 18s linear infinite;
+  }
+
+  @keyframes notice-marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+
   /* Glassmorphism — replicates the soft-glass CTA from Figma.
      Uses backdrop-blur + saturated white surface + inner highlight + soft outer shadow. */
   .glass-cta {
@@ -239,7 +259,9 @@ All colors MUST be HSL.
   @media (prefers-reduced-motion: reduce) {
     .pdp-fade-in,
     .pdp-image-swap,
-    .pdp-press {
+    .pdp-press,
+    .page-enter,
+    .notice-marquee {
       animation: none !important;
       transition: none !important;
       transform: none !important;

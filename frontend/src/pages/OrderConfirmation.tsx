@@ -4,7 +4,7 @@ import { SiteLayout } from "@/components/layout/SiteLayout";
 
 const OrderConfirmation = () => {
   const [params] = useSearchParams();
-  const id = params.get("id") ?? "HE-XXXXXX";
+  const id = params.get("id") ?? "#1";
   const shipping = params.get("shipping");
   const international = shipping === "pending_whatsapp";
   return (

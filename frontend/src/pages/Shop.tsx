@@ -11,7 +11,6 @@ const SORTS = [
   { key: "featured", label: "Featured" },
   { key: "price-asc", label: "Price: low to high" },
   { key: "price-desc", label: "Price: high to low" },
-  { key: "rating", label: "Top rated" },
 ] as const;
 type SortKey = (typeof SORTS)[number]["key"];
 
@@ -27,7 +26,6 @@ const Shop = () => {
   const [cat, setCat] = useState<CategoryKey | null>(initialCat);
   const [sort, setSort] = useState<SortKey>("featured");
   const [maxPrice, setMaxPrice] = useState<number>(PRICE_MAX);
-  const [minRating, setMinRating] = useState<number>(0);
   const [open, setOpen] = useState(false);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,7 +63,6 @@ const Shop = () => {
   const clearAll = () => {
     setCat(null);
     setMaxPrice(PRICE_MAX);
-    setMinRating(0);
     setParams(new URLSearchParams(), { replace: true });
   };
 
@@ -89,7 +86,6 @@ const Shop = () => {
           p.publisher,
           p.isbn,
           p.category,
-          p.binding,
           p.language,
           ...tags,
         ]
@@ -99,17 +95,14 @@ const Shop = () => {
         return haystack.includes(q);
       });
     }
-    list = list.filter(
-      (p) => productPrice(p) <= maxPrice && (p.rating ?? 0) >= minRating,
-    );
+    list = list.filter((p) => productPrice(p) <= maxPrice);
     if (sort === "price-asc") list.sort((a, b) => productPrice(a) - productPrice(b));
     else if (sort === "price-desc") list.sort((a, b) => productPrice(b) - productPrice(a));
-    else if (sort === "rating") list.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
     return list;
-  }, [allProducts, cat, subject, q, maxPrice, minRating, sort]);
+  }, [allProducts, cat, subject, q, maxPrice, sort]);
 
   const activeFilterCount =
-    (cat ? 1 : 0) + (subject ? 1 : 0) + (maxPrice < PRICE_MAX ? 1 : 0) + (minRating > 0 ? 1 : 0);
+    (cat ? 1 : 0) + (subject ? 1 : 0) + (maxPrice < PRICE_MAX ? 1 : 0);
 
   const Filters = (
     <div className="space-y-7">
@@ -167,36 +160,6 @@ const Shop = () => {
           <span className="font-semibold text-foreground">
             Up to ₹{maxPrice.toLocaleString("en-IN")}
           </span>
-        </div>
-      </div>
-
-      <div>
-        <h3 className="text-xs uppercase tracking-wider text-foreground/50 font-semibold mb-3">
-          Rating
-        </h3>
-        <div className="rounded-md border border-border bg-background p-3">
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-sm text-foreground/70">Minimum rating</span>
-            <input
-              type="number"
-              min={0}
-              max={5}
-              step={0.1}
-              value={minRating}
-              onChange={(event) => setMinRating(Math.max(0, Math.min(5, Number(event.target.value) || 0)))}
-              className="h-8 w-20 rounded-md border border-border bg-background px-2 text-right text-sm outline-none transition-colors focus:border-brand"
-            />
-          </div>
-          <input
-            type="range"
-            min={0}
-            max={5}
-            step={0.1}
-            value={minRating}
-            onChange={(event) => setMinRating(Number(event.target.value))}
-            className="mt-3 w-full accent-brand"
-          />
-          <p className="mt-1.5 text-xs text-foreground/55">{minRating === 0 ? "Showing all ratings" : `${minRating.toFixed(1)} stars and up`}</p>
         </div>
       </div>
 

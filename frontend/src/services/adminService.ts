@@ -196,6 +196,7 @@ export interface AdminOrder {
     id: string;
     product_id?: string | null;
     product_name?: string | null;
+    product_image_url?: string | null;
     selected_color?: string | null;
     selected_size?: string | null;
     quantity: number;

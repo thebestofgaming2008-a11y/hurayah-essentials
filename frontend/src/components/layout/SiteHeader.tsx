@@ -1,19 +1,11 @@
-﻿import { Heart, LayoutDashboard, LogOut, Menu, Package, Search, ShoppingBag, User, X } from "lucide-react";
+import { LayoutDashboard, LogOut, Package, Search, ShoppingBag, User, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import logo from "@/assets/logo-header.png";
-import { useShop } from "@/store/shop";
 import { useAuth } from "@/contexts/AuthContext";
-import { cn } from "@/lib/utils";
 import { useCurrency } from "@/contexts/CurrencyContext";
-import { WishlistDrawer } from "@/components/shop/CommerceDrawers";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { cn } from "@/lib/utils";
+import { useShop } from "@/store/shop";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,12 +14,19 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const ICON_BUTTON =
   "relative inline-flex h-10 w-10 items-center justify-center rounded-full text-foreground transition-all duration-150 hover:bg-foreground/[0.06] active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-1 focus-visible:ring-offset-hero";
 
 const BADGE =
-  "absolute -top-1 -right-1 h-[18px] min-w-[18px] px-1 grid place-items-center rounded-full bg-brand text-brand-foreground text-[10px] font-semibold leading-none tabular-nums shadow-sm";
+  "absolute -top-1 -right-1 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-brand px-1 text-[10px] font-semibold leading-none text-brand-foreground shadow-sm";
 
 const CURRENCY_SYMBOLS: Record<string, string> = {
   INR: "₹",
@@ -39,36 +38,18 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
 };
 
 export function SiteHeader() {
-  const [menuOpen, setMenuOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [scrolled, setScrolled] = useState(false);
-  const [wishlistOpen, setWishlistOpen] = useState(false);
   const navigate = useNavigate();
-  const { cartCount, wishlist, openCart } = useShop();
+  const { cartCount, openCart } = useShop();
   const { user, isAdmin, signOut } = useAuth();
   const { currency, currencies, setCurrency, loading: currencyLoading } = useCurrency();
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setMenuOpen(false);
-      }
-    };
     const onScroll = () => setScrolled(window.scrollY > 4);
-    window.addEventListener("keydown", onKey);
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      window.removeEventListener("scroll", onScroll);
-    };
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
-
-  useEffect(() => {
-    document.body.style.overflow = menuOpen ? "hidden" : "";
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [menuOpen]);
 
   const submitSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,384 +59,131 @@ export function SiteHeader() {
 
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
     cn(
-      "relative inline-block py-2.5 transition-colors text-sm md:text-[15px] whitespace-nowrap",
+      "relative inline-block whitespace-nowrap py-2.5 text-sm transition-colors md:text-[15px]",
       isActive
-        ? "text-hero-foreground font-semibold after:absolute after:left-0 after:right-0 after:-bottom-px after:h-[2px] after:bg-brand after:rounded-full"
+        ? "font-semibold text-hero-foreground after:absolute after:-bottom-px after:left-0 after:right-0 after:h-[2px] after:rounded-full after:bg-brand"
         : "text-foreground/75 hover:text-brand",
     );
 
   const handleSignOut = async () => {
     await signOut();
-    setMenuOpen(false);
     navigate("/");
   };
 
   const goCategorySection = (category: string) => {
-    setMenuOpen(false);
     navigate(`/?category=${encodeURIComponent(category)}#categories`);
   };
 
-  return (
-    <>
-      <div
-        className={cn(
-          "sticky top-0 z-40 transition-shadow duration-200",
-          scrolled ? "shadow-[0_4px_18px_-12px_rgba(3,15,48,0.35)]" : "",
+  const accountControl = user ? (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button type="button" aria-label="Open account menu" data-testid="site-header-account-menu-button" className={ICON_BUTTON}>
+          <User className="h-5 w-5" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-[224px] rounded-md border border-border bg-background p-0 shadow-lg">
+        <DropdownMenuLabel className="px-4 py-3">
+          <p className="truncate text-sm font-semibold">{user.name || user.email?.split("@")[0] || "Account"}</p>
+          <p className="truncate text-[12px] font-normal text-foreground/60">{user.email}</p>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator className="m-0" />
+        <DropdownMenuItem asChild className="cursor-pointer px-4 py-2.5">
+          <Link to="/account" className="flex items-center gap-3"><User className="h-4 w-4" /> My Account</Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild className="cursor-pointer px-4 py-2.5">
+          <Link to="/track" className="flex items-center gap-3"><Package className="h-4 w-4" /> Track Order</Link>
+        </DropdownMenuItem>
+        {isAdmin && (
+          <>
+            <DropdownMenuSeparator className="m-0" />
+            <DropdownMenuItem asChild className="cursor-pointer px-4 py-2.5">
+              <Link to="/admin" className="flex items-center gap-3"><LayoutDashboard className="h-4 w-4" /> Admin Dashboard</Link>
+            </DropdownMenuItem>
+          </>
         )}
-        data-testid="site-header-sticky-wrapper"
-      >
-        <div className="bg-brand text-brand-foreground">
-          <div className="relative mx-auto flex max-w-[1440px] items-center justify-center px-3 sm:px-4 py-1.5 sm:py-2 text-[11px] sm:text-xs md:text-sm">
-            {isAdmin && (
-              <Link
-                to="/admin"
-                data-testid="site-header-admin-pill"
-                className="absolute left-3 sm:left-4 inline-flex items-center gap-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 px-2.5 py-0.5 text-[11px] sm:text-xs font-semibold tracking-wide transition-colors"
-                title="Open admin dashboard"
-              >
-                <LayoutDashboard className="h-3 w-3" />
-                <span className="hidden sm:inline">Admin</span>
-              </Link>
-            )}
-            <p className="text-center truncate px-[120px] sm:px-[180px] max-w-full">
-              International orders may incur customs / import duties
-            </p>
-            <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center sm:right-4">
-              <Select
-                value={currency}
-                onValueChange={setCurrency}
-                disabled={currencyLoading}
-              >
-                <SelectTrigger
-                  data-testid="site-header-currency-select"
-                  aria-label="Select display currency"
-                  className="h-7 w-[92px] rounded-sm border-0 bg-transparent px-2 text-[11px] text-brand-foreground shadow-none transition-colors hover:bg-white/10 focus:ring-0 focus:ring-offset-0 [&>svg]:h-3 [&>svg]:w-3 [&>svg]:text-brand-foreground/70"
-                >
-                  <SelectValue>
-                    <span className="inline-flex items-center gap-1.5 leading-none"><span>{currency}</span><span>{CURRENCY_SYMBOLS[currency] ?? currency}</span></span>
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent align="end" className="min-w-[120px]">
-                  {currencies.map((c) => (
-                    <SelectItem key={c} value={c} className="text-xs">
-                      <span className="inline-flex items-center gap-2">
-                        <span className="font-semibold">{c}</span>
-                        <span aria-hidden className="text-[14px] leading-none">{CURRENCY_SYMBOLS[c] ?? c}</span>
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+        <DropdownMenuSeparator className="m-0" />
+        <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer px-4 py-2.5 text-red-600 focus:text-red-600">
+          <LogOut className="mr-3 h-4 w-4" /> Sign Out
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  ) : (
+    <Link to="/login?redirect=/account" data-testid="site-header-sign-in-link" className="inline-flex h-9 items-center rounded-md px-3 text-[13px] font-medium text-foreground hover:bg-foreground/[0.06] hover:text-brand">
+      Sign in
+    </Link>
+  );
+
+  return (
+    <div className={cn("sticky top-0 z-40 transition-shadow duration-200", scrolled && "shadow-[0_4px_18px_-12px_rgba(3,15,48,0.35)]")} data-testid="site-header-sticky-wrapper">
+      <div className="bg-brand text-brand-foreground">
+        <div className="relative mx-auto flex max-w-[1440px] items-center overflow-hidden px-3 py-1.5 text-[11px] sm:px-4 sm:py-2 sm:text-xs md:text-sm">
+          {isAdmin && (
+            <Link to="/admin" data-testid="site-header-admin-pill" className="absolute left-3 z-10 inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-0.5 text-[11px] font-semibold tracking-wide hover:bg-white/20 sm:left-4 sm:text-xs">
+              <LayoutDashboard className="h-3 w-3" />
+              <span className="hidden sm:inline">Admin</span>
+            </Link>
+          )}
+          <div className="mx-auto min-w-0 flex-1 overflow-hidden px-[96px] sm:px-[160px]">
+            <div className="notice-marquee whitespace-nowrap">
+              <span className="px-8">International orders may incur customs / import duties</span>
+              <span className="px-8">International orders may incur customs / import duties</span>
             </div>
+          </div>
+          <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center sm:right-4">
+            <Select value={currency} onValueChange={setCurrency} disabled={currencyLoading}>
+              <SelectTrigger data-testid="site-header-currency-select" aria-label="Select display currency" className="h-7 w-[92px] rounded-sm border-0 bg-transparent px-2 text-[11px] text-brand-foreground shadow-none hover:bg-white/10 focus:ring-0 focus:ring-offset-0 [&>svg]:h-3 [&>svg]:w-3 [&>svg]:text-brand-foreground/70">
+                <SelectValue>
+                  <span className="inline-flex items-center gap-1.5 leading-none"><span>{currency}</span><span>{CURRENCY_SYMBOLS[currency] ?? currency}</span></span>
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent align="end" className="min-w-[120px]">
+                {currencies.map((c) => (
+                  <SelectItem key={c} value={c} className="text-xs">
+                    <span className="inline-flex items-center gap-2"><span className="font-semibold">{c}</span><span className="text-[14px] leading-none">{CURRENCY_SYMBOLS[c] ?? c}</span></span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
-
-        <header className="bg-hero/95 backdrop-blur-sm border-b border-foreground/[0.12]" data-testid="storefront-header">
-          <div className="mx-auto grid max-w-[1440px] grid-cols-[1fr_auto_1fr] items-center px-3 sm:px-4 py-2 sm:py-2.5 md:px-8 md:py-3">
-            <button
-              type="button"
-              onClick={() => setMenuOpen(true)}
-              aria-label="Open menu"
-              data-testid="site-header-open-menu-button"
-              className={cn(ICON_BUTTON, "justify-self-start")}
-            >
-              <Menu className="h-5 w-5" />
-            </button>
-
-            <Link
-              to="/"
-              className="flex min-w-0 justify-self-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 rounded-md"
-              aria-label="Hurayrah Essentials home"
-              data-testid="site-header-logo-link"
-            >
-              <img
-                src={logo}
-                alt="Hurayrah Essentials"
-                className="h-9 sm:h-11 md:h-12 w-auto object-contain transition-all"
-              />
-            </Link>
-
-            <div className="justify-self-end flex items-center justify-end gap-0.5 sm:gap-1 min-w-0">
-              <button
-                type="button"
-                onClick={() => setWishlistOpen(true)}
-                aria-label={`Wishlist (${wishlist.length} items)`}
-                data-testid="site-header-wishlist-link"
-                className={cn(ICON_BUTTON, "hidden sm:inline-flex")}
-              >
-                <Heart className="h-5 w-5" />
-                {wishlist.length > 0 && <span className={BADGE}>{wishlist.length}</span>}
-              </button>
-              {user ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button type="button" aria-label="Open account menu" data-testid="site-header-account-menu-button" className={ICON_BUTTON}>
-                      <User className="h-5 w-5" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-[224px] rounded-md border border-border bg-background p-0 shadow-lg">
-                    <DropdownMenuLabel className="px-4 py-3">
-                      <p className="truncate text-sm font-semibold">{user.name || user.email?.split("@")[0] || "Account"}</p>
-                      <p className="truncate text-[12px] font-normal text-foreground/60">{user.email}</p>
-                    </DropdownMenuLabel>
-                    <DropdownMenuSeparator className="m-0" />
-                    <DropdownMenuItem asChild className="cursor-pointer px-4 py-2.5">
-                      <Link to="/account" className="flex items-center gap-3"><User className="h-4 w-4" /> My Account</Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild className="cursor-pointer px-4 py-2.5">
-                      <Link to="/track" className="flex items-center gap-3"><Package className="h-4 w-4" /> Track Order</Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild className="cursor-pointer px-4 py-2.5">
-                      <Link to="/wishlist" className="flex items-center gap-3"><Heart className="h-4 w-4" /> Wishlist</Link>
-                    </DropdownMenuItem>
-                    {isAdmin && (
-                      <>
-                        <DropdownMenuSeparator className="m-0" />
-                        <DropdownMenuItem asChild className="cursor-pointer px-4 py-2.5">
-                          <Link to="/admin" className="flex items-center gap-3"><LayoutDashboard className="h-4 w-4" /> Admin Dashboard</Link>
-                        </DropdownMenuItem>
-                      </>
-                    )}
-                    <DropdownMenuSeparator className="m-0" />
-                    <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer px-4 py-2.5 text-red-600 focus:text-red-600">
-                      <LogOut className="mr-3 h-4 w-4" /> Sign Out
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : (
-                <Link
-                  to="/login?redirect=/account"
-                  data-testid="site-header-sign-in-link"
-                  className="inline-flex h-9 items-center rounded-md px-3 text-[13px] font-medium text-foreground transition-all duration-200 hover:bg-foreground/[0.06] hover:text-brand active:scale-[0.98]"
-                >
-                  Sign in
-                </Link>
-              )}
-              <button
-                type="button"
-                onClick={openCart}
-                aria-label={`Cart (${cartCount} items)`}
-                data-testid="site-header-cart-link"
-                className={ICON_BUTTON}
-              >
-                <ShoppingBag className="h-5 w-5" />
-                {cartCount > 0 && <span className={BADGE}>{cartCount}</span>}
-              </button>
-            </div>
-          </div>
-
-          <form
-            onSubmit={submitSearch}
-            className="mx-auto max-w-[1440px] px-3 sm:px-4 md:px-8 pb-2 sm:pb-2.5 md:pb-3"
-          >
-            <label className="mx-auto flex items-center gap-2 rounded-full bg-header-surface border border-foreground/10 px-3.5 py-2 sm:py-2.5 max-w-[640px] focus-within:border-brand focus-within:shadow-sm transition-all">
-              <Search className="h-4 w-4 md:h-[18px] md:w-[18px] text-muted-foreground shrink-0" aria-hidden />
-              <input
-                type="search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search by title, author, ISBN, publisherâ€¦"
-                className="bg-transparent flex-1 min-w-0 text-sm md:text-[15px] outline-none placeholder:text-muted-foreground"
-                aria-label="Search products"
-                data-testid="site-header-search-input"
-              />
-              {query && (
-                <button
-                  type="button"
-                  onClick={() => setQuery("")}
-                  aria-label="Clear search"
-                  data-testid="site-header-clear-search-button"
-                  className="text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
-            </label>
-          </form>
-
-          <nav className="mx-auto max-w-[1440px] px-3 sm:px-4 md:px-8">
-            <ul className="flex justify-center items-center gap-4 sm:gap-7 md:gap-10 overflow-x-auto no-scrollbar -mx-1 px-1 text-center" data-testid="site-header-primary-nav">
-              <li className="shrink-0">
-                <NavLink to="/shop" className={navLinkClass} data-testid="site-header-shop-link" end>
-                  Shop all
-                </NavLink>
-              </li>
-
-              <li className="shrink-0">
-                <button
-                  type="button"
-                  onClick={() => goCategorySection("books")}
-                  data-testid="site-header-books-link"
-                  className="inline-block py-2.5 text-sm md:text-[15px] transition-colors whitespace-nowrap text-foreground/75 hover:text-brand"
-                >
-                  Books
-                </button>
-              </li>
-
-              <li className="shrink-0">
-                <Link to="/?category=clothing#categories" className="inline-block py-2.5 text-sm md:text-[15px] transition-colors whitespace-nowrap text-foreground/75 hover:text-brand" data-testid="site-header-clothing-link">
-                  Clothing
-                </Link>
-              </li>
-              <li className="shrink-0">
-                <Link to="/?category=children#categories" className="inline-block py-2.5 text-sm md:text-[15px] transition-colors whitespace-nowrap text-foreground/75 hover:text-brand" data-testid="site-header-essentials-link">
-                  Essentials
-                </Link>
-              </li>
-              <li className="shrink-0">
-                <NavLink to="/contact" className={navLinkClass} data-testid="site-header-contact-link">
-                  Contact
-                </NavLink>
-              </li>
-            </ul>
-          </nav>
-        </header>
       </div>
 
-      {menuOpen && (
-        <div
-          className="fixed inset-0 z-50 bg-foreground/40 backdrop-blur-sm"
-          onClick={() => setMenuOpen(false)}
-          data-testid="site-header-mobile-menu-overlay"
-        >
-          <aside
-            className="absolute left-0 top-0 h-full w-[86%] max-w-[360px] border-r border-foreground/10 bg-hero shadow-2xl flex flex-col overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-            data-testid="site-header-mobile-menu-panel"
-          >
-            <div className="flex items-center justify-between border-b border-foreground/10 px-5 py-4">
-              <Link to="/" onClick={() => setMenuOpen(false)} className="inline-flex items-center gap-3">
-                <img src={logo} alt="" className="h-9 w-auto object-contain" />
-                <span className="text-[13px] font-semibold text-hero-foreground">Back to store</span>
-              </Link>
-              <button
-                type="button"
-                onClick={() => setMenuOpen(false)}
-                aria-label="Close menu"
-                data-testid="site-header-close-menu-button"
-                className="h-9 w-9 grid place-items-center rounded-md hover:bg-foreground/5 transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            {user && (
-              <div className="mx-5 mt-5 rounded-md border border-foreground/10 bg-white/55 px-4 py-3">
-                <p className="text-[11px] uppercase tracking-wider text-foreground/50">Signed in as</p>
-                <p className="mt-1 truncate text-sm font-medium text-foreground">{user.email}</p>
-              </div>
-            )}
-
-            <nav className="flex flex-col gap-1 px-3 py-5">
-              {isAdmin && (
-                <Link
-                  to="/admin"
-                  onClick={() => setMenuOpen(false)}
-                  data-testid="site-header-admin-link"
-                  className="rounded-md px-3 py-3 text-[14px] font-semibold text-brand hover:bg-white/55 inline-flex items-center gap-2"
-                >
-                  Admin dashboard
-                </Link>
-              )}
-
-              <Link
-                to="/shop"
-                onClick={() => setMenuOpen(false)}
-                data-testid="site-header-mobile-shop-link"
-                className="rounded-md px-3 py-3 text-[14px] text-foreground hover:bg-white/55 hover:text-brand transition-colors"
-              >
-                Shop all
-              </Link>
-
-              <button
-                type="button"
-                onClick={() => goCategorySection("books")}
-                data-testid="site-header-mobile-books-button"
-                className="rounded-md px-3 py-3 text-[14px] text-foreground hover:bg-white/55 hover:text-brand transition-colors text-left w-full"
-              >
-                Books
-              </button>
-
-              <Link
-                to="/?category=clothing#categories"
-                onClick={() => setMenuOpen(false)}
-                data-testid="site-header-mobile-clothing-link"
-                className="rounded-md px-3 py-3 text-[14px] text-foreground hover:bg-white/55 hover:text-brand"
-              >
-                Clothing
-              </Link>
-              <Link
-                to="/?category=children#categories"
-                onClick={() => setMenuOpen(false)}
-                data-testid="site-header-mobile-essentials-link"
-                className="rounded-md px-3 py-3 text-[14px] text-foreground hover:bg-white/55 hover:text-brand"
-              >
-                Essentials
-              </Link>
-              <Link
-                to="/contact"
-                onClick={() => setMenuOpen(false)}
-                data-testid="site-header-mobile-contact-link"
-                className="rounded-md px-3 py-3 text-[14px] text-foreground hover:bg-white/55 hover:text-brand"
-              >
-                Contact
-              </Link>
-
-              <div className="mt-3 border-t border-foreground/10 pt-3">
-                {user ? (
-                  <>
-                    <Link
-                      to="/track"
-                      onClick={() => setMenuOpen(false)}
-                      data-testid="site-header-mobile-account-link"
-                      className="block rounded-md px-3 py-3 text-[14px] text-foreground hover:bg-white/55 hover:text-brand"
-                    >
-                      Track order
-                    </Link>
-                    <Link
-                      to="/wishlist"
-                      onClick={() => setMenuOpen(false)}
-                      data-testid="site-header-mobile-wishlist-link"
-                      className="block rounded-md px-3 py-3 text-[14px] text-foreground hover:bg-white/55 hover:text-brand"
-                    >
-                      Wishlist
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={handleSignOut}
-                      data-testid="site-header-sign-out-button"
-                      className="inline-flex w-full items-center gap-2 rounded-md px-3 py-3 text-[14px] text-red-600 hover:bg-white/55 transition-colors"
-                    >
-                      <LogOut className="h-4 w-4" />
-                      Sign out
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <Link
-                      to="/track"
-                      onClick={() => setMenuOpen(false)}
-                      data-testid="site-header-mobile-login-link"
-                      className="block rounded-md px-3 py-3 text-[14px] font-semibold text-brand hover:bg-white/55"
-                    >
-                      Track order
-                    </Link>
-                    <Link
-                      to="/wishlist"
-                      onClick={() => setMenuOpen(false)}
-                      data-testid="site-header-mobile-anonymous-wishlist-link"
-                      className="block rounded-md px-3 py-3 text-[14px] text-foreground hover:bg-white/55 hover:text-brand"
-                    >
-                      Wishlist
-                    </Link>
-                  </>
-                )}
-              </div>
-            </nav>
-          </aside>
+      <header className="border-b border-foreground/[0.12] bg-hero/95 backdrop-blur-sm" data-testid="storefront-header">
+        <div className="mx-auto grid max-w-[1440px] grid-cols-[1fr_auto_1fr] items-center px-3 py-2 sm:px-4 sm:py-2.5 md:px-8 md:py-3">
+          <div className="justify-self-start">{accountControl}</div>
+          <Link to="/" className="flex min-w-0 justify-self-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40" aria-label="Hurayrah Essentials home" data-testid="site-header-logo-link">
+            <img src={logo} alt="Hurayrah Essentials" className="h-9 w-auto object-contain transition-all sm:h-11 md:h-12" />
+          </Link>
+          <div className="flex min-w-0 justify-self-end">
+            <button type="button" onClick={openCart} aria-label={`Cart (${cartCount} items)`} data-testid="site-header-cart-link" className={ICON_BUTTON}>
+              <ShoppingBag className="h-5 w-5" />
+              {cartCount > 0 && <span className={BADGE}>{cartCount}</span>}
+            </button>
+          </div>
         </div>
-      )}
-      <WishlistDrawer open={wishlistOpen} onClose={() => setWishlistOpen(false)} />
-    </>
+
+        <form onSubmit={submitSearch} className="mx-auto max-w-[1440px] px-3 pb-2 sm:px-4 sm:pb-2.5 md:px-8 md:pb-3">
+          <label className="mx-auto flex max-w-[640px] items-center gap-2 rounded-full border border-foreground/10 bg-header-surface px-3.5 py-2 transition-all focus-within:border-brand focus-within:shadow-sm sm:py-2.5">
+            <Search className="h-4 w-4 shrink-0 text-muted-foreground md:h-[18px] md:w-[18px]" aria-hidden />
+            <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="I am looking for..." className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground md:text-[15px]" aria-label="Search products" data-testid="site-header-search-input" />
+            {query && (
+              <button type="button" onClick={() => setQuery("")} aria-label="Clear search" data-testid="site-header-clear-search-button" className="text-muted-foreground hover:text-foreground">
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </label>
+        </form>
+
+        <nav className="mx-auto max-w-[1440px] px-3 sm:px-4 md:px-8">
+          <ul className="-mx-1 flex items-center justify-center gap-4 overflow-x-auto px-1 text-center sm:gap-7 md:gap-10" data-testid="site-header-primary-nav">
+            <li className="shrink-0"><NavLink to="/shop" className={navLinkClass} data-testid="site-header-shop-link" end>Shop all</NavLink></li>
+            <li className="shrink-0"><button type="button" onClick={() => goCategorySection("books")} data-testid="site-header-books-link" className="inline-block whitespace-nowrap py-2.5 text-sm text-foreground/75 hover:text-brand md:text-[15px]">Books</button></li>
+            <li className="shrink-0"><button type="button" onClick={() => goCategorySection("clothing")} data-testid="site-header-clothing-link" className="inline-block whitespace-nowrap py-2.5 text-sm text-foreground/75 hover:text-brand md:text-[15px]">Clothing</button></li>
+            <li className="shrink-0"><button type="button" onClick={() => goCategorySection("children")} data-testid="site-header-essentials-link" className="inline-block whitespace-nowrap py-2.5 text-sm text-foreground/75 hover:text-brand md:text-[15px]">Essentials</button></li>
+            <li className="shrink-0"><NavLink to="/contact" className={navLinkClass} data-testid="site-header-contact-link">Contact</NavLink></li>
+          </ul>
+        </nav>
+      </header>
+    </div>
   );
 }

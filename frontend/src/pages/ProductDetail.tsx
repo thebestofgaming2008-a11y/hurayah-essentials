@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
-import { ChevronRight, Minus, Plus, Star } from "lucide-react";
+import { ChevronRight, Minus, Plus } from "lucide-react";
 import { SiteLayout } from "@/components/layout/SiteLayout";
 import { ProductCard } from "@/components/shop/ProductCard";
 import { CATEGORIES, productCompareAt, productImage, productPrice, type CategoryKey } from "@/data/products";
@@ -91,7 +91,6 @@ const ProductDetail = () => {
   const gallery = Array.from(new Set([cover, ...(Array.isArray(product.images) ? product.images : [])].filter(Boolean) as string[]));
   const mainImage = gallery[activeImage] ?? cover;
   const categoryMeta = CATEGORIES.find((category) => category.key === (product.category as CategoryKey | null));
-  const ratingValue = product.rating ?? 0;
   const stock = product.stock_quantity ?? 0;
   const inStock = product.in_stock !== false && stock > 0;
   const colorOptions = product.color_options ?? [];
@@ -155,18 +154,7 @@ const ProductDetail = () => {
 
             <div className="pt-1 lg:pt-0">
               <div className="grid gap-4 lg:grid-cols-[1fr_245px] lg:items-start">
-                <div>
-                  <div className="mt-3 flex items-center gap-3">
-                    <div className="flex text-[#e4aa00]">
-                      {Array.from({ length: 5 }).map((_, index) => (
-                        <Star key={index} className={cn("h-9 w-9 stroke-[1.8]", index < Math.round(ratingValue) && "fill-current")} />
-                      ))}
-                    </div>
-                    <span className="font-serif text-2xl text-black">({product.reviews_count ?? reviews.length})</span>
-                  </div>
-                </div>
-
-                <div className="lg:pt-14">
+                <div className="lg:col-start-2">
                   {versions.length > 0 && (
                     <select
                       value={product.slug ?? product.id}
@@ -231,9 +219,7 @@ const ProductDetail = () => {
                 ) : (
                   <dl className="mt-9 grid gap-3 font-serif text-2xl text-black sm:grid-cols-2">
                     <Fact label="Category" value={categoryMeta?.label || product.category || "Product"} />
-                    {product.binding && <Fact label="Binding" value={product.binding} />}
                     {product.language && <Fact label="Language" value={product.language} />}
-                    {product.pages != null && <Fact label="Pages" value={String(product.pages)} />}
                     {product.isbn && <Fact label="ISBN" value={product.isbn} />}
                     {product.sku && <Fact label="SKU" value={product.sku} />}
                   </dl>
@@ -326,7 +312,6 @@ function ReviewsSection({ productId, userReady, canReview, reviews, onSubmitted 
     <section className="mt-20 max-w-[49rem] lg:ml-[calc(420px+8rem)]">
       <div className="flex items-center gap-6 border-b border-[#06133a] pb-6">
         <h2 className="font-serif text-4xl text-black">Customer Reviews</h2>
-        <div className="flex text-[#e4aa00]">{Array.from({ length: 5 }).map((_, index) => <Star key={index} className="h-5 w-5 fill-current" />)}</div>
       </div>
       <form onSubmit={submit} className="mt-6 grid gap-3">
         <div className="rounded-md border border-[#06133a]/30 bg-white/45 p-3">
@@ -366,18 +351,8 @@ function ReviewsSection({ productId, userReady, canReview, reviews, onSubmitted 
       <div className="mt-8 space-y-5">
         {reviews.map((review) => (
           <article key={review.id} className="border-b border-[#06133a]/20 pb-4 font-serif">
-            <div className="flex text-[#e4aa00]">{Array.from({ length: 5 }).map((_, index) => <Star key={index} className={cn("h-5 w-5", index < review.rating && "fill-current")} />)}</div>
             {review.title && <h3 className="mt-2 text-2xl text-black">{review.title}</h3>}
             {review.body && <p className="mt-1 text-xl leading-tight text-black/75">{review.body}</p>}
-            {(review.media_urls?.length ?? 0) > 0 && (
-              <div className="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-6">
-                {review.media_urls?.map((url) => (
-                  <div key={url} className="aspect-square overflow-hidden rounded-md bg-white/40">
-                    {isVideoUrl(url) ? <video src={url} className="h-full w-full object-cover" controls playsInline /> : <img src={url} alt="" className="h-full w-full object-cover" />}
-                  </div>
-                ))}
-              </div>
-            )}
           </article>
         ))}
       </div>

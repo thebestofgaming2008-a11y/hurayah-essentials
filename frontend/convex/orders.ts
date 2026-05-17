@@ -24,6 +24,7 @@ const checkoutCustomer = v.object({
   address_line_1: v.string(),
   address_line_2: v.optional(v.string()),
   city: v.string(),
+  state: v.optional(v.string()),
   postal_code: v.string(),
   country: v.string(),
 });
@@ -98,6 +99,15 @@ function cleanTrackingUrl(value: string | null | undefined) {
   return url;
 }
 
+async function nextOrderNumber(ctx: any) {
+  const timestamp = nowIso();
+  const existing = await ctx.db.query("store_settings").withIndex("by_key", (q: any) => q.eq("key", "order_sequence")).first();
+  const next = Math.max(1, Number(existing?.value ?? 0) + 1);
+  if (existing) await ctx.db.patch(existing._id, { value: next, updated_at: timestamp });
+  else await ctx.db.insert("store_settings", { key: "order_sequence", value: next, updated_at: timestamp });
+  return `#${next}`;
+}
+
 async function orderWithItems(ctx: any, order: any) {
   const items = await ctx.db.query("order_items").withIndex("by_order_id", (q: any) => q.eq("order_id", order._id)).collect();
   return {
@@ -147,6 +157,7 @@ async function savePaidOrder(ctx: any, args: {
     address_line_1: cleanText(args.customer.address_line_1, 180),
     address_line_2: cleanNullable(args.customer.address_line_2, 180) ?? undefined,
     city: cleanText(args.customer.city, 80),
+    state: cleanNullable(args.customer.state, 80) ?? undefined,
     postal_code: cleanText(args.customer.postal_code, 24),
     country: cleanText(args.customer.country, 80),
   };
@@ -175,7 +186,7 @@ async function savePaidOrder(ctx: any, args: {
   const computedShipping = shippingMeta.amount;
   const computedTotal = computedSubtotal + computedShipping;
   const timestamp = nowIso();
-  const orderNumber = `HE-${Date.now().toString().slice(-8)}`;
+  const orderNumber = await nextOrderNumber(ctx);
   const orderId = await ctx.db.insert("orders", {
     order_number: orderNumber,
     user_id: null,
@@ -301,6 +312,7 @@ export const createMockCheckoutOrder = mutation({
       address_line_1: cleanText(args.customer.address_line_1, 180),
       address_line_2: cleanNullable(args.customer.address_line_2, 180) ?? undefined,
       city: cleanText(args.customer.city, 80),
+      state: cleanNullable(args.customer.state, 80) ?? undefined,
       postal_code: cleanText(args.customer.postal_code, 24),
       country: cleanText(args.customer.country, 80),
     };
@@ -338,7 +350,7 @@ export const createMockCheckoutOrder = mutation({
     const computedShipping = shippingMeta.amount;
     const computedTotal = computedSubtotal + computedShipping;
     const timestamp = nowIso();
-    const orderNumber = `HE-${Date.now().toString().slice(-8)}`;
+    const orderNumber = await nextOrderNumber(ctx);
     const orderId = await ctx.db.insert("orders", {
       order_number: orderNumber,
       user_id: auth.userId,
@@ -548,7 +560,8 @@ export const markTrackingEmailResult = mutation({
 export const getByNumber = query({
   args: { orderNumber: v.string(), email: v.string() },
   handler: async (ctx, args) => {
-    const orderNumber = cleanText(args.orderNumber, 40).toUpperCase();
+    const rawOrderNumber = cleanText(args.orderNumber, 40).toUpperCase();
+    const orderNumber = /^\d+$/.test(rawOrderNumber) ? `#${rawOrderNumber}` : rawOrderNumber;
     const email = cleanEmail(args.email);
     const order = await ctx.db.query("orders").withIndex("by_order_number", (q) => q.eq("order_number", orderNumber)).first();
     if (!order || order.customer_email?.trim().toLowerCase() !== email) return null;

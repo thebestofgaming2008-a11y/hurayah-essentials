@@ -913,7 +913,6 @@ export default function Admin() {
               query={query}
               setQuery={setQuery}
               onCreateProduct={() => setProductEditor("new")}
-              onBulkAdd={handleBulkAddProducts}
               onStockChange={handleStockChange}
               onEditProduct={(product) => setProductEditor(product)}
               onDeleteProduct={handleDeleteProduct}
@@ -1141,7 +1140,10 @@ function OrderRow({
       <td className="px-6 py-3 text-[13px]">{order.customer_name ?? order.customer_email ?? "Customer"}</td>
       <td className="hidden px-6 py-3 text-[13px] text-[rgb(var(--vibe-muted))] md:table-cell">
         <div className="flex flex-col gap-1">
-          <span>{itemLabel}</span>
+          <span className="inline-flex min-w-0 items-center gap-2">
+            {item?.product_image_url && <img src={item.product_image_url} alt="" className="h-9 w-8 shrink-0 rounded border border-[rgb(var(--vibe-border))] object-cover" />}
+            <span className="truncate">{itemLabel}</span>
+          </span>
           {needsShippingFollowUp && <span className="w-fit rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800">WhatsApp shipping</span>}
         </div>
       </td>
@@ -1180,7 +1182,10 @@ function MobileOrders({ orders, onViewOrder }: { orders: AdminOrder[]; onViewOrd
                   </span>
                 </div>
                 <p className="truncate text-[13px] font-medium">{order.customer_name ?? order.customer_email ?? "Customer"}</p>
-                <p className="truncate text-[12px] text-[rgb(var(--vibe-muted))]">{order.items?.[0]?.product_name ?? "Product"}</p>
+                <p className="mt-1 flex items-center gap-2 truncate text-[12px] text-[rgb(var(--vibe-muted))]">
+                  {order.items?.[0]?.product_image_url && <img src={order.items[0].product_image_url} alt="" className="h-10 w-8 shrink-0 rounded border border-[rgb(var(--vibe-border))] object-cover" />}
+                  <span className="truncate">{order.items?.[0]?.product_name ?? "Product"}</span>
+                </p>
                 {needsShippingFollowUp && <p className="mt-2 w-fit rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800">WhatsApp shipping follow-up</p>}
               </div>
               <div className="shrink-0 text-right">
@@ -1468,11 +1473,11 @@ function ProductEditorDialog({
             <div className="grid grid-cols-2 gap-2">
               <label className="inline-flex h-11 cursor-pointer items-center justify-center rounded-md border border-[rgb(var(--vibe-border))] px-3 text-[12px] transition-colors hover:bg-[rgb(var(--vibe-accent))]">
                 Cover photo
-                <input type="file" accept="image/*" onChange={(event) => handleImage(event.target.files?.[0])} className="sr-only" />
+                <input type="file" accept=".jpg,.jpeg,.png,.webp,.gif" onChange={(event) => handleImage(event.target.files?.[0])} className="sr-only" />
               </label>
               <label className="inline-flex h-11 cursor-pointer items-center justify-center rounded-md border border-[rgb(var(--vibe-border))] px-3 text-[12px] transition-colors hover:bg-[rgb(var(--vibe-accent))]">
                 Gallery media
-                <input type="file" accept="image/*,video/*" multiple onChange={(event) => handleGalleryImages(event.target.files)} className="sr-only" />
+                <input type="file" accept=".jpg,.jpeg,.png,.webp,.gif,.mp4,.webm,.mov,.m4v" multiple onChange={(event) => handleGalleryImages(event.target.files)} className="sr-only" />
               </label>
             </div>
             <ProductInputField label="Image URL" value={form.cover_image_url} onChange={(value) => setField("cover_image_url", value)} />
@@ -1513,7 +1518,6 @@ function ProductEditorDialog({
               <ProductInputField label="Author" value={form.author} onChange={(value) => setField("author", value)} />
               <ProductInputField label="Publisher" value={form.publisher} onChange={(value) => setField("publisher", value)} />
               <ProductInputField label="Language" value={form.language} onChange={(value) => setField("language", value)} />
-              <ProductInputField label="Binding" value={form.binding} onChange={(value) => setField("binding", value)} />
             </div>
             <div className="grid gap-3 rounded-lg border border-[rgb(var(--vibe-border))] p-3 sm:grid-cols-4">
               <div className="sm:col-span-4">
@@ -1868,7 +1872,6 @@ function ProductsPanel({
   query,
   setQuery,
   onCreateProduct,
-  onBulkAdd,
   onStockChange,
   onEditProduct,
   onDeleteProduct,
@@ -1879,7 +1882,6 @@ function ProductsPanel({
   query: string;
   setQuery: (value: string) => void;
   onCreateProduct: () => void;
-  onBulkAdd: () => void;
   onStockChange: (product: Product, delta: number) => void;
   onEditProduct: (product: Product) => void;
   onDeleteProduct: (product: Product) => void;
@@ -1907,7 +1909,6 @@ function ProductsPanel({
               <button type="button" onClick={() => setLayout("compact")} className={`rounded px-3 transition-all ${layout === "compact" ? "bg-white shadow-sm" : "text-[rgb(var(--vibe-muted))]"}`}>Compact</button>
               <button type="button" onClick={() => setLayout("grid")} className={`rounded px-3 transition-all ${layout === "grid" ? "bg-white shadow-sm" : "text-[rgb(var(--vibe-muted))]"}`}>Gallery</button>
             </div>
-            <button type="button" onClick={onBulkAdd} className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[rgb(var(--vibe-border))] px-3 text-[12px] transition-colors hover:bg-[rgb(var(--vibe-accent))]"><Plus className="h-3.5 w-3.5" /> Bulk add</button>
             <button type="button" onClick={onCreateProduct} className="inline-flex h-8 items-center gap-1.5 rounded-md bg-[rgb(var(--vibe-foreground))] px-3 text-[12px] text-white transition-all hover:opacity-90"><Plus className="h-3.5 w-3.5" /> Add product</button>
           </div>
         </div>
@@ -2289,15 +2290,6 @@ function ReviewsPanel({
             <span className="rounded bg-[rgb(var(--vibe-surface))] px-2 py-1 text-[11px] capitalize text-[rgb(var(--vibe-muted))]">{review.status}</span>
           </div>
           <p className="mt-3 text-[13px] text-[rgb(var(--vibe-muted))]">{review.body ?? review.title ?? "No review body."}</p>
-          {(review.media_urls?.length ?? 0) > 0 && (
-            <div className="mt-3 flex gap-2 overflow-x-auto">
-              {review.media_urls?.map((url) => (
-                <div key={url} className="h-20 w-20 shrink-0 overflow-hidden rounded-md bg-[rgb(var(--vibe-surface))]">
-                  {isVideoUrl(url) ? <video src={url} className="h-full w-full object-cover" controls playsInline /> : <img src={url} alt="" className="h-full w-full object-cover" />}
-                </div>
-              ))}
-            </div>
-          )}
           {review.admin_note && <p className="mt-2 rounded bg-[rgb(var(--vibe-surface))] px-3 py-2 text-[12px] text-[rgb(var(--vibe-muted))]">Admin note: {review.admin_note}</p>}
           <div className="mt-4 grid grid-cols-3 gap-2 rounded-md bg-[rgb(var(--vibe-surface))] p-1">
             {reviewStates.map((state) => {
