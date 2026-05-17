@@ -194,6 +194,11 @@ All colors MUST be HSL.
     min-width: max-content;
   }
 
+  .notice-window {
+    -webkit-mask-image: linear-gradient(to right, transparent 0, black 18px, black calc(100% - 18px), transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0, black 18px, black calc(100% - 18px), transparent 100%);
+  }
+
   @media (max-width: 767px) {
     .notice-marquee {
       animation: notice-marquee 18s linear infinite;

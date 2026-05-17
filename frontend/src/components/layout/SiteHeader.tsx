@@ -1,4 +1,4 @@
-import { Heart, LayoutDashboard, LogOut, Package, Search, ShoppingBag, User, X } from "lucide-react";
+import { LayoutDashboard, LogOut, Menu, Package, Search, ShoppingBag, User, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import logo from "@/assets/logo-header.png";
@@ -29,20 +29,21 @@ const BADGE =
   "absolute -top-1 -right-1 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-brand px-1 text-[10px] font-semibold leading-none text-brand-foreground shadow-sm";
 
 const CURRENCY_SYMBOLS: Record<string, string> = {
-  INR: "₹",
+  INR: "\u20B9",
   USD: "$",
-  GBP: "£",
-  EUR: "€",
-  AED: "د.إ",
-  SAR: "﷼",
+  GBP: "\u00A3",
+  EUR: "\u20AC",
+  AED: "\u062F.\u0625",
+  SAR: "\uFDFC",
 };
 
 export function SiteHeader() {
   const [query, setQuery] = useState("");
   const [scrolled, setScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const navigate = useNavigate();
-  const { cartCount, wishlist, openCart } = useShop();
+  const { cartCount, openCart } = useShop();
   const { user, isAdmin, signOut } = useAuth();
   const { currency, currencies, setCurrency, loading: currencyLoading } = useCurrency();
 
@@ -69,10 +70,12 @@ export function SiteHeader() {
 
   const handleSignOut = async () => {
     await signOut();
+    setMenuOpen(false);
     navigate("/");
   };
 
   const goCategorySection = (category: string) => {
+    setMenuOpen(false);
     navigate(`/?category=${encodeURIComponent(category)}#categories`);
   };
 
@@ -83,7 +86,7 @@ export function SiteHeader() {
           <User className="h-5 w-5" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-[224px] rounded-md border border-border bg-background p-0 shadow-lg">
+      <DropdownMenuContent align="end" className="w-[224px] rounded-md border border-border bg-background p-0 shadow-lg">
         <DropdownMenuLabel className="px-4 py-3">
           <p className="truncate text-sm font-semibold">{user.name || user.email?.split("@")[0] || "Account"}</p>
           <p className="truncate text-[12px] font-normal text-foreground/60">{user.email}</p>
@@ -110,8 +113,8 @@ export function SiteHeader() {
       </DropdownMenuContent>
     </DropdownMenu>
   ) : (
-    <Link to="/login?redirect=/account" data-testid="site-header-sign-in-link" className="inline-flex h-9 items-center rounded-md px-3 text-[13px] font-medium text-foreground hover:bg-foreground/[0.06] hover:text-brand">
-      Sign in
+    <Link to="/login?redirect=/account" aria-label="Sign in" data-testid="site-header-sign-in-link" className={ICON_BUTTON}>
+      <User className="h-5 w-5" />
     </Link>
   );
 
@@ -120,15 +123,15 @@ export function SiteHeader() {
       <div className="bg-brand text-brand-foreground">
         <div className="relative mx-auto flex max-w-[1440px] items-center overflow-hidden px-3 py-1.5 text-[11px] sm:px-4 sm:py-2 sm:text-xs md:text-sm">
           {isAdmin && (
-            <Link to="/admin" data-testid="site-header-admin-pill" className="absolute left-3 z-10 inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-0.5 text-[11px] font-semibold tracking-wide hover:bg-white/20 sm:left-4 sm:text-xs">
+            <Link to="/admin" data-testid="site-header-admin-pill" className="absolute left-3 z-10 inline-flex items-center gap-1.5 rounded-full bg-brand px-2.5 py-0.5 text-[11px] font-semibold tracking-wide hover:bg-white/10 sm:left-4 sm:text-xs">
               <LayoutDashboard className="h-3 w-3" />
               <span className="hidden sm:inline">Admin</span>
             </Link>
           )}
-          <div className="mx-auto min-w-0 flex-1 overflow-hidden px-[96px] sm:px-[160px]">
+          <div className="notice-window mx-auto min-w-0 flex-1 overflow-hidden border-x border-white/25 px-3 sm:px-8 md:mx-[160px]">
             <div className="notice-marquee whitespace-nowrap md:mx-auto md:block md:w-fit md:animate-none">
-              <span className="mx-2 inline-flex rounded-full border border-white/25 px-3 py-0.5">International orders may incur customs / import duties</span>
-              <span className="mx-2 inline-flex rounded-full border border-white/25 px-3 py-0.5 md:hidden">International orders may incur customs / import duties</span>
+              <span className="px-8 md:px-0">International orders may incur customs / import duties</span>
+              <span className="px-8 md:hidden">International orders may incur customs / import duties</span>
             </div>
           </div>
           <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center sm:right-4">
@@ -153,19 +156,18 @@ export function SiteHeader() {
       <header className="border-b border-foreground/[0.12] bg-hero/95 backdrop-blur-sm" data-testid="storefront-header">
         <div className="mx-auto grid max-w-[1440px] grid-cols-[1fr_auto_1fr] items-center px-3 py-1.5 sm:px-4 sm:py-2 md:px-8">
           <div className="flex justify-self-start">
-            {accountControl}
-            <button type="button" onClick={() => setSearchOpen((open) => !open)} aria-label="Search products" data-testid="site-header-search-toggle" className={ICON_BUTTON}>
-              {searchOpen ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}
+            <button type="button" onClick={() => setMenuOpen(true)} aria-label="Open menu" data-testid="site-header-open-menu-button" className={cn(ICON_BUTTON, "md:hidden")}>
+              <Menu className="h-5 w-5" />
             </button>
           </div>
           <Link to="/" className="flex min-w-0 justify-self-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40" aria-label="Hurayrah Essentials home" data-testid="site-header-logo-link">
             <img src={logo} alt="Hurayrah Essentials" className="h-8 w-auto object-contain transition-all sm:h-9 md:h-10" />
           </Link>
           <div className="flex min-w-0 justify-self-end">
-            <Link to="/wishlist" aria-label={`Wishlist (${wishlist.length} items)`} data-testid="site-header-wishlist-link" className={ICON_BUTTON}>
-              <Heart className="h-5 w-5" />
-              {wishlist.length > 0 && <span className={BADGE}>{wishlist.length}</span>}
-            </Link>
+            {accountControl}
+            <button type="button" onClick={() => setSearchOpen((open) => !open)} aria-label="Search products" data-testid="site-header-search-toggle" className={ICON_BUTTON}>
+              {searchOpen ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}
+            </button>
             <button type="button" onClick={openCart} aria-label={`Cart (${cartCount} items)`} data-testid="site-header-cart-link" className={ICON_BUTTON}>
               <ShoppingBag className="h-5 w-5" />
               {cartCount > 0 && <span className={BADGE}>{cartCount}</span>}
@@ -197,6 +199,41 @@ export function SiteHeader() {
           </ul>
         </nav>
       </header>
+
+      {menuOpen && (
+        <div className="fixed inset-0 z-50 bg-foreground/40 backdrop-blur-sm md:hidden" onClick={() => setMenuOpen(false)} data-testid="site-header-mobile-menu-overlay">
+          <aside className="absolute left-0 top-0 flex h-full w-[86%] max-w-[360px] flex-col overflow-y-auto border-r border-foreground/10 bg-hero shadow-2xl" onClick={(event) => event.stopPropagation()} data-testid="site-header-mobile-menu-panel">
+            <div className="flex items-center justify-between border-b border-foreground/10 px-5 py-4">
+              <Link to="/" onClick={() => setMenuOpen(false)} className="inline-flex items-center gap-3">
+                <img src={logo} alt="" className="h-9 w-auto object-contain" />
+                <span className="text-[13px] font-semibold text-hero-foreground">Back to store</span>
+              </Link>
+              <button type="button" onClick={() => setMenuOpen(false)} aria-label="Close menu" data-testid="site-header-close-menu-button" className="grid h-9 w-9 place-items-center rounded-md hover:bg-foreground/5">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <nav className="flex flex-col gap-1 px-3 py-5">
+              {isAdmin && <Link to="/admin" onClick={() => setMenuOpen(false)} className="rounded-md px-3 py-3 text-[14px] font-semibold text-brand hover:bg-white/55">Admin dashboard</Link>}
+              <Link to="/shop" onClick={() => setMenuOpen(false)} className="rounded-md px-3 py-3 text-[14px] text-foreground hover:bg-white/55 hover:text-brand">Shop all</Link>
+              <button type="button" onClick={() => goCategorySection("books")} className="w-full rounded-md px-3 py-3 text-left text-[14px] text-foreground hover:bg-white/55 hover:text-brand">Books</button>
+              <button type="button" onClick={() => goCategorySection("clothing")} className="w-full rounded-md px-3 py-3 text-left text-[14px] text-foreground hover:bg-white/55 hover:text-brand">Clothing</button>
+              <button type="button" onClick={() => goCategorySection("children")} className="w-full rounded-md px-3 py-3 text-left text-[14px] text-foreground hover:bg-white/55 hover:text-brand">Essentials</button>
+              <Link to="/contact" onClick={() => setMenuOpen(false)} className="rounded-md px-3 py-3 text-[14px] text-foreground hover:bg-white/55 hover:text-brand">Contact</Link>
+              <div className="mt-3 border-t border-foreground/10 pt-3">
+                <Link to="/track" onClick={() => setMenuOpen(false)} className="block rounded-md px-3 py-3 text-[14px] text-foreground hover:bg-white/55 hover:text-brand">Track order</Link>
+                {user ? (
+                  <button type="button" onClick={handleSignOut} className="inline-flex w-full items-center gap-2 rounded-md px-3 py-3 text-[14px] text-red-600 hover:bg-white/55">
+                    <LogOut className="h-4 w-4" />
+                    Sign out
+                  </button>
+                ) : (
+                  <Link to="/login?redirect=/account" onClick={() => setMenuOpen(false)} className="block rounded-md px-3 py-3 text-[14px] font-semibold text-brand hover:bg-white/55">Sign in</Link>
+                )}
+              </div>
+            </nav>
+          </aside>
+        </div>
+      )}
     </div>
   );
 }
