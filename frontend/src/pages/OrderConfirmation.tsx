@@ -5,6 +5,8 @@ import { SiteLayout } from "@/components/layout/SiteLayout";
 const OrderConfirmation = () => {
   const [params] = useSearchParams();
   const id = params.get("id") ?? "HE-XXXXXX";
+  const shipping = params.get("shipping");
+  const international = shipping === "pending_whatsapp";
   return (
     <SiteLayout>
       <div className="mx-auto max-w-[640px] px-4 md:px-8 py-16 md:py-24 text-center">
@@ -14,7 +16,11 @@ const OrderConfirmation = () => {
         <h1 className="mt-5 text-foreground italic font-bold tracking-tight text-3xl md:text-4xl">
           Thank you for your order!
         </h1>
-        <p className="mt-2 text-foreground/65">Your order was saved successfully. Tracking will be shared by WhatsApp after dispatch.</p>
+        <p className="mt-2 text-foreground/65">
+          {international
+            ? "Your order was saved successfully. International shipping will be calculated and collected separately on WhatsApp."
+            : "Your order was saved successfully. India shipping is included, and tracking will be shared by WhatsApp after dispatch."}
+        </p>
         <p className="mt-6 inline-block rounded-full bg-hero/40 px-4 py-1.5 text-sm font-medium text-foreground" data-testid="order-confirmation-id">
           Order ID: <span className="font-mono font-semibold">{id}</span>
         </p>

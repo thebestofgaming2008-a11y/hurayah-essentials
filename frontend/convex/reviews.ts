@@ -17,14 +17,6 @@ function cleanNullable(value: string | null | undefined, max = 1000) {
   return next.length ? next : null;
 }
 
-function cleanMedia(urls: string[] | null | undefined) {
-  if (!Array.isArray(urls)) return [];
-  return urls
-    .map((url) => cleanText(url, 1000))
-    .filter((url) => /^https?:\/\//i.test(url) || /^data:(image|video)\//i.test(url))
-    .slice(0, 6);
-}
-
 async function recalculateProductRating(ctx: any, productId: string) {
   const rows = await ctx.db
     .query("reviews")
@@ -87,7 +79,6 @@ export const submit = mutation({
     rating: v.number(),
     title: v.optional(v.union(v.string(), v.null())),
     body: v.optional(v.union(v.string(), v.null())),
-    mediaUrls: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     const auth = await requireIdentity(ctx);
@@ -124,22 +115,6 @@ export const canReviewProduct = query({
     if (!auth) return { canReview: false };
     const user = auth.user as any;
     return { canReview: await hasVerifiedPurchase(ctx, auth.userId, user.email, args.productId) };
-  },
-});
-
-export const generateReviewMediaUploadUrl = mutation({
-  args: {},
-  handler: async (ctx) => {
-    await requireIdentity(ctx);
-    return await ctx.storage.generateUploadUrl();
-  },
-});
-
-export const getReviewMediaUrl = query({
-  args: { storageId: v.string() },
-  handler: async (ctx, args) => {
-    await requireIdentity(ctx);
-    return await ctx.storage.getUrl(args.storageId as any);
   },
 });
 

@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { SiteLayout } from "@/components/layout/SiteLayout";
 import { useShop } from "@/store/shop";
 import { createRazorpayCheckoutOrder, verifyRazorpayPayment } from "@/services/orderService";
-import { calculateShippingInr } from "@/services/shipping";
+import { checkoutShippingForCountry } from "@/services/shipping";
 import { toast } from "@/hooks/use-toast";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { cn } from "@/lib/utils";
@@ -50,8 +50,10 @@ const Checkout = () => {
     postalCode: "",
     country: "India",
   });
-  const shipping = calculateShippingInr(cartSubtotal, cartLines);
+  const shippingMeta = checkoutShippingForCountry(form.country);
+  const shipping = shippingMeta.amount;
   const total = cartSubtotal + shipping;
+  const isInternational = shippingMeta.countryType === "international";
 
   const steps = useMemo(() => [
     { label: "Contact", done: Boolean(form.email && form.phone) },
@@ -120,7 +122,7 @@ const Checkout = () => {
               });
               clearCart();
               toast({ title: "Payment received", description: "Your order was verified and saved securely." });
-              navigate(`/order-confirmation?id=${order?.order_number ?? "HE-PAID"}`);
+              navigate(`/order-confirmation?id=${order?.order_number ?? "HE-PAID"}&shipping=${shippingMeta.paymentStatus}`);
               resolve();
             } catch (error) {
               reject(error);
@@ -230,9 +232,9 @@ const Checkout = () => {
                 <div className="rounded-lg border border-border bg-background p-4 flex items-center justify-between gap-3" data-testid="checkout-delivery-method-card">
                   <div>
                     <p className="text-sm font-semibold text-foreground">Standard tracked delivery</p>
-                    <p className="text-xs text-foreground/55 mt-0.5">India rate: ₹50 up to 500g, ₹80 around 1kg. Tracking is shared by WhatsApp after dispatch.</p>
+                    <p className="text-xs text-foreground/55 mt-0.5">{isInternational ? "International shipping is billed separately after order confirmation on WhatsApp." : "India shipping is included in the product prices."}</p>
                   </div>
-                  <span className="text-sm font-semibold tabular-nums">{shipping === 0 ? "Free" : format(shipping)}</span>
+                  <span className="text-sm font-semibold tabular-nums">{isInternational ? "WhatsApp follow-up" : "Included"}</span>
                 </div>
               </Section>
 
@@ -241,11 +243,13 @@ const Checkout = () => {
                   Secure payment handoff
                 </p>
                 <div className="rounded-lg border border-brand/30 bg-brand/5 p-4 text-sm text-foreground/75" data-testid="checkout-razorpay-live-notice">
-                  Test checkout is active. The order is verified before saving.
+                  {isInternational
+                    ? "Pay the product total now. The store will message you on WhatsApp after ordering to collect the actual international shipping fee."
+                    : "India shipping is already included in the product prices. Your order is verified before saving."}
                 </div>
                 <div className="grid sm:grid-cols-3 gap-3">
                   <Field label="Payment provider" placeholder="Checkout" disabled value="" onChange={() => undefined} testId="checkout-card-number-input" />
-                  <Field label="Mode" placeholder="Test keys" disabled value="" onChange={() => undefined} testId="checkout-expiry-input" />
+                  <Field label="Mode" placeholder="Secure checkout" disabled value="" onChange={() => undefined} testId="checkout-expiry-input" />
                   <Field label="Verification" placeholder="Signature checked" disabled value="" onChange={() => undefined} testId="checkout-cvc-input" />
                 </div>
               </Section>
@@ -292,7 +296,7 @@ const Checkout = () => {
               </ul>
               <dl className="mt-4 space-y-2 border-t border-[rgb(var(--vibe-border))] pt-4 text-[12px]">
                 <div className="flex justify-between"><dt className="text-[rgb(var(--vibe-muted))]">Subtotal</dt><dd className="font-mono font-medium tabular-nums">{format(cartSubtotal)}</dd></div>
-                <div className="flex justify-between"><dt className="text-[rgb(var(--vibe-muted))]">Shipping</dt><dd className="font-mono font-medium tabular-nums">{shipping === 0 ? "Free" : format(shipping)}</dd></div>
+                <div className="flex justify-between"><dt className="text-[rgb(var(--vibe-muted))]">Shipping</dt><dd className="font-mono font-medium tabular-nums">{isInternational ? "Billed later" : "Included"}</dd></div>
                 <div className="mt-3 flex justify-between border-t border-[rgb(var(--vibe-border))] pt-3 text-[13px]">
                   <dt className="font-medium">Total</dt>
                   <dd className="font-mono font-semibold tabular-nums" data-testid="checkout-total-amount">{format(total)}</dd>
@@ -303,6 +307,9 @@ const Checkout = () => {
                   Converted totals are approximate. Checkout is recorded in INR.
                 </p>
               )}
+              <p className="mt-3 rounded-md border border-[rgb(var(--vibe-border))] bg-[rgb(var(--vibe-page))] px-3 py-2 text-[11px] text-[rgb(var(--vibe-muted))]">
+                {isInternational ? "International shipping is not charged online. You will be contacted on WhatsApp after your order." : "India shipping is included in the product prices."}
+              </p>
               <PaymentMethods compact className="mt-4" />
               <button
                 type="submit"

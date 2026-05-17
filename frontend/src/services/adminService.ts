@@ -179,6 +179,10 @@ export interface AdminOrder {
   customer_phone: string | null;
   status: string | null;
   payment_status: string | null;
+  shipping_payment_status?: string | null;
+  shipping_payment_note?: string | null;
+  customer_country_type?: string | null;
+  shipping_cost?: number | null;
   tracking_carrier?: string | null;
   tracking_number?: string | null;
   tracking_url?: string | null;
@@ -192,6 +196,8 @@ export interface AdminOrder {
     id: string;
     product_id?: string | null;
     product_name?: string | null;
+    selected_color?: string | null;
+    selected_size?: string | null;
     quantity: number;
     unit_price: number;
     subtotal: number;

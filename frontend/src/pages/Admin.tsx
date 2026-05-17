@@ -1132,13 +1132,19 @@ function OrderRow({
   onViewOrder?: (order: AdminOrder) => void;
 }) {
   const meta = statusMeta[normalizeStatus(order)];
+  const needsShippingFollowUp = order.shipping_payment_status === "pending_whatsapp" || order.customer_country_type === "international";
   const item = order.items?.[0];
   const itemLabel = order.items && order.items.length > 1 ? `${item?.product_name ?? "Product"} +${order.items.length - 1}` : item?.product_name ?? "Product";
   return (
     <tr className="border-t border-[rgb(var(--vibe-border))] transition-colors hover:bg-[rgb(var(--vibe-accent))]/50">
       <td className="px-6 py-3 font-mono text-[13px] font-medium">{order.order_number ?? order.id.slice(0, 8)}</td>
       <td className="px-6 py-3 text-[13px]">{order.customer_name ?? order.customer_email ?? "Customer"}</td>
-      <td className="hidden px-6 py-3 text-[13px] text-[rgb(var(--vibe-muted))] md:table-cell">{itemLabel}</td>
+      <td className="hidden px-6 py-3 text-[13px] text-[rgb(var(--vibe-muted))] md:table-cell">
+        <div className="flex flex-col gap-1">
+          <span>{itemLabel}</span>
+          {needsShippingFollowUp && <span className="w-fit rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800">WhatsApp shipping</span>}
+        </div>
+      </td>
       <td className="px-6 py-3 text-right font-mono text-[13px] font-medium">{fmtAmount((order.total_inr ?? order.total ?? 0) / 83)}</td>
       <td className="px-6 py-3">
         <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-[12px] text-[rgb(var(--vibe-muted))]">
@@ -1161,6 +1167,7 @@ function MobileOrders({ orders, onViewOrder }: { orders: AdminOrder[]; onViewOrd
     <ul className="divide-y divide-[rgb(var(--vibe-border))] border-t border-[rgb(var(--vibe-border))] sm:hidden">
       {orders.map((order) => {
         const meta = statusMeta[normalizeStatus(order)];
+        const needsShippingFollowUp = order.shipping_payment_status === "pending_whatsapp" || order.customer_country_type === "international";
         return (
           <li key={order.id} className="px-4 py-3">
             <div className="flex items-start justify-between gap-3">
@@ -1174,6 +1181,7 @@ function MobileOrders({ orders, onViewOrder }: { orders: AdminOrder[]; onViewOrd
                 </div>
                 <p className="truncate text-[13px] font-medium">{order.customer_name ?? order.customer_email ?? "Customer"}</p>
                 <p className="truncate text-[12px] text-[rgb(var(--vibe-muted))]">{order.items?.[0]?.product_name ?? "Product"}</p>
+                {needsShippingFollowUp && <p className="mt-2 w-fit rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800">WhatsApp shipping follow-up</p>}
               </div>
               <div className="shrink-0 text-right">
                 <p className="font-mono text-[13px] font-semibold">{fmtAmount((order.total_inr ?? order.total ?? 0) / 83)}</p>
@@ -1438,7 +1446,7 @@ function ProductEditorDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/35 p-0 sm:items-center sm:p-6">
-      <form onSubmit={handleSubmit} className="vibe-card flex max-h-[95vh] w-full max-w-5xl flex-col overflow-hidden rounded-b-none sm:rounded-b-lg">
+      <form onSubmit={handleSubmit} className="vibe-card flex max-h-[95dvh] w-full max-w-5xl flex-col overflow-hidden rounded-b-none sm:max-h-[95vh] sm:rounded-b-lg">
         <div className="flex items-center justify-between border-b border-[rgb(var(--vibe-border))] px-5 py-4">
           <div>
             <h2 className="text-[15px] font-semibold">{product ? "Edit product" : "Add product"}</h2>
@@ -1448,7 +1456,7 @@ function ProductEditorDialog({
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="grid gap-5 overflow-y-auto p-4 sm:p-5 lg:grid-cols-[280px_1fr]">
+        <div className="grid gap-5 overflow-y-auto p-4 pb-24 sm:p-5 lg:grid-cols-[280px_1fr]">
           <div className="space-y-3">
             <div className="aspect-[3/4] overflow-hidden rounded-md border border-[rgb(var(--vibe-border))] bg-[rgb(var(--vibe-surface))]">
               {form.cover_image_url ? (
@@ -1458,11 +1466,11 @@ function ProductEditorDialog({
               )}
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <label className="inline-flex h-10 cursor-pointer items-center justify-center rounded-md border border-[rgb(var(--vibe-border))] px-3 text-[12px] hover:bg-[rgb(var(--vibe-accent))]">
+              <label className="inline-flex h-11 cursor-pointer items-center justify-center rounded-md border border-[rgb(var(--vibe-border))] px-3 text-[12px] transition-colors hover:bg-[rgb(var(--vibe-accent))]">
                 Cover photo
-                <input type="file" accept="image/*" capture="environment" onChange={(event) => handleImage(event.target.files?.[0])} className="sr-only" />
+                <input type="file" accept="image/*" onChange={(event) => handleImage(event.target.files?.[0])} className="sr-only" />
               </label>
-              <label className="inline-flex h-10 cursor-pointer items-center justify-center rounded-md border border-[rgb(var(--vibe-border))] px-3 text-[12px] hover:bg-[rgb(var(--vibe-accent))]">
+              <label className="inline-flex h-11 cursor-pointer items-center justify-center rounded-md border border-[rgb(var(--vibe-border))] px-3 text-[12px] transition-colors hover:bg-[rgb(var(--vibe-accent))]">
                 Gallery media
                 <input type="file" accept="image/*,video/*" multiple onChange={(event) => handleGalleryImages(event.target.files)} className="sr-only" />
               </label>
@@ -1470,16 +1478,16 @@ function ProductEditorDialog({
             <ProductInputField label="Image URL" value={form.cover_image_url} onChange={(value) => setField("cover_image_url", value)} />
             {uploading && <p className="text-[11px] text-[rgb(var(--vibe-muted))]">Uploading to Convex storage...</p>}
             {gallery.length > 0 && (
-              <div className="flex gap-2 overflow-x-auto pb-1">
+              <div className="flex gap-3 overflow-x-auto pb-2">
                 {gallery.map((image, index) => (
-                  <div key={`${image}-${index}`} className="group relative h-20 w-16 shrink-0 overflow-hidden rounded border border-[rgb(var(--vibe-border))]">
+                  <div key={`${image}-${index}`} className="group relative h-28 w-24 shrink-0 overflow-hidden rounded-md border border-[rgb(var(--vibe-border))] bg-white">
                     {isVideoUrl(image) ? <video src={image} className="h-full w-full object-cover" muted playsInline /> : <img src={image} alt="" className="h-full w-full object-cover" />}
                     {image === form.cover_image_url ? (
                       <span className="absolute bottom-1 left-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-center text-[9px] font-medium text-white">Cover</span>
                     ) : (
-                      <button type="button" onClick={() => makeCoverImage(image)} className="absolute bottom-1 left-1 grid h-6 w-6 place-items-center rounded bg-white/90 text-zinc-700 shadow opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100" aria-label="Make cover image"><ImageIcon className="h-3 w-3" /></button>
+                      <button type="button" onClick={() => makeCoverImage(image)} className="absolute bottom-1 left-1 right-1 inline-flex h-7 items-center justify-center gap-1 rounded bg-white/95 px-2 text-[10px] font-medium text-zinc-800 shadow transition-colors hover:bg-white" aria-label="Make cover image"><ImageIcon className="h-3 w-3" /> Cover</button>
                     )}
-                    <button type="button" onClick={() => removeGalleryImage(image)} className="absolute right-1 top-1 grid h-6 w-6 place-items-center rounded bg-white/90 text-zinc-700 shadow" aria-label="Remove image"><X className="h-3 w-3" /></button>
+                    <button type="button" onClick={() => removeGalleryImage(image)} className="absolute right-1 top-1 grid h-8 w-8 place-items-center rounded bg-white/95 text-zinc-700 shadow" aria-label="Remove image"><X className="h-3.5 w-3.5" /></button>
                   </div>
                 ))}
               </div>
@@ -1597,7 +1605,7 @@ function ProductEditorDialog({
             </div>
           </div>
         </div>
-        <div className="flex flex-col gap-2 border-t border-[rgb(var(--vibe-border))] px-5 py-4 sm:flex-row sm:items-center sm:justify-end">
+        <div className="sticky bottom-0 z-10 flex flex-col gap-2 border-t border-[rgb(var(--vibe-border))] bg-white/95 px-5 py-4 shadow-[0_-8px_18px_rgba(15,23,42,0.06)] backdrop-blur sm:flex-row sm:items-center sm:justify-end">
           <button type="button" onClick={onClose} className="h-10 rounded-md border border-[rgb(var(--vibe-border))] px-3 text-[12px]">Cancel</button>
           <button type="submit" disabled={saving || uploading} className="h-10 rounded-md bg-[rgb(var(--vibe-foreground))] px-3 text-[12px] text-white disabled:opacity-60">{saving ? "Saving..." : "Save product"}</button>
         </div>
@@ -1720,6 +1728,7 @@ function OrderDetailsDialog({
 }) {
   const meta = statusMeta[normalizeStatus(order)];
   const total = order.total_inr ?? order.total ?? 0;
+  const needsShippingFollowUp = order.shipping_payment_status === "pending_whatsapp" || order.customer_country_type === "international";
   const [saving, setSaving] = useState(false);
   const [savingStatus, setSavingStatus] = useState(false);
   const [form, setForm] = useState<OrderFulfillmentState>({
@@ -1768,6 +1777,12 @@ function OrderDetailsDialog({
         </div>
         <div className="grid max-h-[calc(95vh-68px)] gap-5 overflow-y-auto p-4 sm:p-5 lg:grid-cols-[1fr_320px]">
           <div className="space-y-3">
+            {needsShippingFollowUp && (
+              <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-[13px] text-amber-900">
+                <p className="font-medium">International shipping follow-up needed</p>
+                <p className="mt-1 text-[12px] leading-5 text-amber-800">The customer paid the product total online. Message them on WhatsApp to collect the actual international shipping fee separately.</p>
+              </div>
+            )}
             {(order.items ?? []).map((item) => {
               const product = products.find((candidate) => candidate.id === item.product_id);
               const images = [product?.cover_image_url, ...(product?.images ?? [])].filter(Boolean);
@@ -1780,6 +1795,11 @@ function OrderDetailsDialog({
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[13px] font-medium">{item.product_name ?? product?.name ?? "Product"}</p>
                       <p className="mt-1 text-[11px] text-[rgb(var(--vibe-muted))]">Qty {item.quantity} · {formatPrice(item.unit_price)} each · {formatPrice(item.subtotal)}</p>
+                      {(item.selected_color || item.selected_size) && (
+                        <p className="mt-1 text-[11px] text-[rgb(var(--vibe-muted))]">
+                          {[item.selected_color && `Colour: ${item.selected_color}`, item.selected_size && `Size: ${item.selected_size}`].filter(Boolean).join(" / ")}
+                        </p>
+                      )}
                       {product && <Link to={`/product/${product.slug ?? product.id}`} className="mt-2 inline-flex h-7 items-center rounded-md border border-[rgb(var(--vibe-border))] px-2 text-[11px]">View product</Link>}
                     </div>
                   </div>
@@ -1831,6 +1851,8 @@ function OrderDetailsDialog({
             </div>
             <div className="rounded-lg border border-[rgb(var(--vibe-border))] p-4 text-[12px]">
               <div className="flex justify-between"><span>Payment</span><span className="capitalize">{order.payment_status ?? "unknown"}</span></div>
+              <div className="mt-2 flex justify-between gap-3"><span>Shipping</span><span className="text-right capitalize">{needsShippingFollowUp ? "WhatsApp follow-up" : "Included"}</span></div>
+              {order.shipping_payment_note && <p className="mt-2 rounded-md bg-[rgb(var(--vibe-surface))] px-2 py-1.5 text-[11px] text-[rgb(var(--vibe-muted))]">{order.shipping_payment_note}</p>}
               <div className="mt-2 flex justify-between font-medium"><span>Total</span><span>{formatPrice(total)}</span></div>
               <div className="mt-2 text-[rgb(var(--vibe-muted))]">Tracking: {order.tracking_number ?? "Not added"}</div>
             </div>
@@ -2147,9 +2169,9 @@ function ShippingPanelFunctional({ products, rates, onUpdateRate }: { products: 
           <div className="flex items-start gap-3">
             <BellRing className={`mt-0.5 h-4 w-4 shrink-0 ${reviewDue ? "text-amber-600" : "text-[rgb(var(--vibe-muted))]"}`} />
             <div className="text-[13px]">
-              <p className="font-medium">{reviewDue ? "Monthly shipping review due" : "Shipping review is up to date"}</p>
+              <p className="font-medium">{reviewDue ? "Shipping reference review due" : "Shipping reference is up to date"}</p>
               <p className="mt-0.5 text-[rgb(var(--vibe-muted))]">
-                {reviewDue ? `Rates were last reviewed ${daysSinceReview >= 999 ? "never" : `${daysSinceReview} days ago`}. Update carriers, then mark reviewed.` : `Next monthly notice in ${nextReviewDays} days.`}
+                {reviewDue ? `Rates were last reviewed ${daysSinceReview >= 999 ? "never" : `${daysSinceReview} days ago`}. These are admin references only; checkout uses India included shipping and WhatsApp follow-up internationally.` : `Next monthly notice in ${nextReviewDays} days.`}
               </p>
             </div>
           </div>
@@ -2159,9 +2181,9 @@ function ShippingPanelFunctional({ products, rates, onUpdateRate }: { products: 
       <div className="vibe-card flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:p-5">
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <div className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-[rgb(var(--vibe-surface))]"><Calculator className="h-4 w-4" /></div>
-          <div><p className="text-[13px] font-medium">Bulk recalculate product shipping fees</p><p className="text-[11.5px] text-[rgb(var(--vibe-muted))]">Uses current product prices and carrier tables.</p></div>
+          <div><p className="text-[13px] font-medium">Reference shipping estimates</p><p className="text-[11.5px] text-[rgb(var(--vibe-muted))]">For admin planning only. Customer checkout does not add these fees.</p></div>
         </div>
-        <button type="button" onClick={recalculate} className="inline-flex h-8 items-center gap-1.5 rounded-md bg-[rgb(var(--vibe-foreground))] px-3 text-[12px] text-white">Recalculate now</button>
+        <button type="button" onClick={recalculate} className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md bg-[rgb(var(--vibe-foreground))] px-3 text-[12px] text-white">Refresh estimates</button>
       </div>
       <div className="grid grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-2">
         {carriersInRates.map((carrier) => (
@@ -2202,9 +2224,9 @@ function ShippingPanel({ products }: { products: Product[] }) {
       <div className="vibe-card flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:p-5">
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <div className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-[rgb(var(--vibe-surface))]"><Calculator className="h-4 w-4" /></div>
-          <div><p className="text-[13px] font-medium">Bulk recalculate product shipping fees</p><p className="text-[11.5px] text-[rgb(var(--vibe-muted))]">Re-prices every variant using its weight & dimensions against the current carrier tables.</p></div>
+          <div><p className="text-[13px] font-medium">Reference shipping estimates</p><p className="text-[11.5px] text-[rgb(var(--vibe-muted))]">Admin reference only. Checkout uses India included shipping and WhatsApp follow-up internationally.</p></div>
         </div>
-        <button className="inline-flex h-8 items-center gap-1.5 rounded-md bg-[rgb(var(--vibe-foreground))] px-3 text-[12px] text-white">Recalculate now</button>
+        <button className="inline-flex h-9 items-center gap-1.5 rounded-md bg-[rgb(var(--vibe-foreground))] px-3 text-[12px] text-white">Refresh estimates</button>
       </div>
       <div className="grid grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-2">
         {carriers.map((carrier) => <CarrierCard key={carrier.name} carrier={carrier} />)}

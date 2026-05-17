@@ -1,7 +1,7 @@
 import { api } from "../../convex/_generated/api";
 import { convex } from "@/integrations/convex/client";
 import type { CartLine } from "@/store/shop";
-import { calculateShippingInr } from "./shipping";
+import { checkoutShippingForCountry } from "./shipping";
 
 export interface CheckoutCustomer {
   email: string;
@@ -14,7 +14,7 @@ export interface CheckoutCustomer {
   country: string;
 }
 
-export const shippingRate = calculateShippingInr;
+export const shippingRate = (_subtotal: number, _cart: CartLine[] = [], country = "India") => checkoutShippingForCountry(country).amount;
 
 export async function createMockedRazorpayOrder(args: {
   cart: CartLine[];

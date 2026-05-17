@@ -23,7 +23,6 @@ export async function submitReview(input: {
   rating: number;
   title?: string | null;
   body?: string | null;
-  mediaUrls?: string[];
 }): Promise<ProductReview | null> {
   return (await convex.mutation(api.reviews.submit, input)) as ProductReview | null;
 }
@@ -31,17 +30,4 @@ export async function submitReview(input: {
 export async function canReviewProduct(productId: string): Promise<boolean> {
   const result = (await convex.query(api.reviews.canReviewProduct, { productId })) as { canReview?: boolean };
   return Boolean(result?.canReview);
-}
-
-export async function uploadReviewMedia(file: File): Promise<string | null> {
-  const uploadUrl = await convex.mutation(api.reviews.generateReviewMediaUploadUrl, {});
-  const result = await fetch(uploadUrl, {
-    method: "POST",
-    headers: { "Content-Type": file.type || "application/octet-stream" },
-    body: file,
-  });
-  if (!result.ok) return null;
-  const { storageId } = await result.json();
-  const url = await convex.query(api.reviews.getReviewMediaUrl, { storageId });
-  return url ? `${url}#${encodeURIComponent(file.name)}` : null;
 }

@@ -3,7 +3,6 @@ import { Link, useNavigate } from "react-router-dom";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { productImage, productPrice } from "@/data/products";
 import { cn } from "@/lib/utils";
-import { calculateShippingInr } from "@/services/shipping";
 import { listByIds, listFeatured, type Product } from "@/services/productService";
 import { useShop } from "@/store/shop";
 import { PaymentMethods } from "@/components/shop/PaymentMethods";
@@ -79,7 +78,7 @@ export function CartDrawer() {
   const { format, currency } = useCurrency();
   const navigate = useNavigate();
   const [recommendations, setRecommendations] = useState<Product[]>([]);
-  const shipping = calculateShippingInr(cartSubtotal, cartLines);
+  const shipping = 0;
   const total = cartSubtotal + shipping;
 
   useEffect(() => {
@@ -212,7 +211,7 @@ export function CartDrawer() {
           <div className="border-t border-[rgb(var(--vibe-border))] bg-white p-4">
             <dl className="space-y-2 text-[12px]">
               <div className="flex justify-between"><dt className="text-[rgb(var(--vibe-muted))]">Subtotal</dt><dd className="font-mono font-medium tabular-nums">{format(cartSubtotal)}</dd></div>
-              <div className="flex justify-between"><dt className="text-[rgb(var(--vibe-muted))]">Shipping</dt><dd className="font-mono font-medium tabular-nums">{shipping === 0 ? "Free" : format(shipping)}</dd></div>
+              <div className="flex justify-between"><dt className="text-[rgb(var(--vibe-muted))]">Shipping</dt><dd className="font-mono font-medium tabular-nums">Included / billed later</dd></div>
               <div className="flex justify-between border-t border-[rgb(var(--vibe-border))] pt-3 text-[13px]"><dt className="font-medium">Total</dt><dd className="font-mono font-semibold tabular-nums">{format(total)}</dd></div>
             </dl>
             <button type="button" onClick={goCheckout} className="mt-4 flex h-9 w-full items-center justify-center gap-2 rounded-md bg-[rgb(var(--vibe-foreground))] px-3 text-[12px] font-medium text-white transition-opacity hover:opacity-90">
@@ -220,7 +219,7 @@ export function CartDrawer() {
             </button>
             <PaymentMethods compact className="mt-4" />
             <p className="mt-2 text-center text-[11px] text-[rgb(var(--vibe-muted))]">
-              India shipping: ₹50 up to 500g, ₹80 around 1kg{currency !== "INR" ? " · checkout is charged in INR" : ""}
+              India shipping is included. International shipping is collected later on WhatsApp.{currency !== "INR" ? " Checkout is charged in INR." : ""}
             </p>
           </div>
         </>

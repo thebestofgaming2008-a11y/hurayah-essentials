@@ -211,6 +211,9 @@ const ProductDetail = () => {
                   {inStock ? "Add to cart" : "Out of stock"}
                 </button>
               </div>
+              <p className="mt-3 max-w-[49rem] font-serif text-lg leading-tight text-black/65">
+                India shipping is included. International shipping is billed separately after order confirmation on WhatsApp.
+              </p>
 
               <div className="mt-5 inline-flex h-16 items-center gap-4 bg-[#d9d9d9] px-2 font-serif text-4xl text-black">
                 <button type="button" onClick={() => setQty((q) => Math.max(1, q - 1))} aria-label="Decrease quantity"><Minus className="h-9 w-9" /></button>
@@ -307,7 +310,7 @@ function ReviewsSection({ productId, userReady, canReview, reviews, onSubmitted 
     if (!canReview) return toast({ title: "Only verified customers can review this product", variant: "destructive" });
     setSubmitting(true);
     try {
-      await submitReview({ productId, rating, title: title || null, body: body || null, mediaUrls: [] });
+      await submitReview({ productId, rating, title: title || null, body: body || null });
       toast({ title: "Review submitted", description: "It will appear after approval." });
       setTitle("");
       setBody("");

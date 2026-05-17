@@ -1,7 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { SiteLayout } from "@/components/layout/SiteLayout";
 import { useShop } from "@/store/shop";
-import { calculateShippingInr } from "@/services/shipping";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { PaymentMethods } from "@/components/shop/PaymentMethods";
 
@@ -9,7 +8,7 @@ const Cart = () => {
   const { cartLines, cartSubtotal, updateQty, removeFromCart } = useShop();
   const { format, currency } = useCurrency();
   const navigate = useNavigate();
-  const shipping = calculateShippingInr(cartSubtotal, cartLines);
+  const shipping = 0;
   const total = cartSubtotal + shipping;
 
   return (
@@ -113,7 +112,7 @@ const Cart = () => {
                 <div className="flex justify-between">
                   <dt className="text-[rgb(var(--vibe-muted))]">Shipping</dt>
                   <dd className="font-mono font-medium">
-                    {shipping === 0 ? "Free" : format(shipping)}
+                    Included / billed later
                   </dd>
                 </div>
                 <div className="mt-3 flex justify-between border-t border-[rgb(var(--vibe-border))] pt-3 text-[13px]">
@@ -130,7 +129,7 @@ const Cart = () => {
               </button>
               <PaymentMethods compact className="mt-4" />
               <p className="mt-3 text-center text-[11px] text-[rgb(var(--vibe-muted))]">
-                India shipping: ₹50 up to 500g, ₹80 around 1kg · Final charge in INR{currency !== "INR" ? " · converted prices are approximate" : ""}
+                India shipping is included. International shipping is billed separately on WhatsApp after ordering.{currency !== "INR" ? " Converted prices are approximate." : ""}
               </p>
             </aside>
           </div>

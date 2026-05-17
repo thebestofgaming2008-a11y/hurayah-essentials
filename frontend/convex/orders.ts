@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { action, internalMutation, mutation, query } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { nowIso, publicOrder, requireAdmin, requireIdentity } from "./lib";
-import { calculateShippingInr } from "./shipping";
+import { checkoutShippingForCountry } from "./shipping";
 
 const cartItem = v.object({
   cartKey: v.optional(v.string()),
@@ -62,6 +62,16 @@ function productNameWithOptions(name: string, color?: string | null, size?: stri
   return options.length ? `${name} (${options.join(", ")})` : name;
 }
 
+function cleanVariantSelection(value: string | null | undefined, allowed: string[] | null | undefined, label: string, productName: string) {
+  const selected = cleanNullable(value, 60);
+  const options = Array.isArray(allowed) ? allowed.map((option) => cleanText(option, 60)).filter(Boolean) : [];
+  if (options.length === 0) return selected;
+  if (!selected) throw new Error(`${label} is required for ${productName}.`);
+  const match = options.find((option) => option.toLowerCase() === selected.toLowerCase());
+  if (!match) throw new Error(`Invalid ${label.toLowerCase()} for ${productName}.`);
+  return match;
+}
+
 function cleanEmail(value: string) {
   const email = cleanText(value, 254).toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -103,7 +113,6 @@ async function checkoutQuote(ctx: any, cart: Array<any>) {
   if (!cart.length) throw new Error("Cart is empty.");
   let subtotal = 0;
   let itemCount = 0;
-  const shippingLines: Array<{ qty: number; weightG?: number | null }> = [];
   for (const item of cart) {
     const qty = Math.floor(item.qty);
     if (!Number.isFinite(qty) || qty < 1 || qty > 99) throw new Error("Cart quantity is invalid.");
@@ -113,11 +122,12 @@ async function checkoutQuote(ctx: any, cart: Array<any>) {
     if (stock < qty || product.in_stock === false) throw new Error(`Not enough stock for ${product.name}.`);
     const unitPrice = product.sale_price_inr ?? product.price_inr ?? product.price;
     if (!Number.isFinite(unitPrice) || unitPrice < 0) throw new Error(`Invalid price for ${product.name}.`);
+    cleanVariantSelection(item.selectedColor, product.color_options, "Colour", product.name);
+    cleanVariantSelection(item.selectedSize, product.size_options, "Size", product.name);
     subtotal += unitPrice * qty;
     itemCount += qty;
-    shippingLines.push({ qty, weightG: product.weight_g ?? null });
   }
-  const shipping = calculateShippingInr(subtotal, shippingLines);
+  const shipping = 0;
   const total = subtotal + shipping;
   return { subtotal, shipping, total, amountPaise: Math.round(total * 100), itemCount };
 }
@@ -146,7 +156,6 @@ async function savePaidOrder(ctx: any, args: {
 
   const normalizedItems = [];
   let computedSubtotal = 0;
-  const shippingLines: Array<{ qty: number; weightG?: number | null }> = [];
   for (const item of args.cart) {
     const qty = Math.floor(item.qty);
     if (!Number.isFinite(qty) || qty < 1 || qty > 99) throw new Error("Cart quantity is invalid.");
@@ -156,12 +165,14 @@ async function savePaidOrder(ctx: any, args: {
     if (stock < qty || product.in_stock === false) throw new Error(`Not enough stock for ${product.name}.`);
     const unitPrice = product.sale_price_inr ?? product.price_inr ?? product.price;
     if (!Number.isFinite(unitPrice) || unitPrice < 0) throw new Error(`Invalid price for ${product.name}.`);
+    const selectedColor = cleanVariantSelection(item.selectedColor, product.color_options, "Colour", product.name);
+    const selectedSize = cleanVariantSelection(item.selectedSize, product.size_options, "Size", product.name);
     computedSubtotal += unitPrice * qty;
-    shippingLines.push({ qty, weightG: product.weight_g ?? null });
-    normalizedItems.push({ product, qty, unitPrice, selectedColor: cleanNullable(item.selectedColor, 60), selectedSize: cleanNullable(item.selectedSize, 60) });
+    normalizedItems.push({ product, qty, unitPrice, selectedColor, selectedSize });
   }
 
-  const computedShipping = calculateShippingInr(computedSubtotal, shippingLines);
+  const shippingMeta = checkoutShippingForCountry(customer.country);
+  const computedShipping = shippingMeta.amount;
   const computedTotal = computedSubtotal + computedShipping;
   const timestamp = nowIso();
   const orderNumber = `HE-${Date.now().toString().slice(-8)}`;
@@ -176,6 +187,9 @@ async function savePaidOrder(ctx: any, args: {
     subtotal: computedSubtotal,
     tax: 0,
     shipping_cost: computedShipping,
+    shipping_payment_status: shippingMeta.paymentStatus,
+    shipping_payment_note: shippingMeta.note,
+    customer_country_type: shippingMeta.countryType,
     discount: 0,
     total: computedTotal,
     total_inr: computedTotal,
@@ -222,7 +236,7 @@ export const quoteCheckout = query({
 function razorpayKeys() {
   const keyId = process.env.RAZORPAY_KEY_ID;
   const keySecret = process.env.RAZORPAY_KEY_SECRET;
-  if (!keyId || !keySecret) throw new Error("Razorpay test keys are not configured.");
+  if (!keyId || !keySecret) throw new Error("Razorpay keys are not configured.");
   return { keyId, keySecret };
 }
 
@@ -297,7 +311,6 @@ export const createMockCheckoutOrder = mutation({
     const normalizedItems = [];
     let computedSubtotal = 0;
     let itemCount = 0;
-    const shippingLines: Array<{ qty: number; weightG?: number | null }> = [];
     for (const item of args.cart) {
       const qty = Math.floor(item.qty);
       if (!Number.isFinite(qty) || qty < 1 || qty > 99) {
@@ -315,12 +328,14 @@ export const createMockCheckoutOrder = mutation({
       if (!Number.isFinite(unitPrice) || unitPrice < 0) {
         throw new Error(`Invalid price for ${product.name}.`);
       }
+      const selectedColor = cleanVariantSelection(item.selectedColor, product.color_options, "Colour", product.name);
+      const selectedSize = cleanVariantSelection(item.selectedSize, product.size_options, "Size", product.name);
       computedSubtotal += unitPrice * qty;
       itemCount += qty;
-      shippingLines.push({ qty, weightG: product.weight_g ?? null });
-      normalizedItems.push({ product, qty, unitPrice, selectedColor: cleanNullable(item.selectedColor, 60), selectedSize: cleanNullable(item.selectedSize, 60) });
+      normalizedItems.push({ product, qty, unitPrice, selectedColor, selectedSize });
     }
-    const computedShipping = calculateShippingInr(computedSubtotal, shippingLines);
+    const shippingMeta = checkoutShippingForCountry(customer.country);
+    const computedShipping = shippingMeta.amount;
     const computedTotal = computedSubtotal + computedShipping;
     const timestamp = nowIso();
     const orderNumber = `HE-${Date.now().toString().slice(-8)}`;
@@ -335,6 +350,9 @@ export const createMockCheckoutOrder = mutation({
       subtotal: computedSubtotal,
       tax: 0,
       shipping_cost: computedShipping,
+      shipping_payment_status: shippingMeta.paymentStatus,
+      shipping_payment_note: shippingMeta.note,
+      customer_country_type: shippingMeta.countryType,
       discount: 0,
       total: computedTotal,
       total_inr: computedTotal,
