@@ -36,7 +36,7 @@ const COLS = [
 
 export function SiteFooter({ compact = false }: { compact?: boolean }) {
   return (
-    <footer className="border-t border-border bg-background">
+    <footer data-site-footer className="border-t border-border bg-background">
       {!compact && (
         <div className="mx-auto grid max-w-[1440px] gap-10 px-4 py-12 md:grid-cols-4 md:px-8 md:py-16">
           <div>
