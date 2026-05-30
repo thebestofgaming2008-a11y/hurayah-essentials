@@ -248,17 +248,6 @@ const ProductDetail = () => {
             </section>
           )}
         </div>
-        <div className="sticky inset-x-0 bottom-0 z-30 -mx-4 mt-8 border-t border-[#06133a]/15 bg-white/95 p-3 shadow-[0_-12px_32px_-24px_rgba(3,15,48,0.7)] backdrop-blur-md sm:-mx-6 lg:hidden">
-          <div className="mx-auto flex max-w-[640px] items-center gap-3">
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-[#06133a]">{product.name}</p>
-              <p className="font-serif text-lg text-black">{format(price)}</p>
-            </div>
-            <button type="button" onClick={onAdd} disabled={!inStock} className="pdp-press inline-flex h-12 min-w-[148px] items-center justify-center rounded-md bg-brand px-4 text-sm font-bold text-brand-foreground shadow-lg disabled:opacity-50">
-              {inStock ? "Add to cart" : "Out of stock"}
-            </button>
-          </div>
-        </div>
       </main>
     </SiteLayout>
   );
