@@ -71,7 +71,7 @@ export function SiteFooter({ compact = false }: { compact?: boolean }) {
         </div>
       )}
       <div className="border-t border-border">
-        <div className="vibe-admin mx-auto flex max-w-[1440px] flex-col gap-3 px-4 py-4 text-[12px] text-[rgb(var(--vibe-muted))] sm:flex-row sm:items-center sm:justify-between md:px-8">
+        <div className="commerce-shell mx-auto flex max-w-[1440px] flex-col gap-3 px-4 py-4 text-[12px] text-[rgb(var(--vibe-muted))] sm:flex-row sm:items-center sm:justify-between md:px-8">
           <p>© {new Date().getFullYear()} Hurayrah Essentials. All rights reserved.</p>
           <PaymentMethods compact />
         </div>

@@ -176,14 +176,31 @@ const Shop = () => {
 
   return (
     <SiteLayout>
-      <div className="mx-auto max-w-[1440px] px-4 py-8 md:px-8 md:py-12">
+      <section className="border-b border-border bg-hero/65">
+        <div className="mx-auto max-w-[1440px] px-4 py-8 md:px-8 md:py-12">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">Collection</p>
+          <h1 className="mt-2 text-3xl text-hero-foreground md:text-5xl">Shop all products</h1>
+          <p className="mt-2 max-w-xl text-sm leading-relaxed text-foreground/65 md:text-base">
+            Books, clothing and essentials selected for everyday benefit.
+          </p>
+          <div className="no-scrollbar -mx-4 mt-6 flex gap-2 overflow-x-auto px-4 md:-mx-0 md:px-0">
+            <button onClick={() => setCategory(null)} className={cn("shrink-0 rounded-full border px-4 py-2 text-sm font-medium", !cat ? "border-brand bg-brand text-brand-foreground" : "border-border bg-background text-foreground/75 hover:border-brand")}>All</button>
+            {CATEGORIES.map((category) => (
+              <button key={category.key} onClick={() => setCategory(category.key)} className={cn("shrink-0 rounded-full border px-4 py-2 text-sm font-medium", cat === category.key ? "border-brand bg-brand text-brand-foreground" : "border-border bg-background text-foreground/75 hover:border-brand")}>
+                {category.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+      <div className="mx-auto max-w-[1440px] px-4 py-6 md:px-8 md:py-10">
         <div className="grid md:grid-cols-[240px_1fr] gap-8 lg:gap-12">
           <aside className="hidden md:block">
             <div className="sticky top-4">{Filters}</div>
           </aside>
 
           <div>
-            <div className="flex flex-wrap items-center gap-3 mb-5">
+            <div className="mb-5 flex flex-wrap items-center gap-3 border-b border-border pb-4">
               <p className="text-sm text-foreground/65">
                 <span className="font-semibold text-foreground">{filtered.length}</span> product
                 {filtered.length === 1 ? "" : "s"}
@@ -212,7 +229,7 @@ const Shop = () => {
               <div className="ml-auto flex items-center gap-2">
                 <button
                   onClick={() => setOpen(true)}
-                  className="md:hidden inline-flex items-center gap-2 text-sm rounded-md border border-border bg-background px-3 py-2 hover:border-brand transition-colors"
+                  className="inline-flex h-10 items-center gap-2 rounded-md border border-border bg-background px-3 text-sm transition-colors hover:border-brand md:hidden"
                 >
                   <SlidersHorizontal className="h-4 w-4" />
                   Filters
@@ -225,7 +242,7 @@ const Shop = () => {
                 <select
                   value={sort}
                   onChange={(e) => setSort(e.target.value as SortKey)}
-                  className="text-sm rounded-md border border-border bg-background px-3 py-2 focus:outline-none focus:border-brand"
+                  className="commerce-control h-10 max-w-[170px] px-3 text-sm"
                 >
                   {SORTS.map((s) => (
                     <option key={s.key} value={s.key}>
@@ -237,7 +254,7 @@ const Shop = () => {
             </div>
 
             {loading ? (
-              <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
+              <div className="grid grid-cols-2 gap-x-3 gap-y-7 sm:gap-x-4 lg:grid-cols-3 xl:grid-cols-4 md:gap-x-6 md:gap-y-9">
                 {Array.from({ length: 8 }).map((_, i) => (
                   <div
                     key={i}
@@ -276,7 +293,7 @@ const Shop = () => {
           onClick={() => setOpen(false)}
         >
           <aside
-            className="absolute right-0 top-0 h-full w-[88%] max-w-[340px] bg-background p-5 overflow-y-auto"
+            className="commerce-sheet-in absolute right-0 top-0 h-full w-[88%] max-w-[340px] overflow-y-auto bg-background p-5 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-5">

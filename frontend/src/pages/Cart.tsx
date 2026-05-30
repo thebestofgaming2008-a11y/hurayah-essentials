@@ -13,11 +13,11 @@ const Cart = () => {
 
   return (
     <SiteLayout>
-      <div className="vibe-admin mx-auto max-w-[1200px] px-4 py-8 md:px-8 md:py-12">
+      <div className="commerce-shell mx-auto max-w-[1200px] px-4 py-8 md:px-8 md:py-12">
         <div className="mb-6 flex items-end justify-between gap-4">
           <div>
-            <p className="text-[10px] font-medium uppercase tracking-widest text-[rgb(var(--vibe-muted))]">Checkout queue</p>
-            <h1 className="mt-1 text-[20px] font-semibold tracking-tight md:text-[24px]">Cart</h1>
+            <p className="text-[10px] font-medium uppercase tracking-widest text-[rgb(var(--vibe-muted))]">Your order</p>
+            <h1 className="mt-1 text-[26px] font-semibold md:text-[34px]">Shopping cart</h1>
           </div>
           <Link to="/shop" className="hidden h-8 items-center rounded-md border border-[rgb(var(--vibe-border))] px-3 text-[12px] text-[rgb(var(--vibe-muted))] hover:bg-[rgb(var(--vibe-accent))] sm:inline-flex">Continue shopping</Link>
         </div>

@@ -53,7 +53,7 @@ const Account = () => {
   if (authLoading || !user) {
     return (
       <SiteLayout>
-        <div className="vibe-admin mx-auto max-w-[1128px] px-4 py-12 text-[13px] text-[rgb(var(--vibe-muted))]">Loading...</div>
+        <div className="commerce-shell mx-auto max-w-[1128px] px-4 py-12 text-[13px] text-[rgb(var(--vibe-muted))]">Loading...</div>
       </SiteLayout>
     );
   }
@@ -76,15 +76,15 @@ const Account = () => {
 
   return (
     <SiteLayout>
-      <div className="vibe-admin min-h-[calc(100vh-220px)] bg-[rgb(var(--vibe-page))] text-[rgb(var(--vibe-foreground))]">
+      <div className="commerce-shell min-h-[calc(100vh-220px)] bg-[rgb(var(--vibe-page))] text-[rgb(var(--vibe-foreground))]">
         <div className="mx-auto max-w-[1128px] px-4 py-8 md:px-8 md:py-12">
-          <header className="mb-12 flex flex-wrap items-center gap-x-7 gap-y-4">
+          <header className="mb-8 flex flex-wrap items-center gap-x-7 gap-y-4 border-b border-[rgb(var(--vibe-border))] pb-5 md:mb-12">
             <Link to="/" className="inline-flex items-center gap-2 text-[13px] font-medium text-[rgb(var(--vibe-muted))] hover:text-[rgb(var(--vibe-foreground))]">
               <ArrowLeft className="h-4 w-4" />
               Back to store
             </Link>
             <h1 className="text-[22px] font-semibold tracking-tight">Hurayrah Essentials</h1>
-            <nav className="flex items-center gap-6 text-[13px]">
+            <nav className="order-last flex w-full items-center gap-6 overflow-x-auto text-[13px] sm:order-none sm:w-auto">
               <button onClick={() => setTab("orders")} className={tabClass(tab === "orders")}>Orders</button>
               <button onClick={() => setTab("profile")} className={tabClass(tab === "profile")}>Profile</button>
               <button onClick={() => setTab("wishlist")} className={tabClass(tab === "wishlist")}>Wishlist</button>
@@ -180,8 +180,26 @@ function OrdersTable({ orders, formatPrice }: { orders: Order[]; formatPrice: (a
     return "Processing";
   };
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-[13px]">
+    <>
+      <div className="grid gap-3 sm:hidden">
+        {orders.map((o) => (
+          <article key={o.id} className="rounded-md border border-[rgb(var(--vibe-border))] bg-white p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="font-mono text-[12px]">{o.order_number ?? o.id.slice(0, 8)}</p>
+                <p className="mt-1 text-[12px] text-[rgb(var(--vibe-muted))]">{o.created_at ? new Date(o.created_at).toLocaleDateString() : "-"}</p>
+              </div>
+              <span className="inline-flex rounded-full bg-[rgb(var(--vibe-surface))] px-2.5 py-0.5 text-[11px] font-medium">{labelForStatus(o.status)}</span>
+            </div>
+            <div className="mt-4 flex items-end justify-between gap-3 border-t border-[rgb(var(--vibe-border))] pt-3 text-[12px]">
+              <span className="text-[rgb(var(--vibe-muted))]">{o.items?.length ?? 0} item{(o.items?.length ?? 0) === 1 ? "" : "s"}</span>
+              <span className="font-medium">{formatPrice(o.total_inr ?? o.total)}</span>
+            </div>
+          </article>
+        ))}
+      </div>
+      <div className="hidden overflow-x-auto sm:block">
+        <table className="w-full text-[13px]">
         <thead>
           <tr className="border-b border-[rgb(var(--vibe-border))] text-left text-[rgb(var(--vibe-muted))]">
             <th className="py-2 pr-3 font-medium">Order</th>
@@ -204,8 +222,9 @@ function OrdersTable({ orders, formatPrice }: { orders: Order[]; formatPrice: (a
             </tr>
           ))}
         </tbody>
-      </table>
-    </div>
+        </table>
+      </div>
+    </>
   );
 }
 

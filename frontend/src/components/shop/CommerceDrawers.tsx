@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { Heart, ShoppingBag, Trash2, X } from "lucide-react";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { productImage, productPrice } from "@/data/products";
 import { cn } from "@/lib/utils";
@@ -9,7 +10,11 @@ import { PaymentMethods } from "@/components/shop/PaymentMethods";
 
 const overlayBase = "fixed inset-0 z-[60] bg-black/25 transition-opacity";
 const panelBase =
-  "vibe-admin fixed right-0 top-0 z-[61] flex h-dvh w-full max-w-[430px] flex-col overflow-hidden border-l border-[rgb(var(--vibe-border))] bg-[rgb(var(--vibe-page))] text-[rgb(var(--vibe-foreground))] shadow-2xl transition-transform duration-300 ease-out";
+  "commerce-shell fixed right-0 top-0 z-[61] flex h-dvh w-full max-w-[430px] flex-col overflow-hidden border-l border-[rgb(var(--vibe-border))] bg-[rgb(var(--vibe-page))] text-[rgb(var(--vibe-foreground))] shadow-2xl transition-transform duration-300 ease-out";
+
+function hasProductOptions(product: Product) {
+  return Boolean(product.color_options?.length || product.size_options?.length);
+}
 
 function DrawerShell({
   open,
@@ -51,7 +56,7 @@ function DrawerShell({
         <div className="flex h-14 items-center justify-between gap-4 border-b border-[rgb(var(--vibe-border))] bg-[rgb(var(--vibe-page))] px-4">
           <div className="flex min-w-0 items-start gap-3">
             <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-[rgb(var(--vibe-surface))] text-[rgb(var(--vibe-muted))]">
-              <span className="text-[11px] font-semibold">HE</span>
+              <ShoppingBag className="h-4 w-4" />
             </span>
             <div className="min-w-0">
               <h2 className="text-[15px] font-semibold tracking-tight">{title}</h2>
@@ -64,7 +69,7 @@ function DrawerShell({
             aria-label="Close"
             className="grid h-8 w-8 shrink-0 place-items-center rounded-md text-[rgb(var(--vibe-muted))] transition-colors hover:bg-[rgb(var(--vibe-accent))] hover:text-[rgb(var(--vibe-foreground))]"
           >
-            <span className="text-[18px] leading-none">×</span>
+            <X className="h-4 w-4" />
           </button>
         </div>
         {children}
@@ -155,10 +160,10 @@ export function CartDrawer() {
                               className={cn("grid h-8 w-8 place-items-center rounded-md border border-[rgb(var(--vibe-border))] text-[rgb(var(--vibe-muted))] hover:bg-[rgb(var(--vibe-accent))] hover:text-[rgb(var(--vibe-foreground))]", wished && "bg-[rgb(var(--vibe-foreground))] text-white")}
                               aria-label={wished ? "Remove from wishlist" : "Save to wishlist"}
                             >
-                              <span className="text-[10px]">{wished ? "Saved" : "Save"}</span>
+                              <Heart className={cn("h-3.5 w-3.5", wished && "fill-current")} />
                             </button>
-                            <button type="button" onClick={() => removeFromCart(line.cartKey ?? line.productId)} className="h-8 rounded-md border border-[rgb(var(--vibe-border))] px-2 text-[10px] text-[rgb(var(--vibe-muted))] hover:border-red-200 hover:text-red-600" aria-label="Remove item">
-                              Remove
+                            <button type="button" onClick={() => removeFromCart(line.cartKey ?? line.productId)} className="grid h-8 w-8 place-items-center rounded-md border border-[rgb(var(--vibe-border))] text-[rgb(var(--vibe-muted))] hover:border-red-200 hover:text-red-600" aria-label="Remove item">
+                              <Trash2 className="h-3.5 w-3.5" />
                             </button>
                           </div>
                         </div>
@@ -188,10 +193,10 @@ export function CartDrawer() {
                         <div className="mt-2 grid grid-cols-2 gap-1">
                           <button
                             type="button"
-                            onClick={() => addToCart({ id: product.id, name: product.name, price, priceInr: product.price_inr, image, slug: product.slug ?? undefined, weightG: product.weight_g, shippingClass: product.shipping_class })}
+                            onClick={() => hasProductOptions(product) ? (closeCart(), navigate(`/product/${product.slug ?? product.id}`)) : addToCart({ id: product.id, name: product.name, price, priceInr: product.price_inr, image, slug: product.slug ?? undefined, weightG: product.weight_g, shippingClass: product.shipping_class })}
                             className="h-7 rounded-md bg-[rgb(var(--vibe-foreground))] px-1 text-[10px] font-medium text-white"
                           >
-                            Add
+                            {hasProductOptions(product) ? "Select" : "Add"}
                           </button>
                           <button
                             type="button"
@@ -233,6 +238,7 @@ export function WishlistDrawer({ open, onClose }: { open: boolean; onClose: () =
   const { format } = useCurrency();
   const [items, setItems] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!open) return;
@@ -279,10 +285,10 @@ export function WishlistDrawer({ open, onClose }: { open: boolean; onClose: () =
                       <div className="mt-3 flex gap-2">
                         <button
                           type="button"
-                          onClick={() => addToCart({ id: product.id, name: product.name, price, priceInr: product.price_inr, image, slug: product.slug ?? undefined, weightG: product.weight_g, shippingClass: product.shipping_class })}
+                          onClick={() => hasProductOptions(product) ? (onClose(), navigate(`/product/${product.slug ?? product.id}`)) : addToCart({ id: product.id, name: product.name, price, priceInr: product.price_inr, image, slug: product.slug ?? undefined, weightG: product.weight_g, shippingClass: product.shipping_class })}
                           className="h-8 flex-1 rounded-md bg-[rgb(var(--vibe-foreground))] px-3 text-[11px] font-medium text-white"
                         >
-                          Add to cart
+                          {hasProductOptions(product) ? "Choose options" : "Add to cart"}
                         </button>
                         <button type="button" onClick={() => toggleWishlist(product.id)} className="h-8 rounded-md border border-[rgb(var(--vibe-border))] px-3 text-[11px] text-[rgb(var(--vibe-muted))] hover:border-red-200 hover:text-red-600">
                           Remove

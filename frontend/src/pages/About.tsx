@@ -12,7 +12,7 @@ const About = () => (
         </h1>
         <p className="mt-4 text-foreground/65 text-base md:text-lg">
           Hurayrah Essentials began with a simple promise: bring authentic Islamic books, modest clothing
-          and everyday essentials to seekers around the world — at honest prices and with a touch of care.
+          and everyday essentials to seekers across India — at honest prices and with a touch of care.
         </p>
       </div>
     </section>

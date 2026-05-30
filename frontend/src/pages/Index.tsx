@@ -22,7 +22,7 @@ import { ProductCard } from "@/components/shop/ProductCard";
 import { CATEGORIES, type CategoryKey } from "@/data/products";
 import { listActiveProducts, type Product } from "@/services/productService";
 
-const GUARANTEES = ["Authentic titles", "Worldwide shipping", "Secure checkout"];
+const GUARANTEES = ["Authentic titles", "India-wide delivery", "Secure checkout"];
 
 const SUBJECTS = [
   { name: "Aqeedah", desc: "Creed & belief", Icon: Shield },
@@ -36,7 +36,7 @@ const SUBJECTS = [
 ];
 
 const VALUE_PROPS = [
-  { Icon: Truck, title: "Worldwide shipping", desc: "Tracked delivery, end-to-end." },
+  { Icon: Truck, title: "India-wide delivery", desc: "Shipping included across India." },
   { Icon: Shield, title: "Secure checkout", desc: "Encrypted payments, every time." },
   { Icon: RotateCcw, title: "Easy returns", desc: "Hassle-free returns on every order." },
   { Icon: Headphones, title: "Real support", desc: "Friendly humans, here to help." },
@@ -362,7 +362,7 @@ const Index = () => {
               From our community
             </h2>
             <p className="mt-3 text-foreground/60 text-sm md:text-base">
-              Honest words from readers and customers around the world.
+              Honest words from readers and customers in our community.
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">

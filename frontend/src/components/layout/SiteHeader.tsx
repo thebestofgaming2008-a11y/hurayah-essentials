@@ -116,7 +116,7 @@ export function SiteHeader() {
         </div>
       </div>
 
-      <header className="border-b border-foreground/[0.12] bg-hero/95 backdrop-blur-sm" data-testid="storefront-header">
+      <header className="border-b border-foreground/[0.1] bg-hero/95 backdrop-blur-md" data-testid="storefront-header">
         <div className="mx-auto grid max-w-[1440px] grid-cols-[1fr_auto_1fr] items-center px-3 py-1.5 sm:px-4 sm:py-2 md:px-8">
           <div className="flex justify-self-start">
             <button type="button" onClick={() => setMenuOpen(true)} aria-label="Open menu" data-testid="site-header-open-menu-button" className={cn(ICON_BUTTON, "md:hidden")}>
@@ -165,7 +165,7 @@ export function SiteHeader() {
 
       {menuOpen && (
         <div className="fixed inset-0 z-50 bg-foreground/40 backdrop-blur-sm md:hidden" onClick={() => setMenuOpen(false)} data-testid="site-header-mobile-menu-overlay">
-          <aside className="absolute left-0 top-0 flex h-full w-[86%] max-w-[360px] flex-col overflow-y-auto border-r border-foreground/10 bg-hero shadow-2xl" onClick={(event) => event.stopPropagation()} data-testid="site-header-mobile-menu-panel">
+          <aside className="commerce-sheet-in absolute left-0 top-0 flex h-full w-[86%] max-w-[360px] flex-col overflow-y-auto border-r border-foreground/10 bg-hero shadow-2xl" onClick={(event) => event.stopPropagation()} data-testid="site-header-mobile-menu-panel">
             <div className="flex items-center justify-between border-b border-foreground/10 px-5 py-4">
               <Link to="/" onClick={() => setMenuOpen(false)} className="inline-flex items-center gap-3">
                 <img src={logo} alt="" className="h-9 w-auto object-contain" />

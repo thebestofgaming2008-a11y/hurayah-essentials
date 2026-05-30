@@ -44,8 +44,8 @@ export function ProductCard({ product, className }: Props) {
   };
 
   return (
-    <article className={cn("group", className)}>
-      <div className="relative aspect-[2/3] overflow-hidden rounded-lg bg-white shadow-sm transition-shadow duration-300 group-hover:shadow-lg">
+    <article className={cn("commerce-card-in group min-w-0", className)}>
+      <div className="relative aspect-[2/3] overflow-hidden rounded-md border border-border bg-white transition-all duration-300 group-hover:border-brand/25 group-hover:shadow-[0_14px_28px_-20px_rgba(3,15,48,0.55)]">
         <Link to={link} className="absolute inset-0 z-10" aria-label={product.name} />
         {showImage ? (
           <img
@@ -55,7 +55,7 @@ export function ProductCard({ product, className }: Props) {
             decoding="async"
             fetchPriority="high"
             onError={() => setImgError(true)}
-            className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+            className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.035]"
           />
         ) : (
           <div className="absolute inset-0 grid place-items-center bg-white text-foreground/35 text-xs font-medium tracking-wide">
@@ -77,7 +77,7 @@ export function ProductCard({ product, className }: Props) {
           aria-label={wished ? "Remove from wishlist" : "Save to wishlist"}
           data-testid={`product-card-wishlist-button-${product.id}`}
           className={cn(
-            "absolute top-3 right-3 z-20 h-9 w-9 grid place-items-center rounded-full bg-background/95 text-foreground shadow-sm hover:bg-background transition-all",
+            "absolute right-2 top-2 z-20 grid h-9 w-9 place-items-center rounded-full border border-border bg-background/95 text-foreground shadow-sm transition-all hover:bg-background sm:right-3 sm:top-3",
             wished ? "opacity-100" : "opacity-100 md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100",
           )}
         >
@@ -87,7 +87,7 @@ export function ProductCard({ product, className }: Props) {
           type="button"
           onClick={onAdd}
           data-testid={`product-card-add-to-cart-button-${product.id}`}
-          className="absolute inset-x-2 bottom-2 z-20 inline-flex items-center justify-center gap-1.5 rounded-md bg-brand py-2 text-[11px] font-semibold text-brand-foreground shadow-lg transition-all duration-200 active:scale-[0.98] md:inset-x-3 md:bottom-3 md:translate-y-2 md:gap-2 md:py-2.5 md:text-sm md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100 md:focus-visible:translate-y-0 md:focus-visible:opacity-100"
+          className="absolute inset-x-3 bottom-3 z-20 hidden items-center justify-center gap-2 rounded-md bg-brand py-2.5 text-sm font-semibold text-brand-foreground shadow-lg transition-all duration-200 md:inline-flex md:translate-y-2 md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100 md:focus-visible:translate-y-0 md:focus-visible:opacity-100"
         >
           <ShoppingBag className="h-4 w-4" />
           {hasOptions ? "Choose options" : "Add to cart"}
@@ -110,6 +110,14 @@ export function ProductCard({ product, className }: Props) {
             <p className="text-xs text-foreground/40 line-through">{format(compareAt)}</p>
           )}
         </div>
+        <button
+          type="button"
+          onClick={onAdd}
+          className="mt-3 inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-md border border-brand bg-background px-2 text-xs font-semibold text-brand transition-all hover:bg-brand hover:text-brand-foreground md:hidden"
+        >
+          <ShoppingBag className="h-3.5 w-3.5" />
+          {hasOptions ? "Choose options" : "Add to cart"}
+        </button>
       </div>
     </article>
   );

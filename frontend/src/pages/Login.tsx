@@ -42,13 +42,13 @@ const Login = () => {
 
   return (
     <SiteLayout>
-      <div className="vibe-admin mx-auto max-w-[460px] px-4 py-12 md:px-8 md:py-20">
+      <div className="commerce-shell mx-auto max-w-[460px] px-4 py-12 md:px-8 md:py-20">
         <div className="rounded-lg border border-[rgb(var(--vibe-border))] bg-white p-6 shadow-sm md:p-8">
           <h1 className="text-center text-[20px] font-semibold tracking-tight text-[rgb(var(--vibe-foreground))]">
             {mode === "signIn" ? "Sign in" : "Create account"}
           </h1>
           <p className="mt-1 text-center text-[13px] text-[rgb(var(--vibe-muted))]">
-            Customer accounts are optional. Guest checkout still works.
+            Access your orders, addresses and saved items.
           </p>
           <div className="mt-5 grid grid-cols-2 rounded-md border border-[rgb(var(--vibe-border))] bg-[rgb(var(--vibe-page))] p-1">
             <button type="button" onClick={() => setMode("signIn")} className={`h-8 rounded text-[12px] ${mode === "signIn" ? "bg-white shadow-sm" : "text-[rgb(var(--vibe-muted))]"}`}>Sign in</button>

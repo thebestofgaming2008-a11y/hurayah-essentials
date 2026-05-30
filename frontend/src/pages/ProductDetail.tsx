@@ -106,7 +106,7 @@ const ProductDetail = () => {
 
   return (
     <SiteLayout>
-      <main className="min-h-screen bg-[#dfe7f6] px-4 py-8 text-[#06133a] sm:px-6 lg:px-10">
+      <main className="min-h-screen bg-[#eef2fa] px-4 py-6 pb-24 text-[#06133a] sm:px-6 sm:py-8 lg:px-10 lg:pb-10">
         <div className="mx-auto max-w-[1220px]">
           <nav className="mb-8 flex flex-wrap items-center gap-1 text-sm text-[#06133a]/65">
             <Link to="/" className="hover:text-[#06133a]">Home</Link>
@@ -132,7 +132,7 @@ const ProductDetail = () => {
 
           <div className="grid gap-7 lg:grid-cols-[minmax(300px,420px)_minmax(0,1fr)] lg:gap-12 xl:gap-20">
             <div className="mx-auto w-full max-w-[420px] lg:mx-0">
-              <div className="aspect-square overflow-hidden rounded-md border border-[#06133a]/25 bg-[#d9d9d9]">
+              <div className="aspect-square overflow-hidden rounded-md border border-[#06133a]/15 bg-white shadow-[0_18px_40px_-30px_rgba(3,15,48,0.5)]">
                 {mainImage && !mainImgError ? (
                   isVideoUrl(mainImage) ? (
                     <video key={mainImage} src={mainImage} className="pdp-image-swap h-full w-full object-cover" controls playsInline />
@@ -186,7 +186,7 @@ const ProductDetail = () => {
                 <button
                   type="button"
                   onClick={() => toggleWishlist(product.id)}
-                  className={cn("glass-cta pdp-press inline-flex h-12 w-full max-w-[49rem] items-center justify-center rounded-xl px-4 text-base font-bold text-hero-foreground transition-all sm:h-[3.625rem] sm:rounded-2xl sm:text-lg md:text-xl", wished && "bg-white/45")}
+                  className={cn("pdp-press inline-flex h-12 w-full max-w-[49rem] items-center justify-center rounded-md border border-brand bg-white/55 px-4 text-base font-bold text-hero-foreground transition-all hover:bg-white sm:h-[3.625rem] sm:text-lg md:text-xl", wished && "bg-white shadow-sm")}
                 >
                   Wishlist
                 </button>
@@ -239,6 +239,17 @@ const ProductDetail = () => {
               </div>
             </section>
           )}
+        </div>
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[#06133a]/15 bg-white/95 p-3 shadow-[0_-12px_32px_-24px_rgba(3,15,48,0.7)] backdrop-blur-md lg:hidden">
+          <div className="mx-auto flex max-w-[640px] items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-[#06133a]">{product.name}</p>
+              <p className="font-serif text-lg text-black">{format(price)}</p>
+            </div>
+            <button type="button" onClick={onAdd} disabled={!inStock} className="pdp-press inline-flex h-12 min-w-[148px] items-center justify-center rounded-md bg-brand px-4 text-sm font-bold text-brand-foreground shadow-lg disabled:opacity-50">
+              {inStock ? "Add to cart" : "Out of stock"}
+            </button>
+          </div>
         </div>
       </main>
     </SiteLayout>

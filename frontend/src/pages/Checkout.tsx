@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { checkoutShippingForCountry } from "@/services/shipping";
 import { createRazorpayCheckoutOrder, verifyRazorpayPayment } from "@/services/orderService";
 import { useShop } from "@/store/shop";
+import logo from "@/assets/logo-header.png";
 
 declare global {
   interface Window {
@@ -150,19 +151,24 @@ const Checkout = () => {
 
   return (
     <SiteLayout hideHeader compactFooter>
-      <div className="vibe-admin min-h-[calc(100vh-120px)] border-t border-[rgb(var(--vibe-border))] bg-[rgb(var(--vibe-page))] text-[rgb(var(--vibe-foreground))]">
+      <div className="commerce-shell min-h-[calc(100vh-120px)] border-t border-[rgb(var(--vibe-border))] bg-[rgb(var(--vibe-page))] text-[rgb(var(--vibe-foreground))]">
         <div className="mx-auto max-w-[1200px] px-3 py-4 sm:px-4 md:px-8 md:py-8">
-          <div className="mb-4 flex items-center justify-between">
+          <div className="mb-5 grid grid-cols-[1fr_auto_1fr] items-center border-b border-[rgb(var(--vibe-border))] pb-4">
             <button type="button" onClick={() => navigate(-1)} data-testid="checkout-go-back-button" className="text-[12px] text-[rgb(var(--vibe-muted))] hover:text-[rgb(var(--vibe-foreground))]">
-              Back
+              <span className="hidden sm:inline">Back to store</span><span className="sm:hidden">Back</span>
             </button>
-            <button type="button" onClick={openCart} data-testid="checkout-back-to-cart-link" className="text-[12px] text-[rgb(var(--vibe-muted))] hover:text-[rgb(var(--vibe-foreground))]">
+            <img src={logo} alt="Hurayrah Essentials" className="h-9 w-auto object-contain md:h-11" />
+            <button type="button" onClick={openCart} data-testid="checkout-back-to-cart-link" className="justify-self-end text-[12px] text-[rgb(var(--vibe-muted))] hover:text-[rgb(var(--vibe-foreground))]">
               Review cart
             </button>
           </div>
 
           <form onSubmit={handleSubmit} className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_410px]" data-testid="checkout-form">
             <div className="space-y-4">
+              <div>
+                <h1 className="text-[24px] font-semibold text-[rgb(var(--vibe-foreground))] md:text-[30px]">Checkout</h1>
+                <p className="mt-1 text-[12px] text-[rgb(var(--vibe-muted))]">Complete your delivery details and continue to payment.</p>
+              </div>
               <Section title="Contact">
                 <Field label="Email" type="email" value={form.email} onChange={setField("email")} error={errors.email} required testId="checkout-email-input" autoComplete="email" />
                 <Field label="Phone / WhatsApp" type="tel" value={form.phone} onChange={setField("phone")} error={errors.phone} required testId="checkout-phone-input" placeholder="+91 98765 43210" autoComplete="tel" />

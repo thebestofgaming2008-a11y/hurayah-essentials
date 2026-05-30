@@ -6,7 +6,7 @@ import { useShop } from "@/store/shop";
 import { listByIds, type Product } from "@/services/productService";
 
 const Wishlist = () => {
-  const { wishlist, addToCart, toggleWishlist } = useShop();
+  const { wishlist, toggleWishlist } = useShop();
   const [items, setItems] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -30,39 +30,17 @@ const Wishlist = () => {
 
   return (
     <SiteLayout compactFooter>
-      <div className="vibe-admin mx-auto max-w-[1440px] px-4 py-8 md:px-8 md:py-12">
+      <div className="commerce-shell mx-auto max-w-[1440px] px-4 py-8 md:px-8 md:py-12">
         <div className="vibe-card mb-6 flex flex-col gap-4 p-4 sm:flex-row sm:items-end sm:justify-between md:mb-8 md:p-5">
           <div>
-            <p className="text-[10px] font-medium uppercase tracking-widest text-[rgb(var(--vibe-muted))]">Saved shelf</p>
-            <h1 className="mt-1 text-[20px] font-semibold tracking-tight md:text-[24px]">
+            <p className="text-[10px] font-medium uppercase tracking-widest text-[rgb(var(--vibe-muted))]">Saved items</p>
+            <h1 className="mt-1 text-[26px] font-semibold md:text-[34px]">
               Wishlist
             </h1>
             <p className="mt-1 text-[12px] text-[rgb(var(--vibe-muted))]">
-              Keep future buys here, then move items to cart when the customer is ready.
+              Save products you want to return to later.
             </p>
           </div>
-          {items.length > 0 && (
-            <button
-              type="button"
-              onClick={() => {
-                items.forEach((p) =>
-                  addToCart({
-                    id: p.id,
-                    name: p.name,
-                    price: p.sale_price_inr ?? p.price_inr ?? p.price,
-                    priceInr: p.price_inr,
-                    image: p.cover_image_url ?? p.images?.[0] ?? null,
-                    slug: p.slug ?? undefined,
-                    weightG: p.weight_g,
-                    shippingClass: p.shipping_class,
-                  }),
-                );
-              }}
-              className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-[rgb(var(--vibe-foreground))] px-3 text-[12px] font-medium text-white transition-opacity hover:opacity-90"
-            >
-              Add all to cart
-            </button>
-          )}
         </div>
         {loading ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
@@ -86,27 +64,9 @@ const Wishlist = () => {
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {items.map((p) => (
-              <div key={p.id} className="vibe-card p-2">
+              <div key={p.id}>
                 <ProductCard product={p} />
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      addToCart({
-                        id: p.id,
-                        name: p.name,
-                        price: p.sale_price_inr ?? p.price_inr ?? p.price,
-                        priceInr: p.price_inr,
-                        image: p.cover_image_url ?? p.images?.[0] ?? null,
-                        slug: p.slug ?? undefined,
-                        weightG: p.weight_g,
-                        shippingClass: p.shipping_class,
-                      })
-                    }
-                    className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md bg-[rgb(var(--vibe-foreground))] px-3 text-[11px] font-medium text-white"
-                  >
-                    Cart
-                  </button>
+                <div className="mt-3">
                   <button
                     type="button"
                     onClick={() => toggleWishlist(p.id)}
