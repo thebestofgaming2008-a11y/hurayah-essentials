@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
-import { ChevronRight, Minus, Plus } from "lucide-react";
+import { ChevronRight, Heart, Minus, Plus, ShieldCheck, Truck } from "lucide-react";
 import { SiteLayout } from "@/components/layout/SiteLayout";
 import { ProductCard } from "@/components/shop/ProductCard";
 import { CATEGORIES, productCompareAt, productImage, productPrice, type CategoryKey } from "@/data/products";
@@ -106,7 +106,7 @@ const ProductDetail = () => {
 
   return (
     <SiteLayout>
-      <main className="min-h-screen bg-[#eef2fa] px-4 py-6 pb-24 text-[#06133a] sm:px-6 sm:py-8 lg:px-10 lg:pb-10">
+      <main className="min-h-screen bg-background px-4 py-5 pb-24 text-[#06133a] sm:px-6 sm:py-8 lg:px-10 lg:pb-10">
         <div className="mx-auto max-w-[1220px]">
           <nav className="mb-8 flex flex-wrap items-center gap-1 text-sm text-[#06133a]/65">
             <Link to="/" className="hover:text-[#06133a]">Home</Link>
@@ -121,17 +121,8 @@ const ProductDetail = () => {
           </nav>
 
           <section className="pdp-fade-in">
-            <div className="mb-6 sm:mb-8">
-              <h1 className="font-serif text-4xl leading-[0.98] text-[#020b2d] drop-shadow-[0_3px_3px_rgba(2,11,45,0.2)] sm:text-5xl md:text-6xl lg:text-7xl">
-                {product.name}
-              </h1>
-              {(product.author || product.publisher) && (
-                <p className="mt-2 text-right font-serif text-xl text-black/65 sm:text-2xl md:text-3xl">By {product.author || product.publisher}</p>
-              )}
-            </div>
-
-          <div className="grid gap-7 lg:grid-cols-[minmax(300px,420px)_minmax(0,1fr)] lg:gap-12 xl:gap-20">
-            <div className="mx-auto w-full max-w-[420px] lg:mx-0">
+          <div className="grid gap-8 lg:grid-cols-[minmax(0,1.08fr)_minmax(360px,0.92fr)] lg:gap-12 xl:gap-20">
+            <div className="mx-auto w-full max-w-[620px] lg:mx-0">
               <div className="aspect-square overflow-hidden rounded-md border border-[#06133a]/15 bg-white shadow-[0_18px_40px_-30px_rgba(3,15,48,0.5)]">
                 {mainImage && !mainImgError ? (
                   isVideoUrl(mainImage) ? (
@@ -143,34 +134,46 @@ const ProductDetail = () => {
                   <div className="h-full w-full bg-[#d9d9d9]" />
                 )}
               </div>
-              <div className="mt-3 grid grid-cols-3 gap-3 sm:gap-4">
-                {gallery.slice(0, 3).map((src, index) => (
-                  <button key={src} type="button" onClick={() => setActiveImage(index)} className={cn("pdp-press aspect-square overflow-hidden rounded-md bg-[#d9d9d9]", activeImage === index && "ring-2 ring-[#06133a]")}>
+              <div className="no-scrollbar mt-3 flex gap-3 overflow-x-auto pb-1 sm:gap-4">
+                {gallery.map((src, index) => (
+                  <button key={src} type="button" onClick={() => setActiveImage(index)} className={cn("pdp-press aspect-square w-[82px] shrink-0 overflow-hidden rounded-md bg-[#d9d9d9] sm:w-[96px]", activeImage === index && "ring-2 ring-[#06133a]")}>
                     {isVideoUrl(src) ? <video src={src} className="h-full w-full object-cover" muted playsInline /> : <img src={src} alt="" className="h-full w-full object-cover" />}
                   </button>
                 ))}
               </div>
             </div>
 
-            <div className="pt-1 lg:pt-0">
-              <div className="grid gap-4 lg:grid-cols-[1fr_245px] lg:items-start">
-                <div className="lg:col-start-2">
+            <div className="pt-1 lg:sticky lg:top-[150px] lg:h-fit lg:pt-0">
+              {product.badge && <span className="inline-flex rounded-full bg-brand px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-brand-foreground">{product.badge}</span>}
+              <h1 className="mt-3 font-serif text-4xl leading-[1.02] text-[#020b2d] sm:text-5xl lg:text-6xl">
+                {product.name}
+              </h1>
+              {(product.author || product.publisher) && (
+                <p className="mt-2 font-serif text-xl text-black/60 sm:text-2xl">By {product.author || product.publisher}</p>
+              )}
+              <p className={cn("mt-4 text-sm font-semibold", inStock ? "text-emerald-700" : "text-red-700")}>{inStock ? "In stock" : "Out of stock"}</p>
+
+              <div className="mt-5">
+                <div>
                   {versions.length > 0 && (
-                    <select
-                      value={product.slug ?? product.id}
-                      onChange={(event) => navigate(`/product/${event.target.value}`)}
-                      className="mt-2 h-12 max-w-full bg-[#1f1f1f] px-3 font-serif text-lg font-semibold text-white outline-none transition-colors hover:bg-black sm:h-14 sm:px-4 sm:text-2xl"
-                    >
-                      <option value={product.slug ?? product.id}>{product.variant_label || "Current variant"}</option>
-                      {versions.map((version) => (
-                        <option key={version.id} value={version.slug ?? version.id}>{version.variant_label || version.name}</option>
-                      ))}
-                    </select>
+                    <>
+                      <p className="mb-2 font-serif text-lg text-black/70">Choose variant</p>
+                      <select
+                        value={product.slug ?? product.id}
+                        onChange={(event) => navigate(`/product/${event.target.value}`)}
+                        className="commerce-control h-12 w-full px-3 font-serif text-lg text-[#06133a]"
+                      >
+                        <option value={product.slug ?? product.id}>{product.variant_label || "Current variant"}</option>
+                        {versions.map((version) => (
+                          <option key={version.id} value={version.slug ?? version.id}>{version.variant_label || version.name}</option>
+                        ))}
+                      </select>
+                    </>
                   )}
                 </div>
               </div>
 
-              <div className="mt-5 font-serif text-4xl leading-none text-black drop-shadow-[0_3px_3px_rgba(0,0,0,0.2)] sm:mt-7 sm:text-5xl lg:text-6xl">
+              <div className="mt-6 font-serif text-4xl leading-none text-black sm:text-5xl">
                 {format(price)}
                 {compareAt && <span className="ml-4 text-2xl text-black/35 line-through">{format(compareAt)}</span>}
               </div>
@@ -182,42 +185,47 @@ const ProductDetail = () => {
                 </div>
               )}
 
-              <div className="mt-5 grid max-w-[49rem] gap-2">
-                <button
-                  type="button"
-                  onClick={() => toggleWishlist(product.id)}
-                  className={cn("pdp-press inline-flex h-12 w-full max-w-[49rem] items-center justify-center rounded-md border border-brand bg-white/55 px-4 text-base font-bold text-hero-foreground transition-all hover:bg-white sm:h-[3.625rem] sm:text-lg md:text-xl", wished && "bg-white shadow-sm")}
-                >
-                  Wishlist
-                </button>
+              <div className="mt-6">
+                <p className="mb-2 font-serif text-lg text-black/70">Quantity</p>
+                <div className="inline-grid h-12 grid-cols-[44px_44px_44px] overflow-hidden rounded-md border border-[#06133a]/20 bg-white font-serif text-xl text-black">
+                  <button className="pdp-press grid place-items-center hover:bg-[#eef2fa]" type="button" onClick={() => setQty((q) => Math.max(1, q - 1))} aria-label="Decrease quantity"><Minus className="h-4 w-4" /></button>
+                  <span className="grid place-items-center border-x border-[#06133a]/15">{qty}</span>
+                  <button className="pdp-press grid place-items-center hover:bg-[#eef2fa]" type="button" onClick={() => setQty((q) => q + 1)} aria-label="Increase quantity"><Plus className="h-4 w-4" /></button>
+                </div>
+              </div>
+
+              <div className="mt-6 grid max-w-[49rem] gap-3">
                 <button
                   type="button"
                   onClick={onAdd}
                   disabled={!inStock}
-                  className="pdp-press inline-flex h-14 w-full max-w-[49rem] items-center justify-center rounded-md bg-brand px-4 text-xl font-bold text-brand-foreground shadow-2xl transition-all hover:opacity-95 disabled:opacity-50 sm:h-[4.5rem] sm:text-2xl md:text-3xl"
+                  className="pdp-press inline-flex h-14 w-full max-w-[49rem] items-center justify-center rounded-md bg-brand px-4 text-xl font-bold text-brand-foreground shadow-lg transition-all hover:opacity-95 disabled:opacity-50 sm:h-16 sm:text-2xl"
                 >
                   {inStock ? "Add to cart" : "Out of stock"}
                 </button>
+                <button
+                  type="button"
+                  onClick={() => toggleWishlist(product.id)}
+                  className={cn("pdp-press inline-flex h-12 w-full max-w-[49rem] items-center justify-center gap-2 rounded-md border border-brand bg-white px-4 text-base font-bold text-hero-foreground transition-all hover:bg-[#eef2fa]", wished && "bg-[#eef2fa]")}
+                >
+                  <Heart className={cn("h-4 w-4", wished && "fill-current")} />
+                  {wished ? "Saved to wishlist" : "Add to wishlist"}
+                </button>
               </div>
-              <p className="mt-3 max-w-[49rem] font-serif text-lg leading-tight text-black/65">
-                Shipping is included across India.
-              </p>
-
-              <div className="mt-5 inline-flex h-12 items-center gap-2 bg-[#d9d9d9] px-2 font-serif text-3xl text-black sm:h-16 sm:gap-4 sm:text-4xl">
-                <button className="pdp-press" type="button" onClick={() => setQty((q) => Math.max(1, q - 1))} aria-label="Decrease quantity"><Minus className="h-7 w-7 sm:h-9 sm:w-9" /></button>
-                <span className="w-8 text-center sm:w-10">{qty}</span>
-                <button className="pdp-press" type="button" onClick={() => setQty((q) => q + 1)} aria-label="Increase quantity"><Plus className="h-7 w-7 sm:h-9 sm:w-9" /></button>
+              <div className="mt-5 grid gap-3 border-y border-[#06133a]/10 py-4 text-sm text-black/65 sm:grid-cols-2">
+                <p className="flex items-center gap-2"><Truck className="h-4 w-4 text-brand" /> Shipping included across India</p>
+                <p className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-brand" /> Secure checkout with Razorpay</p>
               </div>
 
-              <section className="mt-12 max-w-[49rem] sm:mt-16 lg:mt-20">
-                <div className="flex flex-wrap gap-x-6 gap-y-2 font-serif text-xl sm:gap-x-8 sm:text-2xl lg:text-3xl">
+              <section className="mt-8 max-w-[49rem]">
+                <div className="flex flex-wrap gap-x-6 gap-y-2 font-serif text-lg sm:gap-x-8 sm:text-xl">
                   <button type="button" onClick={() => setTab("description")} className={cn("pdp-press pb-2", tab === "description" ? "border-b border-[#06133a] font-semibold text-[#06133a]" : "text-black/60")}>Product Description</button>
                   <button type="button" onClick={() => setTab("details")} className={cn("pdp-press pb-2", tab === "details" ? "border-b border-[#06133a] font-semibold text-[#06133a]" : "text-black/60")}>Product Details</button>
                 </div>
                 {tab === "description" ? (
-                  <p className="mt-6 whitespace-pre-line font-serif text-xl leading-tight text-black sm:mt-8 sm:text-2xl lg:text-3xl">{product.description || product.short_description || "Product details coming soon."}</p>
+                  <p className="mt-5 whitespace-pre-line font-serif text-lg leading-relaxed text-black/80 sm:text-xl">{product.description || product.short_description || "Product details coming soon."}</p>
                 ) : (
-                  <dl className="mt-9 grid gap-3 font-serif text-2xl text-black sm:grid-cols-2">
+                  <dl className="mt-5 grid gap-3 font-serif text-lg text-black sm:grid-cols-2">
                     <Fact label="Category" value={categoryMeta?.label || product.category || "Product"} />
                     {product.language && <Fact label="Language" value={product.language} />}
                     {product.isbn && <Fact label="ISBN" value={product.isbn} />}
