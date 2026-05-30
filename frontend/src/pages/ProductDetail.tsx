@@ -106,7 +106,7 @@ const ProductDetail = () => {
 
   return (
     <SiteLayout>
-      <main className="min-h-screen bg-background px-4 py-5 pb-24 text-[#06133a] sm:px-6 sm:py-8 lg:px-10 lg:pb-10">
+      <main className="min-h-screen bg-background px-4 py-5 text-[#06133a] sm:px-6 sm:py-8 lg:px-10 lg:pb-10">
         <div className="mx-auto max-w-[1220px]">
           <nav className="mb-8 flex flex-wrap items-center gap-1 text-sm text-[#06133a]/65">
             <Link to="/" className="hover:text-[#06133a]">Home</Link>
@@ -248,7 +248,7 @@ const ProductDetail = () => {
             </section>
           )}
         </div>
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[#06133a]/15 bg-white/95 p-3 shadow-[0_-12px_32px_-24px_rgba(3,15,48,0.7)] backdrop-blur-md lg:hidden">
+        <div className="sticky inset-x-0 bottom-0 z-30 -mx-4 mt-8 border-t border-[#06133a]/15 bg-white/95 p-3 shadow-[0_-12px_32px_-24px_rgba(3,15,48,0.7)] backdrop-blur-md sm:-mx-6 lg:hidden">
           <div className="mx-auto flex max-w-[640px] items-center gap-3">
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold text-[#06133a]">{product.name}</p>
