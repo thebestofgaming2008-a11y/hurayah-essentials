@@ -4,7 +4,7 @@ import { Heart, ShoppingBag, Trash2, X } from "lucide-react";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { productImage, productPrice } from "@/data/products";
 import { cn } from "@/lib/utils";
-import { listByIds, listFeatured, type Product } from "@/services/productService";
+import { listActiveProducts, listByIds, type Product } from "@/services/productService";
 import { useShop } from "@/store/shop";
 import { PaymentMethods } from "@/components/shop/PaymentMethods";
 
@@ -14,6 +14,59 @@ const panelBase =
 
 function hasProductOptions(product: Product) {
   return Boolean(product.color_options?.length || product.size_options?.length);
+}
+
+function normalizedTags(product: Product) {
+  const genericTags = new Set(["book", "books", "english", "arabic", "urdu", "clothing", "essential", "essentials"]);
+  return new Set((product.tags ?? []).map((tag) => tag.trim().toLowerCase()).filter((tag) => tag && !genericTags.has(tag)));
+}
+
+function recommendationScore(candidate: Product, cartProducts: Product[]) {
+  const candidateTags = normalizedTags(candidate);
+  let score = candidate.is_featured ? 2 : 0;
+  if (candidate.is_bestseller) score += 1;
+  if (candidate.is_new_arrival) score += 0.5;
+
+  for (const cartProduct of cartProducts) {
+    if (candidate.category && candidate.category === cartProduct.category) score += 4;
+    for (const tag of normalizedTags(cartProduct)) {
+      if (candidateTags.has(tag)) score += 3;
+    }
+  }
+
+  return score;
+}
+
+function selectCartRecommendations(products: Product[], cartProducts: Product[], cartProductIds: Set<string>, limit = 3) {
+  const ranked = products
+    .filter((product) => !cartProductIds.has(product.id) && product.is_active !== false && product.in_stock !== false && (product.stock_quantity ?? 0) > 0)
+    .map((product) => ({ product, score: recommendationScore(product, cartProducts), tags: normalizedTags(product) }))
+    .sort((a, b) => b.score - a.score || Number(Boolean(b.product.is_featured)) - Number(Boolean(a.product.is_featured)));
+
+  const selected: typeof ranked = [];
+  const usedCategories = new Set<string>();
+  const usedTags = new Set<string>();
+
+  while (selected.length < limit && ranked.length > 0) {
+    ranked.sort((a, b) => {
+      const aCategoryFresh = a.product.category && !usedCategories.has(a.product.category) ? 1 : 0;
+      const bCategoryFresh = b.product.category && !usedCategories.has(b.product.category) ? 1 : 0;
+      const aTagFresh = [...a.tags].some((tag) => !usedTags.has(tag)) ? 1 : 0;
+      const bTagFresh = [...b.tags].some((tag) => !usedTags.has(tag)) ? 1 : 0;
+      const aRepeatedTags = [...a.tags].filter((tag) => usedTags.has(tag)).length;
+      const bRepeatedTags = [...b.tags].filter((tag) => usedTags.has(tag)).length;
+      const aDiversifiedScore = a.score + aCategoryFresh * 4 + aTagFresh * 2 - aRepeatedTags * 4 - (aCategoryFresh ? 0 : 1);
+      const bDiversifiedScore = b.score + bCategoryFresh * 4 + bTagFresh * 2 - bRepeatedTags * 4 - (bCategoryFresh ? 0 : 1);
+      return bDiversifiedScore - aDiversifiedScore || b.score - a.score;
+    });
+
+    const [next] = ranked.splice(0, 1);
+    selected.push(next);
+    if (next.product.category) usedCategories.add(next.product.category);
+    for (const tag of next.tags) usedTags.add(tag);
+  }
+
+  return selected.map(({ product }) => product);
 }
 
 function DrawerShell({
@@ -89,8 +142,9 @@ export function CartDrawer() {
   useEffect(() => {
     if (!cartOpen) return;
     let cancelled = false;
-    listFeatured(6).then((products) => {
-      if (!cancelled) setRecommendations(products.filter((p) => !cartLines.some((line) => line.productId === p.id)).slice(0, 3));
+    const cartProductIds = new Set(cartLines.map((line) => line.productId));
+    Promise.all([listActiveProducts(), listByIds([...cartProductIds])]).then(([products, cartProducts]) => {
+      if (!cancelled) setRecommendations(selectCartRecommendations(products, cartProducts, cartProductIds));
     });
     return () => {
       cancelled = true;
