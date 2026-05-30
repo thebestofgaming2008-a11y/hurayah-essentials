@@ -9,30 +9,34 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { convex } from "@/integrations/convex/client";
 import { upsertProfile } from "@/services/accountService";
-import { useEffect, useRef } from "react";
-import Index from "./pages/Index.tsx";
-import NotFound from "./pages/NotFound.tsx";
-import Shop from "./pages/Shop.tsx";
-import Category from "./pages/Category.tsx";
-import ProductDetail from "./pages/ProductDetail.tsx";
-import Cart from "./pages/Cart.tsx";
-import Wishlist from "./pages/Wishlist.tsx";
-import Checkout from "./pages/Checkout.tsx";
-import OrderConfirmation from "./pages/OrderConfirmation.tsx";
-import Login from "./pages/Login.tsx";
-import Account from "./pages/Account.tsx";
-import Admin from "./pages/Admin.tsx";
-import TrackOrder from "./pages/TrackOrder.tsx";
-import About from "./pages/About.tsx";
-import Contact from "./pages/Contact.tsx";
-import Static from "./pages/Static.tsx";
+import { lazy, Suspense, useEffect, useRef } from "react";
+
+const Index = lazy(() => import("./pages/Index.tsx"));
+const NotFound = lazy(() => import("./pages/NotFound.tsx"));
+const Shop = lazy(() => import("./pages/Shop.tsx"));
+const Category = lazy(() => import("./pages/Category.tsx"));
+const ProductDetail = lazy(() => import("./pages/ProductDetail.tsx"));
+const Cart = lazy(() => import("./pages/Cart.tsx"));
+const Wishlist = lazy(() => import("./pages/Wishlist.tsx"));
+const Checkout = lazy(() => import("./pages/Checkout.tsx"));
+const OrderConfirmation = lazy(() => import("./pages/OrderConfirmation.tsx"));
+const Login = lazy(() => import("./pages/Login.tsx"));
+const Account = lazy(() => import("./pages/Account.tsx"));
+const Admin = lazy(() => import("./pages/Admin.tsx"));
+const TrackOrder = lazy(() => import("./pages/TrackOrder.tsx"));
+const About = lazy(() => import("./pages/About.tsx"));
+const Contact = lazy(() => import("./pages/Contact.tsx"));
+const Static = lazy(() => import("./pages/Static.tsx"));
 
 const queryClient = new QueryClient();
 
 function LoadingScreen() {
   return (
-    <div className="min-h-screen grid place-items-center bg-background text-foreground/60 text-sm">
-      Loading…
+    <div className="grid min-h-screen place-items-center bg-hero px-4 text-center">
+      <div>
+        <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-brand/20 border-t-brand" />
+        <p className="mt-4 text-sm text-hero-foreground/65">Loading...</p>
+      </div>
     </div>
   );
 }
@@ -90,24 +94,26 @@ const App = () => (
           <AuthProvider>
             <CurrencyProfileSync />
             <ShopProvider>
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/shop" element={<Shop />} />
-                <Route path="/category/:key" element={<Category />} />
-                <Route path="/product/:id" element={<ProductDetail />} />
-                <Route path="/cart" element={<Cart />} />
-                <Route path="/wishlist" element={<Wishlist />} />
-                <Route path="/checkout" element={<Checkout />} />
-                <Route path="/order-confirmation" element={<OrderConfirmation />} />
-                <Route path="/account" element={<Account />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/admin" element={<RequireAdmin><Admin /></RequireAdmin>} />
-                <Route path="/track" element={<TrackOrder />} />
-                <Route path="/about" element={<About />} />
-                <Route path="/contact" element={<Contact />} />
-                <Route path="/:slug" element={<Static />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
+              <Suspense fallback={<LoadingScreen />}>
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/shop" element={<Shop />} />
+                  <Route path="/category/:key" element={<Category />} />
+                  <Route path="/product/:id" element={<ProductDetail />} />
+                  <Route path="/cart" element={<Cart />} />
+                  <Route path="/wishlist" element={<Wishlist />} />
+                  <Route path="/checkout" element={<Checkout />} />
+                  <Route path="/order-confirmation" element={<OrderConfirmation />} />
+                  <Route path="/account" element={<Account />} />
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/admin" element={<RequireAdmin><Admin /></RequireAdmin>} />
+                  <Route path="/track" element={<TrackOrder />} />
+                  <Route path="/about" element={<About />} />
+                  <Route path="/contact" element={<Contact />} />
+                  <Route path="/:slug" element={<Static />} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </Suspense>
             </ShopProvider>
           </AuthProvider>
         </ConvexAuthProvider>
