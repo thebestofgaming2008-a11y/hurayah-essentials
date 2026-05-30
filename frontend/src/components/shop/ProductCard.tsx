@@ -45,7 +45,7 @@ export function ProductCard({ product, className }: Props) {
 
   return (
     <article className={cn("group", className)}>
-      <div className="relative aspect-[2/3] overflow-hidden rounded-lg bg-white shadow-sm group-hover:shadow-lg transition-shadow">
+      <div className="relative aspect-[2/3] overflow-hidden rounded-lg bg-white shadow-sm transition-shadow duration-300 group-hover:shadow-lg">
         <Link to={link} className="absolute inset-0 z-10" aria-label={product.name} />
         {showImage ? (
           <img
@@ -78,7 +78,7 @@ export function ProductCard({ product, className }: Props) {
           data-testid={`product-card-wishlist-button-${product.id}`}
           className={cn(
             "absolute top-3 right-3 z-20 h-9 w-9 grid place-items-center rounded-full bg-background/95 text-foreground shadow-sm hover:bg-background transition-all",
-            wished ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
+            wished ? "opacity-100" : "opacity-100 md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100",
           )}
         >
           <Heart className={cn("h-4 w-4", wished && "fill-current text-brand")} />
@@ -87,7 +87,7 @@ export function ProductCard({ product, className }: Props) {
           type="button"
           onClick={onAdd}
           data-testid={`product-card-add-to-cart-button-${product.id}`}
-          className="absolute inset-x-3 bottom-3 z-20 inline-flex items-center justify-center gap-2 rounded-md bg-brand text-brand-foreground text-xs md:text-sm font-semibold py-2.5 shadow-lg opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 focus-visible:opacity-100 focus-visible:translate-y-0 transition-all"
+          className="absolute inset-x-2 bottom-2 z-20 inline-flex items-center justify-center gap-1.5 rounded-md bg-brand py-2 text-[11px] font-semibold text-brand-foreground shadow-lg transition-all duration-200 active:scale-[0.98] md:inset-x-3 md:bottom-3 md:translate-y-2 md:gap-2 md:py-2.5 md:text-sm md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100 md:focus-visible:translate-y-0 md:focus-visible:opacity-100"
         >
           <ShoppingBag className="h-4 w-4" />
           {hasOptions ? "Choose options" : "Add to cart"}

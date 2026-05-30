@@ -58,6 +58,14 @@ function cleanNullable(value: string | null | undefined, max = 160) {
   return next.length ? next : null;
 }
 
+function requireIndiaShipping(country: string | null | undefined) {
+  const shipping = checkoutShippingForCountry(country);
+  if (shipping.countryType !== "india") {
+    throw new Error("We currently deliver within India only.");
+  }
+  return shipping;
+}
+
 function productNameWithOptions(name: string, color?: string | null, size?: string | null) {
   const options = [color ? `Colour: ${color}` : "", size ? `Size: ${size}` : ""].filter(Boolean);
   return options.length ? `${name} (${options.join(", ")})` : name;
@@ -182,7 +190,7 @@ async function savePaidOrder(ctx: any, args: {
     normalizedItems.push({ product, qty, unitPrice, selectedColor, selectedSize });
   }
 
-  const shippingMeta = checkoutShippingForCountry(customer.country);
+  const shippingMeta = requireIndiaShipping(customer.country);
   const computedShipping = shippingMeta.amount;
   const computedTotal = computedSubtotal + computedShipping;
   const timestamp = nowIso();
@@ -280,6 +288,7 @@ async function hmacSha256Hex(secret: string, message: string) {
 export const createRazorpayCheckoutOrder = action({
   args: checkoutPayload,
   handler: async (ctx, args) => {
+    requireIndiaShipping(args.customer.country);
     const quote = await ctx.runQuery(api.orders.quoteCheckout, { cart: args.cart });
     const { keyId } = razorpayKeys();
     const receipt = `HE-${Date.now().toString().slice(-8)}`;
@@ -346,7 +355,7 @@ export const createMockCheckoutOrder = mutation({
       itemCount += qty;
       normalizedItems.push({ product, qty, unitPrice, selectedColor, selectedSize });
     }
-    const shippingMeta = checkoutShippingForCountry(customer.country);
+    const shippingMeta = requireIndiaShipping(customer.country);
     const computedShipping = shippingMeta.amount;
     const computedTotal = computedSubtotal + computedShipping;
     const timestamp = nowIso();

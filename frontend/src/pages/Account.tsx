@@ -352,7 +352,7 @@ function AddressForm({ userId, address, onCancel, onSaved }: { userId: string; a
     city: address?.city ?? "",
     state: address?.state ?? "",
     postal_code: address?.postal_code ?? "",
-    country: address?.country ?? "India",
+    country: "India",
     type: address?.type ?? "shipping",
   });
   const [saving, setSaving] = useState(false);
@@ -378,9 +378,9 @@ function AddressForm({ userId, address, onCancel, onSaved }: { userId: string; a
       <Field label="Address line 1" value={form.address_line_1} onChange={(v) => setForm({ ...form, address_line_1: v })} required className="sm:col-span-2" />
       <Field label="Address line 2" value={form.address_line_2} onChange={(v) => setForm({ ...form, address_line_2: v })} className="sm:col-span-2" />
       <Field label="City" value={form.city} onChange={(v) => setForm({ ...form, city: v })} required />
-      <Field label="State / Region" value={form.state} onChange={(v) => setForm({ ...form, state: v })} />
-      <Field label="Postal code" value={form.postal_code} onChange={(v) => setForm({ ...form, postal_code: v })} required />
-      <Field label="Country" value={form.country} onChange={(v) => setForm({ ...form, country: v })} required />
+      <Field label="State / union territory" value={form.state} onChange={(v) => setForm({ ...form, state: v })} required />
+      <Field label="PIN code" value={form.postal_code} onChange={(v) => setForm({ ...form, postal_code: v })} required />
+      <Field label="Country" value={form.country} disabled required />
       <div className="sm:col-span-2 flex justify-end gap-2">
         <button type="button" onClick={onCancel} className="h-9 rounded-md border border-[rgb(var(--vibe-border))] px-3 text-[12px]">Cancel</button>
         <button type="submit" disabled={saving} className="h-9 rounded-md bg-[rgb(var(--vibe-foreground))] px-3 text-[12px] font-medium text-white disabled:opacity-60">{saving ? "Saving..." : "Save address"}</button>

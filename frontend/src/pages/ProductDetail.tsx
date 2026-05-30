@@ -70,7 +70,7 @@ const ProductDetail = () => {
       <SiteLayout>
         <main className="min-h-screen bg-[#dfe7f6] px-5 py-12">
           <div className="mx-auto grid max-w-[1220px] gap-10 lg:grid-cols-[420px_1fr]">
-            <div className="aspect-[5/7] rounded-md bg-zinc-200 animate-pulse" />
+            <div className="aspect-square rounded-md bg-zinc-200 animate-pulse" />
             <div className="space-y-4">
               <div className="h-16 w-3/4 rounded bg-zinc-200 animate-pulse" />
               <div className="h-12 w-40 rounded bg-zinc-200 animate-pulse" />
@@ -120,32 +120,32 @@ const ProductDetail = () => {
             <span className="line-clamp-1 text-[#06133a]">{product.name}</span>
           </nav>
 
-          <section>
-            <div className="mb-8">
-              <h1 className="font-serif text-5xl leading-[0.95] text-[#020b2d] drop-shadow-[0_3px_3px_rgba(2,11,45,0.25)] md:text-7xl">
+          <section className="pdp-fade-in">
+            <div className="mb-6 sm:mb-8">
+              <h1 className="font-serif text-4xl leading-[0.98] text-[#020b2d] drop-shadow-[0_3px_3px_rgba(2,11,45,0.2)] sm:text-5xl md:text-6xl lg:text-7xl">
                 {product.name}
               </h1>
               {(product.author || product.publisher) && (
-                <p className="mt-2 text-right font-serif text-3xl text-black/65">By {product.author || product.publisher}</p>
+                <p className="mt-2 text-right font-serif text-xl text-black/65 sm:text-2xl md:text-3xl">By {product.author || product.publisher}</p>
               )}
             </div>
 
-          <div className="grid gap-10 lg:grid-cols-[420px_minmax(0,1fr)] lg:gap-32">
-            <div>
+          <div className="grid gap-7 lg:grid-cols-[minmax(300px,420px)_minmax(0,1fr)] lg:gap-12 xl:gap-20">
+            <div className="mx-auto w-full max-w-[420px] lg:mx-0">
               <div className="aspect-square overflow-hidden rounded-md border border-[#06133a]/25 bg-[#d9d9d9]">
                 {mainImage && !mainImgError ? (
                   isVideoUrl(mainImage) ? (
-                    <video src={mainImage} className="h-full w-full object-cover" controls playsInline />
+                    <video key={mainImage} src={mainImage} className="pdp-image-swap h-full w-full object-cover" controls playsInline />
                   ) : (
-                    <img src={mainImage} alt={product.name} onError={() => setMainImgError(true)} className="h-full w-full object-cover" />
+                    <img key={mainImage} src={mainImage} alt={product.name} onError={() => setMainImgError(true)} className="pdp-image-swap h-full w-full object-cover" />
                   )
                 ) : (
                   <div className="h-full w-full bg-[#d9d9d9]" />
                 )}
               </div>
-              <div className="mt-3 grid grid-cols-3 gap-5">
+              <div className="mt-3 grid grid-cols-3 gap-3 sm:gap-4">
                 {gallery.slice(0, 3).map((src, index) => (
-                  <button key={src} type="button" onClick={() => setActiveImage(index)} className={cn("aspect-square overflow-hidden rounded-md bg-[#d9d9d9]", activeImage === index && "ring-2 ring-[#06133a]")}>
+                  <button key={src} type="button" onClick={() => setActiveImage(index)} className={cn("pdp-press aspect-square overflow-hidden rounded-md bg-[#d9d9d9]", activeImage === index && "ring-2 ring-[#06133a]")}>
                     {isVideoUrl(src) ? <video src={src} className="h-full w-full object-cover" muted playsInline /> : <img src={src} alt="" className="h-full w-full object-cover" />}
                   </button>
                 ))}
@@ -159,7 +159,7 @@ const ProductDetail = () => {
                     <select
                       value={product.slug ?? product.id}
                       onChange={(event) => navigate(`/product/${event.target.value}`)}
-                      className="mt-2 h-14 bg-[#1f1f1f] px-4 font-serif text-2xl font-semibold text-white outline-none"
+                      className="mt-2 h-12 max-w-full bg-[#1f1f1f] px-3 font-serif text-lg font-semibold text-white outline-none transition-colors hover:bg-black sm:h-14 sm:px-4 sm:text-2xl"
                     >
                       <option value={product.slug ?? product.id}>{product.variant_label || "Current variant"}</option>
                       {versions.map((version) => (
@@ -170,7 +170,7 @@ const ProductDetail = () => {
                 </div>
               </div>
 
-              <div className="mt-7 font-serif text-6xl leading-none text-black drop-shadow-[0_3px_3px_rgba(0,0,0,0.25)]">
+              <div className="mt-5 font-serif text-4xl leading-none text-black drop-shadow-[0_3px_3px_rgba(0,0,0,0.2)] sm:mt-7 sm:text-5xl lg:text-6xl">
                 {format(price)}
                 {compareAt && <span className="ml-4 text-2xl text-black/35 line-through">{format(compareAt)}</span>}
               </div>
@@ -186,7 +186,7 @@ const ProductDetail = () => {
                 <button
                   type="button"
                   onClick={() => toggleWishlist(product.id)}
-                  className={cn("glass-cta inline-flex h-[3.625rem] w-full max-w-[49rem] items-center justify-center rounded-2xl px-[3.1875rem] pb-[0.4375rem] pt-1 text-lg font-bold tracking-tight text-hero-foreground transition-all md:text-xl", wished && "bg-white/45")}
+                  className={cn("glass-cta pdp-press inline-flex h-12 w-full max-w-[49rem] items-center justify-center rounded-xl px-4 text-base font-bold text-hero-foreground transition-all sm:h-[3.625rem] sm:rounded-2xl sm:text-lg md:text-xl", wished && "bg-white/45")}
                 >
                   Wishlist
                 </button>
@@ -194,28 +194,28 @@ const ProductDetail = () => {
                   type="button"
                   onClick={onAdd}
                   disabled={!inStock}
-                  className="inline-flex h-[4.5rem] w-full max-w-[49rem] items-center justify-center rounded-md bg-brand px-[3.1875rem] pb-[0.4375rem] pt-1 text-2xl font-bold tracking-tight text-brand-foreground shadow-2xl transition-opacity hover:opacity-95 disabled:opacity-50 md:text-3xl"
+                  className="pdp-press inline-flex h-14 w-full max-w-[49rem] items-center justify-center rounded-md bg-brand px-4 text-xl font-bold text-brand-foreground shadow-2xl transition-all hover:opacity-95 disabled:opacity-50 sm:h-[4.5rem] sm:text-2xl md:text-3xl"
                 >
                   {inStock ? "Add to cart" : "Out of stock"}
                 </button>
               </div>
               <p className="mt-3 max-w-[49rem] font-serif text-lg leading-tight text-black/65">
-                India shipping is included. International shipping is billed separately after order confirmation on WhatsApp.
+                Shipping is included across India.
               </p>
 
-              <div className="mt-5 inline-flex h-16 items-center gap-4 bg-[#d9d9d9] px-2 font-serif text-4xl text-black">
-                <button type="button" onClick={() => setQty((q) => Math.max(1, q - 1))} aria-label="Decrease quantity"><Minus className="h-9 w-9" /></button>
-                <span className="w-10 text-center">{qty}</span>
-                <button type="button" onClick={() => setQty((q) => q + 1)} aria-label="Increase quantity"><Plus className="h-9 w-9" /></button>
+              <div className="mt-5 inline-flex h-12 items-center gap-2 bg-[#d9d9d9] px-2 font-serif text-3xl text-black sm:h-16 sm:gap-4 sm:text-4xl">
+                <button className="pdp-press" type="button" onClick={() => setQty((q) => Math.max(1, q - 1))} aria-label="Decrease quantity"><Minus className="h-7 w-7 sm:h-9 sm:w-9" /></button>
+                <span className="w-8 text-center sm:w-10">{qty}</span>
+                <button className="pdp-press" type="button" onClick={() => setQty((q) => q + 1)} aria-label="Increase quantity"><Plus className="h-7 w-7 sm:h-9 sm:w-9" /></button>
               </div>
 
-              <section className="mt-24 max-w-[49rem]">
-                <div className="flex gap-8 font-serif text-3xl">
-                  <button type="button" onClick={() => setTab("description")} className={cn("pb-2", tab === "description" ? "border-b border-[#06133a] font-semibold text-[#06133a]" : "text-black/60")}>Product Description</button>
-                  <button type="button" onClick={() => setTab("details")} className={cn("pb-2", tab === "details" ? "border-b border-[#06133a] font-semibold text-[#06133a]" : "text-black/60")}>Product Details</button>
+              <section className="mt-12 max-w-[49rem] sm:mt-16 lg:mt-20">
+                <div className="flex flex-wrap gap-x-6 gap-y-2 font-serif text-xl sm:gap-x-8 sm:text-2xl lg:text-3xl">
+                  <button type="button" onClick={() => setTab("description")} className={cn("pdp-press pb-2", tab === "description" ? "border-b border-[#06133a] font-semibold text-[#06133a]" : "text-black/60")}>Product Description</button>
+                  <button type="button" onClick={() => setTab("details")} className={cn("pdp-press pb-2", tab === "details" ? "border-b border-[#06133a] font-semibold text-[#06133a]" : "text-black/60")}>Product Details</button>
                 </div>
                 {tab === "description" ? (
-                  <p className="mt-9 whitespace-pre-line font-serif text-3xl leading-[1.05] text-black">{product.description || product.short_description || "Product details coming soon."}</p>
+                  <p className="mt-6 whitespace-pre-line font-serif text-xl leading-tight text-black sm:mt-8 sm:text-2xl lg:text-3xl">{product.description || product.short_description || "Product details coming soon."}</p>
                 ) : (
                   <dl className="mt-9 grid gap-3 font-serif text-2xl text-black sm:grid-cols-2">
                     <Fact label="Category" value={categoryMeta?.label || product.category || "Product"} />
@@ -232,8 +232,8 @@ const ProductDetail = () => {
           <ReviewsSection productId={product.id} userReady={Boolean(user)} canReview={canReview} reviews={reviews} onSubmitted={async () => setReviews(await listPublishedReviews(product.id).catch(() => reviews))} />
 
           {related.length > 0 && (
-            <section className="mt-20 border-t border-[#06133a] pt-10">
-              <h2 className="mb-8 font-serif text-4xl text-[#06133a]">More from {categoryMeta?.label ?? "this category"}</h2>
+            <section className="mt-14 border-t border-[#06133a] pt-8 sm:mt-20 sm:pt-10">
+              <h2 className="mb-6 font-serif text-3xl text-[#06133a] sm:mb-8 sm:text-4xl">More from {categoryMeta?.label ?? "this category"}</h2>
               <div className="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-6">
                 {related.map((item) => <ProductCard key={item.id} product={item} />)}
               </div>
@@ -258,7 +258,7 @@ function OptionGroup({ label, options, value, onChange }: { label: string; optio
               type="button"
               onClick={() => onChange(option)}
               className={cn(
-                "min-h-10 rounded-md border px-3 font-serif text-lg text-black transition-colors",
+                "pdp-press min-h-10 rounded-md border px-3 font-serif text-base text-black transition-colors sm:text-lg",
                 active ? "border-[#06133a] bg-white shadow-sm" : "border-[#06133a]/25 bg-white/45 hover:border-[#06133a]/60",
               )}
             >
@@ -309,9 +309,9 @@ function ReviewsSection({ productId, userReady, canReview, reviews, onSubmitted 
   };
 
   return (
-    <section className="mt-20 max-w-[49rem] lg:ml-[calc(420px+8rem)]">
+    <section className="pdp-fade-in mt-14 max-w-[49rem] lg:ml-auto">
       <div className="flex items-center gap-6 border-b border-[#06133a] pb-6">
-        <h2 className="font-serif text-4xl text-black">Customer Reviews</h2>
+        <h2 className="font-serif text-3xl text-black sm:text-4xl">Customer Reviews</h2>
       </div>
       <form onSubmit={submit} className="mt-6 grid gap-3">
         <div className="rounded-md border border-[#06133a]/30 bg-white/45 p-3">
@@ -346,7 +346,7 @@ function ReviewsSection({ productId, userReady, canReview, reviews, onSubmitted 
             Reviews are text-only at launch and open after a verified purchase on this account email.
           </p>
         )}
-        <button disabled={submitting || !canReview} className="h-12 rounded-md bg-brand font-bold text-brand-foreground shadow-2xl disabled:opacity-50">{submitting ? "Submitting..." : "Add review"}</button>
+        <button disabled={submitting || !canReview} className="pdp-press h-12 rounded-md bg-brand font-bold text-brand-foreground shadow-2xl disabled:opacity-50">{submitting ? "Submitting..." : "Add review"}</button>
       </form>
       <div className="mt-8 space-y-5">
         {reviews.map((review) => (

@@ -90,74 +90,21 @@ function writeCache(rates: RatesResponse) {
 export function CurrencyProvider({ children }: { children: React.ReactNode }) {
   const [rates, setRates] = useState<RatesResponse>(() => readCache() ?? FALLBACK_RATES);
   const [rateError, setRateError] = useState<string | null>(null);
-  const [currency, setCurrencyState] = useState(() => {
-    if (typeof window === "undefined") return "INR";
-    return localStorage.getItem(STORAGE_KEY) || "INR";
-  });
-  const [loading, setLoading] = useState(() => readCache() === null);
+  const [currency, setCurrencyState] = useState("INR");
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
-    const cached = readCache();
-    if (cached) {
-      setRates({ ...cached, source: cached.source === "fallback" ? "fallback" : "cached" });
-      setLoading(false);
-      return () => {
-        cancelled = true;
-      };
-    }
-    setLoading(true);
-    fetchExchangeRates()
-      .then((data) => {
-        if (cancelled) return;
-        setRates(data);
-        setRateError(null);
-        writeCache(data);
-      })
-      .catch((error) => {
-        console.warn("Currency API unavailable; using fallback rates", error);
-        if (!cancelled) {
-          setRates({ ...FALLBACK_RATES, fetchedAt: new Date().toISOString(), stale: true });
-          setRateError(error instanceof Error ? error.message : "Currency API unavailable");
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
+    localStorage.setItem(STORAGE_KEY, "INR");
+    localStorage.removeItem(MANUAL_KEY);
   }, []);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (localStorage.getItem(STORAGE_KEY) || localStorage.getItem(MANUAL_KEY)) return;
-    let cancelled = false;
-    fetch("/api/geo", { headers: { accept: "application/json" } })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        const detected = typeof data?.currency === "string" ? data.currency : null;
-        if (!cancelled && detected && PREFERRED_CURRENCIES.includes(detected)) {
-          setCurrencyState(detected);
-          localStorage.setItem(STORAGE_KEY, detected);
-        }
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const currencies = useMemo(() => ["INR"], []);
 
-  const currencies = useMemo(() => {
-    const available = Object.keys(rates.rates ?? {});
-    return PREFERRED_CURRENCIES.filter((c) => available.includes(c));
-  }, [rates]);
-
-  const setCurrency = useCallback((next: string) => {
-    setCurrencyState(next);
+  const setCurrency = useCallback((_next: string) => {
+    setCurrencyState("INR");
     if (typeof window !== "undefined") {
-      localStorage.setItem(STORAGE_KEY, next);
-      localStorage.setItem(MANUAL_KEY, "1");
+      localStorage.setItem(STORAGE_KEY, "INR");
+      localStorage.removeItem(MANUAL_KEY);
     }
   }, []);
 

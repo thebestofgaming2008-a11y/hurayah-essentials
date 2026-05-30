@@ -5,9 +5,9 @@ const PAGES: Record<string, { title: string; body: string[] }> = {
   shipping: {
     title: "Shipping",
     body: [
-      "We ship to over 30 countries via tracked services.",
-      "India shipping is included in product prices.",
-      "International shipping is arranged separately on WhatsApp after order confirmation.",
+      "We currently deliver within India only.",
+      "Shipping across India is included in product prices.",
+      "Tracking is shared after dispatch.",
     ],
   },
   returns: {

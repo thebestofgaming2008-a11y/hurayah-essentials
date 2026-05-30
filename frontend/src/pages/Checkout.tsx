@@ -15,39 +15,7 @@ declare global {
   }
 }
 
-const COUNTRIES = [
-  { name: "India", flag: "🇮🇳" },
-  { name: "United States", flag: "🇺🇸" },
-  { name: "United Kingdom", flag: "🇬🇧" },
-  { name: "Canada", flag: "🇨🇦" },
-  { name: "Australia", flag: "🇦🇺" },
-  { name: "United Arab Emirates", flag: "🇦🇪" },
-  { name: "Saudi Arabia", flag: "🇸🇦" },
-  { name: "Qatar", flag: "🇶🇦" },
-  { name: "Kuwait", flag: "🇰🇼" },
-  { name: "Oman", flag: "🇴🇲" },
-  { name: "Bahrain", flag: "🇧🇭" },
-  { name: "Malaysia", flag: "🇲🇾" },
-  { name: "Singapore", flag: "🇸🇬" },
-  { name: "South Africa", flag: "🇿🇦" },
-  { name: "France", flag: "🇫🇷" },
-  { name: "Germany", flag: "🇩🇪" },
-  { name: "Netherlands", flag: "🇳🇱" },
-  { name: "Belgium", flag: "🇧🇪" },
-  { name: "Pakistan", flag: "🇵🇰" },
-  { name: "Bangladesh", flag: "🇧🇩" },
-  { name: "Indonesia", flag: "🇮🇩" },
-];
-
-function addressProfile(country: string) {
-  const normalized = country.trim().toLowerCase();
-  if (["united states", "usa", "us"].includes(normalized)) return { stateLabel: "State", postalLabel: "ZIP code", cityLabel: "City", stateRequired: true };
-  if (normalized === "canada") return { stateLabel: "Province", postalLabel: "Postal code", cityLabel: "City", stateRequired: true };
-  if (normalized === "australia") return { stateLabel: "State / territory", postalLabel: "Postcode", cityLabel: "Suburb / city", stateRequired: true };
-  if (["united arab emirates", "uae", "qatar", "kuwait", "oman", "bahrain"].includes(normalized)) return { stateLabel: "Emirate / region", postalLabel: "Postal code (optional)", cityLabel: "City", stateRequired: false };
-  if (["india", "in", "bharat"].includes(normalized)) return { stateLabel: "State / union territory", postalLabel: "PIN code", cityLabel: "City", stateRequired: true };
-  return { stateLabel: "State / region", postalLabel: "Postal code", cityLabel: "City", stateRequired: false };
-}
+const INDIA_ADDRESS = { stateLabel: "State / union territory", postalLabel: "PIN code", cityLabel: "City", stateRequired: true };
 
 function loadRazorpayScript() {
   return new Promise<boolean>((resolve) => {
@@ -69,11 +37,9 @@ function loadRazorpayScript() {
 
 const Checkout = () => {
   const { cartLines, cartSubtotal, clearCart, updateQty, removeFromCart, openCart } = useShop();
-  const { format, currency } = useCurrency();
+  const { format } = useCurrency();
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
-  const [countryOpen, setCountryOpen] = useState(false);
-  const [countryQuery, setCountryQuery] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [form, setForm] = useState({
     email: "",
@@ -89,20 +55,11 @@ const Checkout = () => {
   });
   const shippingMeta = checkoutShippingForCountry(form.country);
   const total = cartSubtotal + shippingMeta.amount;
-  const isInternational = shippingMeta.countryType === "international";
-  const address = addressProfile(form.country);
-  const selectedCountry = COUNTRIES.find((country) => country.name.toLowerCase() === form.country.trim().toLowerCase());
-  const countryMatches = COUNTRIES.filter((country) => country.name.toLowerCase().includes(countryQuery.trim().toLowerCase())).slice(0, 8);
+  const address = INDIA_ADDRESS;
 
   const setField = (key: keyof typeof form) => (value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
     setErrors((prev) => ({ ...prev, [key]: "" }));
-  };
-
-  const chooseCountry = (country: string) => {
-    setField("country")(country);
-    setCountryQuery("");
-    setCountryOpen(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -212,46 +169,11 @@ const Checkout = () => {
               </Section>
 
               <Section title="Delivery">
-                <div className="relative">
+                <div>
                   <span className="mb-1.5 block text-[11px] text-[rgb(var(--vibe-muted))]">Country / region</span>
-                  <button
-                    type="button"
-                    onClick={() => setCountryOpen((open) => !open)}
-                    data-testid="checkout-country-input"
-                    className={cn("flex h-10 w-full items-center justify-between rounded-md border bg-white px-3 text-left text-[13px] text-[rgb(var(--vibe-foreground))] outline-none focus:ring-1 focus:ring-zinc-500", errors.country ? "border-red-400" : "border-[rgb(var(--vibe-border))]")}
-                  >
-                    <span className="inline-flex min-w-0 items-center gap-2">
-                      <span className="text-base">{selectedCountry?.flag ?? "🌍"}</span>
-                      <span className="truncate">{form.country || "Select country"}</span>
-                    </span>
-                    <span className="text-[10px] text-[rgb(var(--vibe-muted))]">▼</span>
-                  </button>
-                  {errors.country && <span className="mt-1 block text-[11px] text-red-600">{errors.country}</span>}
-                  {countryOpen && (
-                    <div className="absolute left-0 right-0 top-[64px] z-30 overflow-hidden rounded-md border border-[rgb(var(--vibe-border))] bg-white shadow-xl">
-                      <input
-                        autoFocus
-                        value={countryQuery}
-                        onChange={(event) => setCountryQuery(event.target.value)}
-                        placeholder="Search country"
-                        className="h-10 w-full border-b border-[rgb(var(--vibe-border))] px-3 text-[13px] outline-none"
-                      />
-                      <div className="max-h-64 overflow-y-auto py-1">
-                        {countryMatches.map((country) => (
-                          <button
-                            key={country.name}
-                            type="button"
-                            onClick={() => chooseCountry(country.name)}
-                            className={cn("flex h-10 w-full items-center gap-3 px-3 text-left text-[13px] hover:bg-[rgb(var(--vibe-accent))]", form.country === country.name && "bg-[rgb(var(--vibe-surface))] font-medium")}
-                          >
-                            <span className="text-base">{country.flag}</span>
-                            <span>{country.name}</span>
-                          </button>
-                        ))}
-                        {countryMatches.length === 0 && <p className="px-3 py-3 text-[12px] text-[rgb(var(--vibe-muted))]">No countries found.</p>}
-                      </div>
-                    </div>
-                  )}
+                  <div data-testid="checkout-country-input" className="flex h-10 w-full items-center rounded-md border border-[rgb(var(--vibe-border))] bg-[rgb(var(--vibe-surface))] px-3 text-[13px] text-[rgb(var(--vibe-foreground))]">
+                    India
+                  </div>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field label="First name" value={form.firstName} onChange={setField("firstName")} error={errors.firstName} required testId="checkout-first-name-input" autoComplete="given-name" />
@@ -265,7 +187,7 @@ const Checkout = () => {
                   <Field label={address.postalLabel} value={form.postalCode} onChange={setField("postalCode")} error={errors.postalCode} required={!address.postalLabel.includes("optional")} testId="checkout-postal-code-input" autoComplete="postal-code" />
                 </div>
                 <p className="text-[11px] text-[rgb(var(--vibe-muted))]">
-                  {isInternational ? "International shipping is arranged on WhatsApp after confirmation." : "India shipping is included."}
+                  Shipping is included across India.
                 </p>
               </Section>
 
@@ -300,10 +222,9 @@ const Checkout = () => {
               </ul>
               <dl className="mt-4 space-y-2 border-t border-[rgb(var(--vibe-border))] pt-4 text-[12px]">
                 <div className="flex justify-between"><dt className="text-[rgb(var(--vibe-muted))]">Subtotal</dt><dd className="font-mono font-medium">{format(cartSubtotal)}</dd></div>
-                <div className="flex justify-between"><dt className="text-[rgb(var(--vibe-muted))]">Shipping</dt><dd className="font-mono font-medium">{isInternational ? "Later" : "Included"}</dd></div>
+                <div className="flex justify-between"><dt className="text-[rgb(var(--vibe-muted))]">Shipping</dt><dd className="font-mono font-medium">Included</dd></div>
                 <div className="flex justify-between border-t border-[rgb(var(--vibe-border))] pt-3 text-[13px]"><dt className="font-medium">Total</dt><dd className="font-mono font-semibold" data-testid="checkout-total-amount">{format(total)}</dd></div>
               </dl>
-              {currency !== "INR" && <p className="mt-3 text-[11px] text-[rgb(var(--vibe-muted))]">Converted prices are approximate. Payment is recorded in INR.</p>}
               <PaymentMethods compact className="mt-4" />
               <button type="submit" disabled={submitting} data-testid="checkout-submit-button" className="mt-5 inline-flex h-10 w-full items-center justify-center rounded-md bg-[rgb(var(--vibe-foreground))] px-3 text-[12px] font-medium text-white hover:opacity-90 disabled:opacity-50">
                 {submitting ? "Opening checkout..." : `Pay ${format(total)}`}

@@ -42,7 +42,7 @@ export function SiteFooter({ compact = false }: { compact?: boolean }) {
           <div>
             <img src={logo} alt="Hurayrah Essentials" className="mb-3 h-10 w-auto object-contain" />
             <p className="max-w-xs text-sm text-foreground/60">
-              Seeking knowledge, made affordable. Authentic books, clothing and essentials shipped worldwide.
+              Seeking knowledge, made affordable. Authentic books, clothing and essentials delivered across India.
             </p>
             <a
               href="https://instagram.com/hurayrah_essentials"

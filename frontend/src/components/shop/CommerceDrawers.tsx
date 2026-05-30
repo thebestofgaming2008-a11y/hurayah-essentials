@@ -75,7 +75,7 @@ function DrawerShell({
 
 export function CartDrawer() {
   const { cartOpen, closeCart, cartLines, cartSubtotal, cartCount, updateQty, removeFromCart, toggleWishlist, isWishlisted, addToCart } = useShop();
-  const { format, currency } = useCurrency();
+  const { format } = useCurrency();
   const navigate = useNavigate();
   const [recommendations, setRecommendations] = useState<Product[]>([]);
   const shipping = 0;
@@ -211,7 +211,7 @@ export function CartDrawer() {
           <div className="border-t border-[rgb(var(--vibe-border))] bg-white p-4">
             <dl className="space-y-2 text-[12px]">
               <div className="flex justify-between"><dt className="text-[rgb(var(--vibe-muted))]">Subtotal</dt><dd className="font-mono font-medium tabular-nums">{format(cartSubtotal)}</dd></div>
-              <div className="flex justify-between"><dt className="text-[rgb(var(--vibe-muted))]">Shipping</dt><dd className="font-mono font-medium tabular-nums">Included / billed later</dd></div>
+              <div className="flex justify-between"><dt className="text-[rgb(var(--vibe-muted))]">Shipping</dt><dd className="font-mono font-medium tabular-nums">Included</dd></div>
               <div className="flex justify-between border-t border-[rgb(var(--vibe-border))] pt-3 text-[13px]"><dt className="font-medium">Total</dt><dd className="font-mono font-semibold tabular-nums">{format(total)}</dd></div>
             </dl>
             <button type="button" onClick={goCheckout} className="mt-4 flex h-9 w-full items-center justify-center gap-2 rounded-md bg-[rgb(var(--vibe-foreground))] px-3 text-[12px] font-medium text-white transition-opacity hover:opacity-90">
@@ -219,7 +219,7 @@ export function CartDrawer() {
             </button>
             <PaymentMethods compact className="mt-4" />
             <p className="mt-2 text-center text-[11px] text-[rgb(var(--vibe-muted))]">
-              India shipping is included. International shipping is collected later on WhatsApp.{currency !== "INR" ? " Checkout is charged in INR." : ""}
+              Shipping is included across India.
             </p>
           </div>
         </>

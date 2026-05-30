@@ -2172,7 +2172,7 @@ function ShippingPanelFunctional({ products, rates, onUpdateRate }: { products: 
             <div className="text-[13px]">
               <p className="font-medium">{reviewDue ? "Shipping reference review due" : "Shipping reference is up to date"}</p>
               <p className="mt-0.5 text-[rgb(var(--vibe-muted))]">
-                {reviewDue ? `Rates were last reviewed ${daysSinceReview >= 999 ? "never" : `${daysSinceReview} days ago`}. These are admin references only; checkout uses India included shipping and WhatsApp follow-up internationally.` : `Next monthly notice in ${nextReviewDays} days.`}
+                {reviewDue ? `Rates were last reviewed ${daysSinceReview >= 999 ? "never" : `${daysSinceReview} days ago`}. These are admin references only; checkout includes shipping across India.` : `Next monthly notice in ${nextReviewDays} days.`}
               </p>
             </div>
           </div>
@@ -2225,7 +2225,7 @@ function ShippingPanel({ products }: { products: Product[] }) {
       <div className="vibe-card flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:p-5">
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <div className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-[rgb(var(--vibe-surface))]"><Calculator className="h-4 w-4" /></div>
-          <div><p className="text-[13px] font-medium">Reference shipping estimates</p><p className="text-[11.5px] text-[rgb(var(--vibe-muted))]">Admin reference only. Checkout uses India included shipping and WhatsApp follow-up internationally.</p></div>
+          <div><p className="text-[13px] font-medium">Reference shipping estimates</p><p className="text-[11.5px] text-[rgb(var(--vibe-muted))]">Admin reference only. Checkout includes shipping across India.</p></div>
         </div>
         <button className="inline-flex h-9 items-center gap-1.5 rounded-md bg-[rgb(var(--vibe-foreground))] px-3 text-[12px] text-white">Refresh estimates</button>
       </div>

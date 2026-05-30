@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import logo from "@/assets/logo-header.png";
 import { useAuth } from "@/contexts/AuthContext";
-import { useCurrency } from "@/contexts/CurrencyContext";
 import { cn } from "@/lib/utils";
 import { useShop } from "@/store/shop";
 import {
@@ -14,28 +13,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 const ICON_BUTTON =
   "relative inline-flex h-10 w-10 items-center justify-center rounded-full text-foreground transition-all duration-150 hover:bg-foreground/[0.06] active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-1 focus-visible:ring-offset-hero";
 
 const BADGE =
   "absolute -top-1 -right-1 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-brand px-1 text-[10px] font-semibold leading-none text-brand-foreground shadow-sm";
-
-const CURRENCY_SYMBOLS: Record<string, string> = {
-  INR: "\u20B9",
-  USD: "$",
-  GBP: "\u00A3",
-  EUR: "\u20AC",
-  AED: "\u062F.\u0625",
-  SAR: "\uFDFC",
-};
 
 export function SiteHeader() {
   const [query, setQuery] = useState("");
@@ -45,7 +28,6 @@ export function SiteHeader() {
   const navigate = useNavigate();
   const { cartCount, openCart } = useShop();
   const { user, isAdmin, signOut } = useAuth();
-  const { currency, currencies, setCurrency, loading: currencyLoading } = useCurrency();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 4);
@@ -128,27 +110,8 @@ export function SiteHeader() {
               <span className="hidden sm:inline">Admin</span>
             </Link>
           )}
-          <div className="notice-window mx-auto min-w-0 flex-1 overflow-hidden border-x border-white/25 px-3 sm:px-8 md:mx-[160px]">
-            <div className="notice-marquee whitespace-nowrap md:mx-auto md:block md:w-fit md:animate-none">
-              <span className="px-8 md:px-0">International orders may incur customs / import duties</span>
-              <span className="px-8 md:hidden">International orders may incur customs / import duties</span>
-            </div>
-          </div>
-          <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center sm:right-4">
-            <Select value={currency} onValueChange={setCurrency} disabled={currencyLoading}>
-              <SelectTrigger data-testid="site-header-currency-select" aria-label="Select display currency" className="h-7 w-[92px] rounded-sm border-0 bg-transparent px-2 text-[11px] text-brand-foreground shadow-none hover:bg-white/10 focus:ring-0 focus:ring-offset-0 [&>svg]:h-3 [&>svg]:w-3 [&>svg]:text-brand-foreground/70">
-                <SelectValue>
-                  <span className="inline-flex items-center gap-1.5 leading-none"><span>{currency}</span><span>{CURRENCY_SYMBOLS[currency] ?? currency}</span></span>
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent align="end" className="min-w-[120px]">
-                {currencies.map((c) => (
-                  <SelectItem key={c} value={c} className="text-xs">
-                    <span className="inline-flex items-center gap-2"><span className="font-semibold">{c}</span><span className="text-[14px] leading-none">{CURRENCY_SYMBOLS[c] ?? c}</span></span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="mx-auto min-w-0 flex-1 px-3 text-center sm:px-8">
+            Shipping included across India
           </div>
         </div>
       </div>

@@ -6,7 +6,7 @@ import { PaymentMethods } from "@/components/shop/PaymentMethods";
 
 const Cart = () => {
   const { cartLines, cartSubtotal, updateQty, removeFromCart } = useShop();
-  const { format, currency } = useCurrency();
+  const { format } = useCurrency();
   const navigate = useNavigate();
   const shipping = 0;
   const total = cartSubtotal + shipping;
@@ -112,7 +112,7 @@ const Cart = () => {
                 <div className="flex justify-between">
                   <dt className="text-[rgb(var(--vibe-muted))]">Shipping</dt>
                   <dd className="font-mono font-medium">
-                    Included / billed later
+                    Included
                   </dd>
                 </div>
                 <div className="mt-3 flex justify-between border-t border-[rgb(var(--vibe-border))] pt-3 text-[13px]">
@@ -129,7 +129,7 @@ const Cart = () => {
               </button>
               <PaymentMethods compact className="mt-4" />
               <p className="mt-3 text-center text-[11px] text-[rgb(var(--vibe-muted))]">
-                India shipping is included. International shipping is billed separately on WhatsApp after ordering.{currency !== "INR" ? " Converted prices are approximate." : ""}
+                Shipping is included across India.
               </p>
             </aside>
           </div>
