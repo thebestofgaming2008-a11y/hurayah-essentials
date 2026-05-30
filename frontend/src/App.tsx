@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -83,6 +83,22 @@ function BasicAnalytics() {
   return null;
 }
 
+function ScrollManager() {
+  const { pathname, hash } = useLocation();
+
+  useEffect(() => {
+    if (hash) {
+      window.requestAnimationFrame(() => {
+        document.querySelector(hash)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+      return;
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [hash, pathname]);
+
+  return null;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -90,6 +106,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <BasicAnalytics />
+        <ScrollManager />
         <ConvexAuthProvider client={convex}>
           <AuthProvider>
             <CurrencyProfileSync />

@@ -186,7 +186,7 @@ All colors MUST be HSL.
   .vibe-fade-in-3 { animation: vibe-fade-in 0.35s ease-out 0.12s both; }
 
   .page-enter {
-    animation: page-enter 360ms ease-out both;
+    animation: page-enter 360ms ease-out;
   }
 
   .commerce-shell {

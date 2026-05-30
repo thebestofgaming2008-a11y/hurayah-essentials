@@ -26,7 +26,7 @@ const GUARANTEES = ["Authentic titles", "India-wide delivery", "Secure checkout"
 
 const SUBJECTS = [
   { name: "Aqeedah", desc: "Creed & belief", Icon: Shield },
-  { name: "Seerah", desc: "The Prophet's life ï·º", Icon: Scroll },
+  { name: "Seerah", desc: "The Prophet's life", Icon: Scroll },
   { name: "Tafsir", desc: "Qur'anic exegesis", Icon: BookOpen },
   { name: "Hadith", desc: "Prophetic traditions", Icon: Quote },
   { name: "Fiqh", desc: "Islamic jurisprudence", Icon: Scale },
@@ -187,7 +187,7 @@ const Index = () => {
             </div>
           ) : featuredView.length === 0 ? (
             <p className="text-sm text-foreground/60">
-              No products yet â€” your shop is ready for its first listing.
+              No products yet - your shop is ready for its first listing.
             </p>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
@@ -298,7 +298,7 @@ const Index = () => {
                 Choose your subject
               </h2>
               <p className="mt-3 text-foreground/60 text-sm md:text-base">
-                Start where your heart is drawn â€” explore titles by field of study.
+                Start where your heart is drawn - explore titles by field of study.
               </p>
             </div>
             <Link

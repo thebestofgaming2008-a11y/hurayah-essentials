@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { SlidersHorizontal, X } from "lucide-react";
 import { SiteLayout } from "@/components/layout/SiteLayout";
 import { ProductCard } from "@/components/shop/ProductCard";
-import { CATEGORIES, productPrice, type CategoryKey } from "@/data/products";
+import { CATEGORIES, TOP_LEVEL_CATEGORIES, productPrice, type CategoryKey } from "@/data/products";
 import { listActiveProducts, type Product } from "@/services/productService";
 import { cn } from "@/lib/utils";
 
@@ -121,7 +121,7 @@ const Shop = () => {
             <span>All products</span>
             <span className="text-xs opacity-70">{allProducts.length}</span>
           </button>
-          {CATEGORIES.map((c) => {
+          {TOP_LEVEL_CATEGORIES.map((c) => {
             const count = allProducts.filter((p) => p.category === c.key).length;
             return (
               <button
@@ -177,15 +177,15 @@ const Shop = () => {
   return (
     <SiteLayout>
       <section className="border-b border-border bg-hero/65">
-        <div className="mx-auto max-w-[1440px] px-4 py-8 md:px-8 md:py-12">
+        <div className="mx-auto max-w-[1440px] px-4 py-5 md:px-8 md:py-9">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">Collection</p>
-          <h1 className="mt-2 text-3xl text-hero-foreground md:text-5xl">Shop all products</h1>
+          <h1 className="mt-1.5 text-3xl text-hero-foreground md:text-5xl">Shop all products</h1>
           <p className="mt-2 max-w-xl text-sm leading-relaxed text-foreground/65 md:text-base">
             Books, clothing and essentials selected for everyday benefit.
           </p>
-          <div className="no-scrollbar -mx-4 mt-6 flex gap-2 overflow-x-auto px-4 md:-mx-0 md:px-0">
+          <div className="no-scrollbar -mx-4 mt-4 flex gap-2 overflow-x-auto px-4 md:-mx-0 md:mt-6 md:px-0">
             <button onClick={() => setCategory(null)} className={cn("shrink-0 rounded-full border px-4 py-2 text-sm font-medium", !cat ? "border-brand bg-brand text-brand-foreground" : "border-border bg-background text-foreground/75 hover:border-brand")}>All</button>
-            {CATEGORIES.map((category) => (
+            {TOP_LEVEL_CATEGORIES.map((category) => (
               <button key={category.key} onClick={() => setCategory(category.key)} className={cn("shrink-0 rounded-full border px-4 py-2 text-sm font-medium", cat === category.key ? "border-brand bg-brand text-brand-foreground" : "border-border bg-background text-foreground/75 hover:border-brand")}>
                 {category.label}
               </button>
@@ -278,8 +278,8 @@ const Shop = () => {
               </div>
             ) : (
               <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
-                {filtered.map((p) => (
-                  <ProductCard key={p.id} product={p} />
+                {filtered.map((p, index) => (
+                  <ProductCard key={p.id} product={p} priority={index < 4} />
                 ))}
               </div>
             )}

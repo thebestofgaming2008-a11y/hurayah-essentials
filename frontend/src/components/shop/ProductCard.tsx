@@ -10,9 +10,10 @@ import { useCurrency } from "@/contexts/CurrencyContext";
 interface Props {
   product: Product;
   className?: string;
+  priority?: boolean;
 }
 
-export function ProductCard({ product, className }: Props) {
+export function ProductCard({ product, className, priority = false }: Props) {
   const { toggleWishlist, isWishlisted, addToCart } = useShop();
   const navigate = useNavigate();
   const { format } = useCurrency();
@@ -51,9 +52,8 @@ export function ProductCard({ product, className }: Props) {
           <img
             src={image as string}
             alt={product.name}
-            loading="eager"
+            loading={priority ? "eager" : "lazy"}
             decoding="async"
-            fetchPriority="high"
             onError={() => setImgError(true)}
             className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.035]"
           />
@@ -93,9 +93,9 @@ export function ProductCard({ product, className }: Props) {
           {hasOptions ? "Choose options" : "Add to cart"}
         </button>
       </div>
-      <div className="mt-3">
+      <div className="mt-3 flex min-h-[126px] flex-col md:min-h-[88px]">
         <Link to={link}>
-          <h3 className="text-sm md:text-base text-foreground font-medium line-clamp-1 hover:text-brand transition-colors">
+          <h3 className="line-clamp-2 min-h-[2.5rem] text-sm font-medium leading-5 text-foreground transition-colors hover:text-brand md:min-h-0 md:text-base">
             {product.name}
           </h3>
         </Link>
@@ -113,7 +113,7 @@ export function ProductCard({ product, className }: Props) {
         <button
           type="button"
           onClick={onAdd}
-          className="mt-3 inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-md border border-brand bg-background px-2 text-xs font-semibold text-brand transition-all hover:bg-brand hover:text-brand-foreground md:hidden"
+          className="mt-auto inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-md border border-brand bg-background px-2 text-xs font-semibold text-brand transition-all hover:bg-brand hover:text-brand-foreground md:hidden"
         >
           <ShoppingBag className="h-3.5 w-3.5" />
           {hasOptions ? "Choose options" : "Add to cart"}

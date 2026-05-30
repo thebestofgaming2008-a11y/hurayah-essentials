@@ -8,11 +8,10 @@ const COLS = [
     title: "Shop",
     links: [
       { label: "All products", to: "/shop" },
-      { label: "Books", to: "/category/books" },
-      { label: "Clothing", to: "/category/clothes" },
-      { label: "Kufi", to: "/category/kufi" },
-      { label: "Women", to: "/category/women" },
-      { label: "Essentials", to: "/category/essentials" },
+      { label: "Books", to: "/shop?category=books" },
+      { label: "Clothing", to: "/shop?category=clothing" },
+      { label: "Women", to: "/shop?category=women" },
+      { label: "Essentials", to: "/shop?category=children" },
     ],
   },
   {

@@ -43,6 +43,8 @@ const ProductDetail = () => {
     setMainImgError(false);
     setSelectedColor("");
     setSelectedSize("");
+    setHasPassedPrimaryAdd(false);
+    setFooterNearViewport(false);
 
     (async () => {
       let nextProduct = await getProductBySlug(id);
@@ -86,7 +88,7 @@ const ProductDetail = () => {
       primaryObserver.disconnect();
       footerObserver.disconnect();
     };
-  }, [product?.id]);
+  }, [loading, product?.id]);
 
   if (loading) {
     return (
@@ -129,9 +131,9 @@ const ProductDetail = () => {
 
   return (
     <SiteLayout>
-      <main className="min-h-screen bg-background px-4 py-5 text-[#06133a] sm:px-6 sm:py-8 lg:px-10 lg:pb-10">
+      <main className="min-h-screen bg-background px-4 py-4 text-[#06133a] sm:px-6 sm:py-8 lg:px-10 lg:pb-10">
         <div className="mx-auto max-w-[1220px]">
-          <nav className="mb-8 flex flex-wrap items-center gap-1 text-sm text-[#06133a]/65">
+          <nav className="mb-5 flex flex-wrap items-center gap-1 text-xs text-[#06133a]/65 sm:mb-8 sm:text-sm">
             <Link to="/" className="hover:text-[#06133a]">Home</Link>
             <ChevronRight className="h-3.5 w-3.5" />
             {categoryMeta && (
@@ -160,7 +162,7 @@ const ProductDetail = () => {
               <div className="no-scrollbar mt-3 flex gap-3 overflow-x-auto pb-1 sm:gap-4">
                 {gallery.map((src, index) => (
                   <button key={src} type="button" onClick={() => setActiveImage(index)} className={cn("pdp-press aspect-square w-[82px] shrink-0 overflow-hidden rounded-md bg-[#d9d9d9] sm:w-[96px]", activeImage === index && "ring-2 ring-[#06133a]")}>
-                    {isVideoUrl(src) ? <video src={src} className="h-full w-full object-cover" muted playsInline /> : <img src={src} alt="" className="h-full w-full object-cover" />}
+                    {isVideoUrl(src) ? <video src={src} className="h-full w-full object-cover" muted playsInline /> : <img src={src} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />}
                   </button>
                 ))}
               </div>
@@ -168,11 +170,11 @@ const ProductDetail = () => {
 
             <div className="pt-1 lg:sticky lg:top-[150px] lg:h-fit lg:pt-0">
               {product.badge && <span className="inline-flex rounded-full bg-brand px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-brand-foreground">{product.badge}</span>}
-              <h1 className="mt-3 font-serif text-4xl leading-[1.02] text-[#020b2d] sm:text-5xl lg:text-6xl">
+              <h1 className="mt-3 font-serif text-[2rem] leading-[1.05] text-[#020b2d] sm:text-5xl lg:text-6xl">
                 {product.name}
               </h1>
               {(product.author || product.publisher) && (
-                <p className="mt-2 font-serif text-xl text-black/60 sm:text-2xl">By {product.author || product.publisher}</p>
+                <p className="mt-2 font-serif text-lg text-black/60 sm:text-2xl">By {product.author || product.publisher}</p>
               )}
               <p className={cn("mt-4 text-sm font-semibold", inStock ? "text-emerald-700" : "text-red-700")}>{inStock ? "In stock" : "Out of stock"}</p>
 
@@ -273,7 +275,7 @@ const ProductDetail = () => {
           )}
         </div>
         {hasPassedPrimaryAdd && !footerNearViewport && (
-          <div className="commerce-quick-add-in fixed inset-x-0 bottom-0 z-30 border-t border-[#06133a]/15 bg-white/95 p-3 shadow-[0_-12px_32px_-24px_rgba(3,15,48,0.7)] backdrop-blur-md lg:hidden">
+          <div className="commerce-quick-add-in fixed inset-x-0 bottom-0 z-30 border-t border-[#06133a]/15 bg-white/95 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 shadow-[0_-12px_32px_-24px_rgba(3,15,48,0.7)] backdrop-blur-md lg:hidden">
             <div className="mx-auto flex max-w-[640px] items-center gap-3">
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-[#06133a]">{product.name}</p>

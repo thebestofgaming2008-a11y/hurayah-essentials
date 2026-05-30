@@ -35,6 +35,14 @@ export function SiteHeader() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  useEffect(() => {
+    if (!menuOpen) return;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [menuOpen]);
+
   const submitSearch = (e: React.FormEvent) => {
     e.preventDefault();
     const q = query.trim();
@@ -152,7 +160,7 @@ export function SiteHeader() {
           </form>
         )}
 
-        <nav className="mx-auto max-w-[1440px] px-3 sm:px-4 md:px-8">
+        <nav className="mx-auto hidden max-w-[1440px] px-3 sm:px-4 md:block md:px-8">
           <ul className="-mx-1 flex items-center justify-center gap-4 overflow-x-auto px-1 text-center sm:gap-7 md:gap-10" data-testid="site-header-primary-nav">
             <li className="shrink-0"><NavLink to="/shop" className={navLinkClass} data-testid="site-header-shop-link" end>Shop all</NavLink></li>
             <li className="shrink-0"><button type="button" onClick={() => goCategorySection("books")} data-testid="site-header-books-link" className="inline-block whitespace-nowrap py-2.5 text-sm text-foreground/75 hover:text-brand md:text-[15px]">Books</button></li>

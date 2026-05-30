@@ -36,11 +36,11 @@ const Category = () => {
   return (
     <SiteLayout>
       <section className="bg-hero border-b border-border">
-        <div className="mx-auto max-w-[1440px] px-4 md:px-8 py-12 md:py-16 text-center">
+        <div className="mx-auto max-w-[1440px] px-4 py-7 text-center md:px-8 md:py-12">
           <p className="text-xs md:text-sm font-semibold uppercase tracking-[0.18em] text-brand">
             Collection
           </p>
-          <h1 className="mt-2 text-foreground italic font-bold tracking-tight text-3xl md:text-5xl lg:text-6xl">
+          <h1 className="mt-2 text-3xl font-bold italic tracking-tight text-foreground md:text-5xl">
             {meta.label}
           </h1>
           <p className="mt-3 text-foreground/65 text-sm md:text-lg max-w-2xl mx-auto">
@@ -77,8 +77,8 @@ const Category = () => {
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-              {products.map((p) => (
-                <ProductCard key={p.id} product={p} />
+              {products.map((p, index) => (
+                <ProductCard key={p.id} product={p} priority={index < 4} />
               ))}
             </div>
           )}
