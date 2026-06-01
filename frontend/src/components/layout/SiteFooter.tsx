@@ -11,7 +11,7 @@ const COLS = [
       { label: "Books", to: "/shop?category=books" },
       { label: "Clothing", to: "/shop?category=clothing" },
       { label: "Women", to: "/shop?category=women" },
-      { label: "Essentials", to: "/shop?category=children" },
+      { label: "Essentials", to: "/shop?category=essentials" },
     ],
   },
   {

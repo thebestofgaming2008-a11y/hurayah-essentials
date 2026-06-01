@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
-import { ChevronRight, Heart, Minus, Plus, ShieldCheck, Truck } from "lucide-react";
+import { ChevronRight, Heart, Minus, Plus, Truck } from "lucide-react";
 import { SiteLayout } from "@/components/layout/SiteLayout";
 import { ProductCard } from "@/components/shop/ProductCard";
 import { CATEGORIES, productCompareAt, productImage, productPrice, type CategoryKey } from "@/data/products";
@@ -30,9 +30,6 @@ const ProductDetail = () => {
   const [mainImgError, setMainImgError] = useState(false);
   const [selectedColor, setSelectedColor] = useState("");
   const [selectedSize, setSelectedSize] = useState("");
-  const [hasPassedPrimaryAdd, setHasPassedPrimaryAdd] = useState(false);
-  const [footerNearViewport, setFooterNearViewport] = useState(false);
-  const primaryAddRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -43,8 +40,6 @@ const ProductDetail = () => {
     setMainImgError(false);
     setSelectedColor("");
     setSelectedSize("");
-    setHasPassedPrimaryAdd(false);
-    setFooterNearViewport(false);
 
     (async () => {
       let nextProduct = await getProductBySlug(id);
@@ -69,26 +64,6 @@ const ProductDetail = () => {
       cancelled = true;
     };
   }, [id, user]);
-
-  useEffect(() => {
-    const primaryAdd = primaryAddRef.current;
-    const footer = document.querySelector<HTMLElement>("[data-site-footer]");
-    if (!primaryAdd || !footer) return;
-
-    const primaryObserver = new IntersectionObserver(([entry]) => {
-      setHasPassedPrimaryAdd(!entry.isIntersecting && entry.boundingClientRect.bottom < 0);
-    });
-    const footerObserver = new IntersectionObserver(([entry]) => {
-      setFooterNearViewport(entry.isIntersecting);
-    }, { rootMargin: "0px 0px 72px 0px" });
-
-    primaryObserver.observe(primaryAdd);
-    footerObserver.observe(footer);
-    return () => {
-      primaryObserver.disconnect();
-      footerObserver.disconnect();
-    };
-  }, [loading, product?.id]);
 
   if (loading) {
     return (
@@ -221,7 +196,6 @@ const ProductDetail = () => {
 
               <div className="mt-6 grid max-w-[49rem] gap-3">
                 <button
-                  ref={primaryAddRef}
                   type="button"
                   onClick={onAdd}
                   disabled={!inStock}
@@ -238,9 +212,8 @@ const ProductDetail = () => {
                   {wished ? "Saved to wishlist" : "Add to wishlist"}
                 </button>
               </div>
-              <div className="mt-5 grid gap-3 border-y border-[#06133a]/10 py-4 text-sm text-black/65 sm:grid-cols-2">
+              <div className="mt-5 border-y border-[#06133a]/10 py-4 text-sm text-black/65">
                 <p className="flex items-center gap-2"><Truck className="h-4 w-4 text-brand" /> Shipping included across India</p>
-                <p className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-brand" /> Secure checkout with Razorpay</p>
               </div>
 
               <section className="mt-8 max-w-[49rem]">
@@ -263,6 +236,18 @@ const ProductDetail = () => {
           </div>
           </section>
 
+          <div className="commerce-quick-add-in sticky top-[calc(100dvh-74px)] z-30 -mx-4 mt-4 border-y border-[#06133a]/15 bg-white/95 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 shadow-[0_-12px_32px_-24px_rgba(3,15,48,0.7)] backdrop-blur-md lg:hidden">
+            <div className="mx-auto flex max-w-[640px] items-center gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-[#06133a]">{product.name}</p>
+                <p className="font-serif text-lg text-black">{format(price)}</p>
+              </div>
+              <button type="button" onClick={onAdd} disabled={!inStock} className="pdp-press inline-flex h-12 min-w-[148px] items-center justify-center rounded-md bg-brand px-4 text-sm font-bold text-brand-foreground shadow-lg disabled:opacity-50">
+                {inStock ? "Add to cart" : "Out of stock"}
+              </button>
+            </div>
+          </div>
+
           <ReviewsSection productId={product.id} userReady={Boolean(user)} canReview={canReview} reviews={reviews} onSubmitted={async () => setReviews(await listPublishedReviews(product.id).catch(() => reviews))} />
 
           {related.length > 0 && (
@@ -274,19 +259,6 @@ const ProductDetail = () => {
             </section>
           )}
         </div>
-        {hasPassedPrimaryAdd && !footerNearViewport && (
-          <div className="commerce-quick-add-in fixed inset-x-0 bottom-0 z-30 border-t border-[#06133a]/15 bg-white/95 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 shadow-[0_-12px_32px_-24px_rgba(3,15,48,0.7)] backdrop-blur-md lg:hidden">
-            <div className="mx-auto flex max-w-[640px] items-center gap-3">
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-[#06133a]">{product.name}</p>
-                <p className="font-serif text-lg text-black">{format(price)}</p>
-              </div>
-              <button type="button" onClick={onAdd} disabled={!inStock} className="pdp-press inline-flex h-12 min-w-[148px] items-center justify-center rounded-md bg-brand px-4 text-sm font-bold text-brand-foreground shadow-lg disabled:opacity-50">
-                {inStock ? "Add to cart" : "Out of stock"}
-              </button>
-            </div>
-          </div>
-        )}
       </main>
     </SiteLayout>
   );

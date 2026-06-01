@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, type MutationCtx } from "./_generated/server";
 import { nowIso, requireAdmin } from "./lib";
 
 const zones = ["Local", "Regional", "National", "Remote"];
@@ -10,18 +10,18 @@ function cleanText(value: string | null | undefined, max = 160) {
   return String(value ?? "").replace(/[<>]/g, "").replace(/\s+/g, " ").trim().slice(0, max);
 }
 
-function publicDoc(doc: Record<string, any>) {
+function publicDoc<T extends { _id: unknown; _creationTime: number }>(doc: T) {
   const { _id, _creationTime, ...rest } = doc;
   return { id: _id, ...rest };
 }
 
-async function ensureShippingDefaults(ctx: any) {
+async function ensureShippingDefaults(ctx: MutationCtx) {
   const existing = await ctx.db.query("shipping_rates").take(1);
   if (existing.length) return;
   const timestamp = nowIso();
   for (const carrier of carriers) {
-    for (const [zoneIndex, zone] of zones.entries()) {
-      for (const [methodIndex, method] of methods.entries()) {
+    for (const zone of zones) {
+      for (const method of methods) {
         await ctx.db.insert("shipping_rates", {
           carrier,
           zone,
@@ -85,7 +85,7 @@ export const createDiscount = mutation({
 
 export const updateDiscount = mutation({
   args: {
-    id: v.string(),
+    id: v.id("discounts"),
     patch: v.object({
       code: v.optional(v.string()),
       type: v.optional(v.string()),
@@ -100,22 +100,19 @@ export const updateDiscount = mutation({
   },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
-    const patch: Record<string, any> = { updated_at: nowIso() };
+    const patch = { ...args.patch, updated_at: nowIso() };
     if (args.patch.code !== undefined) patch.code = cleanText(args.patch.code, 40).toUpperCase();
-    for (const key of ["type", "value", "active", "usage_limit", "starts_at", "ends_at", "scope_type", "scope_value"]) {
-      if ((args.patch as any)[key] !== undefined) patch[key] = (args.patch as any)[key];
-    }
-    await ctx.db.patch(args.id as any, patch);
-    const doc = await ctx.db.get(args.id as any);
+    await ctx.db.patch(args.id, patch);
+    const doc = await ctx.db.get(args.id);
     return doc ? publicDoc(doc) : null;
   },
 });
 
 export const deleteDiscount = mutation({
-  args: { id: v.string() },
+  args: { id: v.id("discounts") },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
-    await ctx.db.delete(args.id as any);
+    await ctx.db.delete(args.id);
     return true;
   },
 });
@@ -140,7 +137,7 @@ export const seedShippingDefaults = mutation({
 
 export const updateShippingRate = mutation({
   args: {
-    id: v.string(),
+    id: v.id("shipping_rates"),
     patch: v.object({
       base_fee: v.optional(v.number()),
       per_item_fee: v.optional(v.number()),
@@ -150,8 +147,8 @@ export const updateShippingRate = mutation({
   },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
-    await ctx.db.patch(args.id as any, { ...args.patch, updated_at: nowIso() });
-    const doc = await ctx.db.get(args.id as any);
+    await ctx.db.patch(args.id, { ...args.patch, updated_at: nowIso() });
+    const doc = await ctx.db.get(args.id);
     return doc ? publicDoc(doc) : null;
   },
 });
@@ -183,12 +180,15 @@ export const notifications = query({
   args: {},
   handler: async (ctx) => {
     await requireAdmin(ctx);
-    const [orders, products, reviews, rates] = await Promise.all([
+    const [orders, products, reviews, rates, recoveries, lowStockSetting] = await Promise.all([
       ctx.db.query("orders").collect(),
       ctx.db.query("products").collect(),
       ctx.db.query("reviews").collect(),
       ctx.db.query("shipping_rates").collect(),
+      ctx.db.query("checkout_intents").withIndex("by_status", (q) => q.eq("status", "recovery_required")).collect(),
+      ctx.db.query("store_settings").withIndex("by_key", (q) => q.eq("key", "lowStock")).first(),
     ]);
+    const lowStockThreshold = Math.max(0, Number(lowStockSetting?.value ?? 5) || 0);
     const now = Date.now();
     const rateTimes = rates.map((rate) => Date.parse(rate.updated_at)).filter((time) => Number.isFinite(time));
     const oldestRate = rateTimes.length ? Math.min(...rateTimes) : 0;
@@ -196,8 +196,11 @@ export const notifications = query({
     const notices = [
       { id: "unshipped", count: orders.filter((o) => o.status === "processing").length, title: "Orders need fulfillment", body: "orders are processing", section: "orders" },
       { id: "tracking", count: orders.filter((o) => o.status === "shipped" && !o.tracking_number).length, title: "Missing tracking", body: "shipped orders need tracking", section: "orders" },
-      { id: "low-stock", count: products.filter((p) => (p.stock_quantity ?? 0) <= 5).length, title: "Low stock", body: "products need inventory review", section: "products" },
+      { id: "low-stock", count: products.filter((p) => (p.stock_quantity ?? 0) <= lowStockThreshold).length, title: "Low stock", body: "products need inventory review", section: "products" },
+      { id: "missing-covers", count: products.filter((p) => p.is_active !== false && !p.cover_image_url).length, title: "Product covers missing", body: "active products need a cover image", section: "products" },
+      { id: "missing-descriptions", count: products.filter((p) => p.is_active !== false && !p.description && !p.short_description).length, title: "Product descriptions missing", body: "active products need product copy", section: "products" },
       { id: "reviews", count: reviews.filter((r) => r.status === "pending").length, title: "Reviews pending", body: "reviews waiting", section: "reviews" },
+      { id: "payment-recovery", count: recoveries.length, title: "Paid orders need recovery", body: "captured payments need manual attention", section: "orders" },
       { id: "shipping-review", count: shippingDue ? 1 : 0, title: "Shipping rates due", body: "monthly carrier review is due", section: "shipping" },
     ];
     return notices.filter((notice) => notice.count > 0).map((notice) => ({

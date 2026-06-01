@@ -88,6 +88,11 @@ export const submit = mutation({
     const user = auth.user as any;
     const verified = await hasVerifiedPurchase(ctx, auth.userId, user.email, args.productId);
     if (!verified) throw new Error("Only verified customers can review this product.");
+    const existing = await ctx.db
+      .query("reviews")
+      .withIndex("by_user_product", (q) => q.eq("user_id", auth.userId).eq("product_id", args.productId))
+      .first();
+    if (existing) throw new Error("You already reviewed this product.");
     const timestamp = nowIso();
     const id = await ctx.db.insert("reviews", {
       product_id: args.productId,
@@ -114,7 +119,11 @@ export const canReviewProduct = query({
     const auth = await requireIdentity(ctx).catch(() => null);
     if (!auth) return { canReview: false };
     const user = auth.user as any;
-    return { canReview: await hasVerifiedPurchase(ctx, auth.userId, user.email, args.productId) };
+    const existing = await ctx.db
+      .query("reviews")
+      .withIndex("by_user_product", (q) => q.eq("user_id", auth.userId).eq("product_id", args.productId))
+      .first();
+    return { canReview: !existing && (await hasVerifiedPurchase(ctx, auth.userId, user.email, args.productId)) };
   },
 });
 

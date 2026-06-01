@@ -32,6 +32,8 @@ const TrackOrder = () => {
   const [submitted, setSubmitted] = useState(false);
   const [status, setStatus] = useState("processing");
   const [notFound, setNotFound] = useState(false);
+  const [lookupError, setLookupError] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   return (
     <SiteLayout compactFooter>
@@ -46,14 +48,23 @@ const TrackOrder = () => {
               onSubmit={async (event) => {
                 event.preventDefault();
                 setNotFound(false);
-                const order = await trackOrder(id, email);
-                if (!order) {
-                  setNotFound(true);
+                setLookupError(false);
+                setLoading(true);
+                try {
+                  const order = await trackOrder(id, email);
+                  if (!order) {
+                    setNotFound(true);
+                    setSubmitted(false);
+                    return;
+                  }
+                  setStatus(normalizeOrderStatus(order.status));
+                  setSubmitted(true);
+                } catch {
+                  setLookupError(true);
                   setSubmitted(false);
-                  return;
+                } finally {
+                  setLoading(false);
                 }
-                setStatus(normalizeOrderStatus(order.status));
-                setSubmitted(true);
               }}
               className="mt-5 space-y-3"
               data-testid="track-order-form"
@@ -66,14 +77,19 @@ const TrackOrder = () => {
                 <span className="mb-1.5 block text-[11px] text-[rgb(var(--vibe-muted))]">Email</span>
                 <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required data-testid="track-order-email-input" className="h-9 w-full rounded-md border border-[rgb(var(--vibe-border))] bg-white px-3 text-[13px] outline-none focus:ring-1 focus:ring-zinc-500" />
               </label>
-              <button className="h-9 w-full rounded-md bg-[rgb(var(--vibe-foreground))] px-3 text-[12px] font-medium text-white hover:opacity-90" data-testid="track-order-submit-button">
-                Track order
+              <button disabled={loading} className="h-9 w-full rounded-md bg-[rgb(var(--vibe-foreground))] px-3 text-[12px] font-medium text-white hover:opacity-90 disabled:opacity-50" data-testid="track-order-submit-button">
+                {loading ? "Checking..." : "Track order"}
               </button>
             </form>
 
             {notFound && (
               <p className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[12px] text-red-700" data-testid="track-order-not-found-alert">
                 No order found for that ID and email.
+              </p>
+            )}
+            {lookupError && (
+              <p className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[12px] text-red-700">
+                Tracking is temporarily unavailable. Please try again shortly.
               </p>
             )}
           </section>

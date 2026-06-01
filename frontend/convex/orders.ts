@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { action, internalMutation, mutation, query } from "./_generated/server";
+import { getAuthUserId } from "@convex-dev/auth/server";
+import { action, httpAction, internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { nowIso, publicOrder, requireAdmin, requireIdentity } from "./lib";
 import { checkoutShippingForCountry } from "./shipping";
@@ -13,6 +14,8 @@ const cartItem = v.object({
   priceInr: v.optional(v.union(v.number(), v.null())),
   image: v.optional(v.union(v.string(), v.null())),
   slug: v.optional(v.union(v.string(), v.null())),
+  weightG: v.optional(v.union(v.number(), v.null())),
+  shippingClass: v.optional(v.union(v.string(), v.null())),
   selectedColor: v.optional(v.union(v.string(), v.null())),
   selectedSize: v.optional(v.union(v.string(), v.null())),
 });
@@ -44,6 +47,7 @@ const ORDER_STATUSES = new Set([
   "cancelled",
   "returned",
 ]);
+const CHECKOUT_RESERVATION_MS = 30 * 60 * 1000;
 
 function cleanText(value: string | null | undefined, max = 160) {
   return String(value ?? "")
@@ -98,6 +102,29 @@ function cleanPhone(value: string) {
   return phone;
 }
 
+function validateCheckoutCustomer(customer: {
+  email: string;
+  phone: string;
+  name: string;
+  address_line_1: string;
+  city: string;
+  postal_code: string;
+  country: string;
+}) {
+  cleanEmail(customer.email);
+  cleanPhone(customer.phone);
+  if (
+    !cleanText(customer.name, 120) ||
+    !cleanText(customer.address_line_1, 180) ||
+    !cleanText(customer.city, 80) ||
+    !cleanText(customer.postal_code, 24) ||
+    !cleanText(customer.country, 80)
+  ) {
+    throw new Error("Complete shipping details are required.");
+  }
+  requireIndiaShipping(customer.country);
+}
+
 function cleanTrackingUrl(value: string | null | undefined) {
   const url = cleanText(value, 500);
   if (!url) return null;
@@ -150,13 +177,52 @@ async function checkoutQuote(ctx: any, cart: Array<any>) {
   return { subtotal, shipping, total, amountPaise: Math.round(total * 100), itemCount };
 }
 
+async function restoreReservedStock(ctx: any, cart: Array<any>) {
+  const timestamp = nowIso();
+  for (const item of cart) {
+    const product = await ctx.db.get(item.productId as any);
+    if (!product) continue;
+    const nextStock = Math.max(0, Number(product.stock_quantity ?? 0) + Math.max(1, Math.floor(item.qty)));
+    await ctx.db.patch(product._id, { stock_quantity: nextStock, in_stock: nextStock > 0, updated_at: timestamp });
+  }
+}
+
+async function releaseExpiredReservations(ctx: any) {
+  const expired = await ctx.db
+    .query("checkout_intents")
+    .withIndex("by_status", (q: any) => q.eq("status", "pending"))
+    .collect();
+  const now = Date.now();
+  for (const intent of expired.filter((item: any) => item.expires_at <= now)) {
+    await restoreReservedStock(ctx, intent.cart);
+    await ctx.db.patch(intent._id, { status: "released", updated_at: nowIso() });
+  }
+}
+
 async function savePaidOrder(ctx: any, args: {
   cart: Array<any>;
   customer: any;
+  user_id?: string | null;
   razorpay_order_id: string;
   razorpay_payment_id: string;
   razorpay_signature: string;
 }) {
+  const existingByPayment = await ctx.db
+    .query("orders")
+    .withIndex("by_payment_id", (q: any) => q.eq("payment_id", args.razorpay_payment_id))
+    .first();
+  if (existingByPayment) {
+    if (existingByPayment.payment_order_id !== args.razorpay_order_id) throw new Error("Payment order mismatch.");
+    return publicOrder(existingByPayment);
+  }
+  const existingByRazorpayOrder = await ctx.db
+    .query("orders")
+    .withIndex("by_payment_order_id", (q: any) => q.eq("payment_order_id", args.razorpay_order_id))
+    .first();
+  if (existingByRazorpayOrder) {
+    if (existingByRazorpayOrder.payment_id !== args.razorpay_payment_id) throw new Error("This Razorpay order is already linked to another payment.");
+    return publicOrder(existingByRazorpayOrder);
+  }
   if (!args.cart.length) throw new Error("Cart is empty.");
   const customer = {
     email: cleanEmail(args.customer.email),
@@ -197,7 +263,7 @@ async function savePaidOrder(ctx: any, args: {
   const orderNumber = await nextOrderNumber(ctx);
   const orderId = await ctx.db.insert("orders", {
     order_number: orderNumber,
-    user_id: null,
+    user_id: args.user_id ?? null,
     customer_email: customer.email,
     customer_name: customer.name,
     customer_phone: customer.phone,
@@ -239,6 +305,17 @@ async function savePaidOrder(ctx: any, args: {
       in_stock: nextStock > 0,
       updated_at: timestamp,
     });
+  }
+
+  if (args.user_id) {
+    const profile = await ctx.db.query("profiles").withIndex("by_user_id", (q: any) => q.eq("userId", args.user_id)).unique();
+    if (profile) {
+      await ctx.db.patch(profile._id, {
+        total_orders: (profile.total_orders ?? 0) + 1,
+        total_spent: (profile.total_spent ?? 0) + computedTotal,
+        updated_at: timestamp,
+      });
+    }
   }
 
   const order = await ctx.db.get(orderId);
@@ -285,10 +362,41 @@ async function hmacSha256Hex(secret: string, message: string) {
   return [...new Uint8Array(signature)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
+function timingSafeEqual(left: string, right: string) {
+  if (left.length !== right.length) return false;
+  let mismatch = 0;
+  for (let index = 0; index < left.length; index += 1) mismatch |= left.charCodeAt(index) ^ right.charCodeAt(index);
+  return mismatch === 0;
+}
+
+export const findSavedPayment = internalQuery({
+  args: {
+    razorpay_order_id: v.string(),
+    razorpay_payment_id: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const existingByPayment = await ctx.db
+      .query("orders")
+      .withIndex("by_payment_id", (q) => q.eq("payment_id", args.razorpay_payment_id))
+      .first();
+    if (existingByPayment) {
+      if (existingByPayment.payment_order_id !== args.razorpay_order_id) throw new Error("Payment order mismatch.");
+      return publicOrder(existingByPayment);
+    }
+    const existingByRazorpayOrder = await ctx.db
+      .query("orders")
+      .withIndex("by_payment_order_id", (q) => q.eq("payment_order_id", args.razorpay_order_id))
+      .first();
+    if (!existingByRazorpayOrder) return null;
+    if (existingByRazorpayOrder.payment_id !== args.razorpay_payment_id) throw new Error("This Razorpay order is already linked to another payment.");
+    return publicOrder(existingByRazorpayOrder);
+  },
+});
+
 export const createRazorpayCheckoutOrder = action({
   args: checkoutPayload,
   handler: async (ctx, args) => {
-    requireIndiaShipping(args.customer.country);
+    validateCheckoutCustomer(args.customer);
     const quote = await ctx.runQuery(api.orders.quoteCheckout, { cart: args.cart });
     const { keyId } = razorpayKeys();
     const receipt = `HE-${Date.now().toString().slice(-8)}`;
@@ -304,146 +412,132 @@ export const createRazorpayCheckoutOrder = action({
         },
       }),
     });
+    const identity = await ctx.auth.getUserIdentity();
+    const userId = identity ? await getAuthUserId(ctx) : null;
+    await ctx.runMutation(internal.orders.reserveCheckoutIntent, {
+      razorpay_order_id: order.id,
+      user_id: userId,
+      cart: args.cart,
+      customer: args.customer,
+      amount_paise: quote.amountPaise,
+    });
     return { keyId, orderId: order.id, amount: order.amount, currency: order.currency, receipt };
   },
 });
 
-export const createMockCheckoutOrder = mutation({
-  args: checkoutPayload,
+export const reserveCheckoutIntent = internalMutation({
+  args: {
+    razorpay_order_id: v.string(),
+    user_id: v.optional(v.union(v.string(), v.null())),
+    cart: v.array(cartItem),
+    customer: checkoutCustomer,
+    amount_paise: v.number(),
+  },
   handler: async (ctx, args) => {
-    const auth = await requireIdentity(ctx);
-    if (!args.cart.length) throw new Error("Cart is empty.");
-
-    const customer = {
-      email: cleanEmail(args.customer.email),
-      phone: cleanPhone(args.customer.phone),
-      name: cleanText(args.customer.name, 120),
-      address_line_1: cleanText(args.customer.address_line_1, 180),
-      address_line_2: cleanNullable(args.customer.address_line_2, 180) ?? undefined,
-      city: cleanText(args.customer.city, 80),
-      state: cleanNullable(args.customer.state, 80) ?? undefined,
-      postal_code: cleanText(args.customer.postal_code, 24),
-      country: cleanText(args.customer.country, 80),
-    };
-    if (!customer.name || !customer.address_line_1 || !customer.city || !customer.postal_code || !customer.country) {
-      throw new Error("Complete shipping details are required.");
-    }
-
-    const normalizedItems = [];
-    let computedSubtotal = 0;
-    let itemCount = 0;
-    for (const item of args.cart) {
-      const qty = Math.floor(item.qty);
-      if (!Number.isFinite(qty) || qty < 1 || qty > 99) {
-        throw new Error("Cart quantity is invalid.");
-      }
-      const product = await ctx.db.get(item.productId as any);
-      if (!product || product.is_active === false) {
-        throw new Error(`Product is no longer available: ${cleanText(item.name, 80)}`);
-      }
-      const stock = product.stock_quantity ?? 0;
-      if (stock < qty || product.in_stock === false) {
-        throw new Error(`Not enough stock for ${product.name}.`);
-      }
-      const unitPrice = product.sale_price_inr ?? product.price_inr ?? product.price;
-      if (!Number.isFinite(unitPrice) || unitPrice < 0) {
-        throw new Error(`Invalid price for ${product.name}.`);
-      }
-      const selectedColor = cleanVariantSelection(item.selectedColor, product.color_options, "Colour", product.name);
-      const selectedSize = cleanVariantSelection(item.selectedSize, product.size_options, "Size", product.name);
-      computedSubtotal += unitPrice * qty;
-      itemCount += qty;
-      normalizedItems.push({ product, qty, unitPrice, selectedColor, selectedSize });
-    }
-    const shippingMeta = requireIndiaShipping(customer.country);
-    const computedShipping = shippingMeta.amount;
-    const computedTotal = computedSubtotal + computedShipping;
+    await releaseExpiredReservations(ctx);
+    const existing = await ctx.db
+      .query("checkout_intents")
+      .withIndex("by_razorpay_order_id", (q) => q.eq("razorpay_order_id", args.razorpay_order_id))
+      .first();
+    if (existing) return existing._id;
+    const quote = await checkoutQuote(ctx, args.cart);
+    if (quote.amountPaise !== args.amount_paise) throw new Error("Checkout total changed. Please try again.");
     const timestamp = nowIso();
-    const orderNumber = await nextOrderNumber(ctx);
-    const orderId = await ctx.db.insert("orders", {
-      order_number: orderNumber,
-      user_id: auth.userId,
-      customer_email: customer.email,
-      customer_name: customer.name,
-      customer_phone: customer.phone,
-      status: "processing",
-      payment_status: "MOCKED_PAID",
-      subtotal: computedSubtotal,
-      tax: 0,
-      shipping_cost: computedShipping,
-      shipping_payment_status: shippingMeta.paymentStatus,
-      shipping_payment_note: shippingMeta.note,
-      customer_country_type: shippingMeta.countryType,
-      discount: 0,
-      total: computedTotal,
-      total_inr: computedTotal,
-      currency: "INR",
-      shipping_address: customer,
-      payment_provider: "RAZORPAY_MOCKED",
-      payment_order_id: `mock_order_${Date.now()}`,
-      payment_id: `mock_pay_${Date.now()}`,
+    for (const item of args.cart) {
+      const product = await ctx.db.get(item.productId as any);
+      if (!product) throw new Error("Product is no longer available.");
+      const nextStock = Number(product.stock_quantity ?? 0) - Math.max(1, Math.floor(item.qty));
+      if (nextStock < 0) throw new Error(`Not enough stock for ${product.name}.`);
+      await ctx.db.patch(product._id, { stock_quantity: nextStock, in_stock: nextStock > 0, updated_at: timestamp });
+    }
+    return await ctx.db.insert("checkout_intents", {
+      razorpay_order_id: args.razorpay_order_id,
+      user_id: args.user_id ?? null,
+      payment_id: null,
+      status: "pending",
+      cart: args.cart,
+      customer: args.customer,
+      amount_paise: args.amount_paise,
+      error: null,
+      expires_at: Date.now() + CHECKOUT_RESERVATION_MS,
       created_at: timestamp,
       updated_at: timestamp,
     });
-    for (const item of normalizedItems) {
-      await ctx.db.insert("order_items", {
-        order_id: orderId,
-        product_id: item.product._id,
-        product_name: productNameWithOptions(item.product.name, item.selectedColor, item.selectedSize),
-        product_image_url: item.product.cover_image_url ?? null,
-        selected_color: item.selectedColor,
-        selected_size: item.selectedSize,
-        quantity: item.qty,
-        unit_price: item.unitPrice,
-        subtotal: item.unitPrice * item.qty,
-      });
-      const nextStock = Math.max(0, (item.product.stock_quantity ?? 0) - item.qty);
-      await ctx.db.patch(item.product._id, {
-        stock_quantity: nextStock,
-        in_stock: nextStock > 0,
-        updated_at: timestamp,
-      });
-    }
-    const profile = await ctx.db.query("profiles").withIndex("by_user_id", (q) => q.eq("userId", auth.userId)).unique();
-    if (profile) {
-      await ctx.db.patch(profile._id, {
-        total_orders: (profile.total_orders ?? 0) + 1,
-        total_spent: (profile.total_spent ?? 0) + computedTotal,
-        updated_at: timestamp,
-      });
-    }
-    const order = await ctx.db.get(orderId);
-    return order ? publicOrder(order) : null;
   },
 });
 
-export const markRazorpayPaid = mutation({
-  args: {
-    id: v.string(),
-    razorpay_order_id: v.string(),
-    razorpay_payment_id: v.string(),
-    razorpay_signature: v.string(),
-  },
-  handler: async (ctx, args) => {
-    const auth = await requireIdentity(ctx);
-    const order = await ctx.db.get(args.id as any);
-    if (!order) throw new Error("Order not found.");
-    if (order.user_id !== auth.userId) throw new Error("Order access denied.");
-    await ctx.db.patch(args.id as any, {
-      payment_status: "paid",
-      payment_provider: "RAZORPAY",
-      payment_order_id: cleanText(args.razorpay_order_id, 120),
-      payment_id: cleanText(args.razorpay_payment_id, 120),
-      updated_at: nowIso(),
-    });
-    const saved = await ctx.db.get(args.id as any);
-    return saved ? publicOrder(saved) : null;
+export const cleanupExpiredCheckoutIntents = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    await releaseExpiredReservations(ctx);
   },
 });
+
+export const finalizeCheckoutIntent = internalMutation({
+  args: {
+    razorpay_order_id: v.string(),
+    razorpay_payment_id: v.string(),
+    amount_paise: v.optional(v.number()),
+    currency: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => finalizeCheckoutIntentHandler(ctx, args),
+});
+
+async function finalizeCheckoutIntentHandler(ctx: any, args: {
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  amount_paise?: number;
+  currency?: string;
+}) {
+    const intent = await ctx.db
+      .query("checkout_intents")
+      .withIndex("by_razorpay_order_id", (q) => q.eq("razorpay_order_id", args.razorpay_order_id))
+      .first();
+    if (!intent) return null;
+    if ((args.amount_paise !== undefined && args.amount_paise !== intent.amount_paise) || (args.currency && args.currency !== "INR")) {
+      await ctx.db.patch(intent._id, {
+        status: "recovery_required",
+        payment_id: args.razorpay_payment_id,
+        error: "Captured Razorpay amount does not match the reserved checkout total.",
+        updated_at: nowIso(),
+      });
+      return null;
+    }
+    if (intent.status === "completed") {
+      return await ctx.db.query("orders").withIndex("by_payment_order_id", (q) => q.eq("payment_order_id", args.razorpay_order_id)).first();
+    }
+    try {
+      if (intent.status === "pending") await restoreReservedStock(ctx, intent.cart);
+      const order = await savePaidOrder(ctx, {
+        cart: intent.cart,
+        customer: intent.customer,
+        user_id: intent.user_id ?? null,
+        razorpay_order_id: args.razorpay_order_id,
+        razorpay_payment_id: args.razorpay_payment_id,
+        razorpay_signature: "verified-by-server",
+      });
+      await ctx.db.patch(intent._id, {
+        status: "completed",
+        payment_id: args.razorpay_payment_id,
+        error: null,
+        updated_at: nowIso(),
+      });
+      return order;
+    } catch (error) {
+      await ctx.db.patch(intent._id, {
+        status: "recovery_required",
+        payment_id: args.razorpay_payment_id,
+        error: error instanceof Error ? cleanText(error.message, 500) : "Paid checkout needs manual recovery.",
+        updated_at: nowIso(),
+      });
+      return null;
+    }
+}
 
 export const saveVerifiedGuestOrder = internalMutation({
   args: {
     ...checkoutPayload,
+    user_id: v.optional(v.union(v.string(), v.null())),
     razorpay_order_id: v.string(),
     razorpay_payment_id: v.string(),
     razorpay_signature: v.string(),
@@ -463,27 +557,118 @@ export const verifyRazorpayPayment = action({
   handler: async (ctx, args) => {
     const { keySecret } = razorpayKeys();
     const expectedSignature = await hmacSha256Hex(keySecret, `${args.razorpay_order_id}|${args.razorpay_payment_id}`);
-    if (expectedSignature !== args.razorpay_signature) throw new Error("Razorpay signature verification failed.");
+    if (!timingSafeEqual(expectedSignature, args.razorpay_signature)) throw new Error("Razorpay signature verification failed.");
 
-    const [quote, razorpayOrder] = await Promise.all([
+    const savedOrder = await ctx.runQuery(internal.orders.findSavedPayment, {
+      razorpay_order_id: args.razorpay_order_id,
+      razorpay_payment_id: args.razorpay_payment_id,
+    });
+    if (savedOrder) return savedOrder;
+
+    const [quote, razorpayOrder, fetchedPayment] = await Promise.all([
       ctx.runQuery(api.orders.quoteCheckout, { cart: args.cart }),
       razorpayRequest(`/orders/${args.razorpay_order_id}`),
+      razorpayRequest(`/payments/${args.razorpay_payment_id}`),
     ]);
     if (razorpayOrder.amount !== quote.amountPaise || razorpayOrder.currency !== "INR") {
       throw new Error("Razorpay amount does not match the current cart total.");
     }
+    if (fetchedPayment.order_id !== args.razorpay_order_id || fetchedPayment.amount !== quote.amountPaise || fetchedPayment.currency !== "INR") {
+      throw new Error("Razorpay payment does not match the current order.");
+    }
+    let payment = fetchedPayment;
+    if (fetchedPayment.status === "authorized") {
+      try {
+        payment = await razorpayRequest(`/payments/${args.razorpay_payment_id}/capture`, {
+          method: "POST",
+          body: JSON.stringify({ amount: quote.amountPaise, currency: "INR" }),
+        });
+      } catch {
+        // A repeated callback can race with capture. Refetch before treating it as a failed paid order.
+        payment = await razorpayRequest(`/payments/${args.razorpay_payment_id}`);
+      }
+    }
+    if (payment.status !== "captured") throw new Error("Razorpay payment has not been captured.");
+    const identity = await ctx.auth.getUserIdentity();
+    const userId = identity ? await getAuthUserId(ctx) : null;
 
-    return await ctx.runMutation(internal.orders.saveVerifiedGuestOrder, {
-      cart: args.cart,
-      customer: args.customer,
-      subtotal: args.subtotal,
-      shipping: args.shipping,
-      total: args.total,
+    const reservedOrder = await ctx.runMutation(internal.orders.finalizeCheckoutIntent, {
       razorpay_order_id: args.razorpay_order_id,
       razorpay_payment_id: args.razorpay_payment_id,
-      razorpay_signature: args.razorpay_signature,
+      amount_paise: fetchedPayment.amount,
+      currency: fetchedPayment.currency,
+    });
+    if (reservedOrder) return reservedOrder;
+    const hasIntent = await ctx.runQuery(internal.orders.findCheckoutIntent, { razorpay_order_id: args.razorpay_order_id });
+    if (hasIntent) throw new Error("Payment received, but this order needs manual recovery. Do not pay again.");
+    return await ctx.runMutation(internal.orders.saveVerifiedGuestOrder, {
+      cart: args.cart, customer: args.customer, subtotal: args.subtotal, shipping: args.shipping, total: args.total,
+      user_id: userId, razorpay_order_id: args.razorpay_order_id, razorpay_payment_id: args.razorpay_payment_id, razorpay_signature: args.razorpay_signature,
     });
   },
+});
+
+export const findCheckoutIntent = internalQuery({
+  args: { razorpay_order_id: v.string() },
+  handler: async (ctx, args) => {
+    return await ctx.db.query("checkout_intents").withIndex("by_razorpay_order_id", (q) => q.eq("razorpay_order_id", args.razorpay_order_id)).first();
+  },
+});
+
+export const listPaymentRecoveries = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    const rows = await ctx.db.query("checkout_intents").withIndex("by_status", (q) => q.eq("status", "recovery_required")).collect();
+    return rows.map(({ _id, _creationTime, ...row }) => ({ id: _id, ...row })).sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+  },
+});
+
+export const recordRazorpayWebhook = internalMutation({
+  args: {
+    event_id: v.string(),
+    event_type: v.string(),
+    razorpay_order_id: v.optional(v.string()),
+    razorpay_payment_id: v.optional(v.string()),
+    amount_paise: v.optional(v.number()),
+    currency: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.query("razorpay_webhook_events").withIndex("by_event_id", (q) => q.eq("event_id", args.event_id)).first();
+    if (existing) return { duplicate: true };
+    await ctx.db.insert("razorpay_webhook_events", { event_id: args.event_id, event_type: args.event_type, created_at: nowIso() });
+    if (args.event_type === "payment.captured" && args.razorpay_order_id && args.razorpay_payment_id) {
+      await finalizeCheckoutIntentHandler(ctx, {
+        razorpay_order_id: args.razorpay_order_id,
+        razorpay_payment_id: args.razorpay_payment_id,
+        amount_paise: args.amount_paise,
+        currency: args.currency,
+      });
+    }
+    return { duplicate: false };
+  },
+});
+
+export const razorpayWebhook = httpAction(async (ctx, request) => {
+  const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
+  if (!secret) return new Response("Webhook secret is not configured.", { status: 503 });
+  const rawBody = await request.text();
+  const receivedSignature = request.headers.get("x-razorpay-signature") ?? "";
+  const expectedSignature = await hmacSha256Hex(secret, rawBody);
+  if (!timingSafeEqual(expectedSignature, receivedSignature)) return new Response("Invalid signature.", { status: 401 });
+  const eventId = request.headers.get("x-razorpay-event-id") ?? "";
+  if (!eventId) return new Response("Missing event ID.", { status: 400 });
+  const payload = JSON.parse(rawBody);
+  const payment = payload?.payload?.payment?.entity;
+  await ctx.runMutation(internal.orders.recordRazorpayWebhook, {
+    event_id: eventId,
+    event_type: cleanText(payload?.event, 80),
+    razorpay_order_id: payment?.order_id ? cleanText(payment.order_id, 120) : undefined,
+    razorpay_payment_id: payment?.id ? cleanText(payment.id, 120) : undefined,
+    amount_paise: Number.isFinite(payment?.amount) ? payment.amount : undefined,
+    currency: payment?.currency ? cleanText(payment.currency, 12) : undefined,
+  });
+  return new Response("ok", { status: 200 });
 });
 
 export const listMine = query({
@@ -503,15 +688,6 @@ export const listAll = query({
     const rows = await ctx.db.query("orders").take(args.limit ?? 100);
     const enriched = await Promise.all(rows.map((row) => orderWithItems(ctx, row)));
     return enriched.sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")));
-  },
-});
-
-export const getAdminOrderForEmail = query({
-  args: { id: v.string() },
-  handler: async (ctx, args) => {
-    await requireAdmin(ctx);
-    const order = await ctx.db.get(args.id as any);
-    return order ? publicOrder(order) : null;
   },
 });
 
@@ -542,27 +718,10 @@ export const updateTracking = mutation({
       tracking_number: trackingNumber,
       tracking_url: cleanTrackingUrl(args.trackingUrl),
       status: "shipped",
-      tracking_email_status: "ready",
-      tracking_email_error: null,
       updated_at: nowIso(),
     });
     const order = await ctx.db.get(args.id as any);
     return order ? publicOrder(order) : null;
-  },
-});
-
-export const markTrackingEmailResult = mutation({
-  args: { id: v.string(), status: v.string(), error: v.optional(v.string()) },
-  handler: async (ctx, args) => {
-    await requireAdmin(ctx);
-    const patch: Record<string, string | null> = {
-      tracking_email_status: args.status,
-      tracking_email_error: args.error ?? null,
-      updated_at: nowIso(),
-    };
-    if (args.status === "sent") patch.tracking_email_sent_at = nowIso();
-    await ctx.db.patch(args.id as any, patch);
-    return true;
   },
 });
 

@@ -186,9 +186,6 @@ export interface AdminOrder {
   tracking_carrier?: string | null;
   tracking_number?: string | null;
   tracking_url?: string | null;
-  tracking_email_sent_at?: string | null;
-  tracking_email_status?: string | null;
-  tracking_email_error?: string | null;
   total: number;
   total_inr: number | null;
   created_at: string | null;
@@ -209,6 +206,21 @@ export async function listAllOrders(limit = 100): Promise<AdminOrder[]> {
   return (await convex.query(api.orders.listAll, { limit })) as AdminOrder[];
 }
 
+export interface PaymentRecovery {
+  id: string;
+  razorpay_order_id: string;
+  payment_id: string | null;
+  status: string;
+  customer: { name?: string; email?: string; phone?: string };
+  amount_paise: number;
+  error: string | null;
+  updated_at: string;
+}
+
+export async function listPaymentRecoveries(): Promise<PaymentRecovery[]> {
+  return (await convex.query(api.orders.listPaymentRecoveries, {})) as PaymentRecovery[];
+}
+
 export async function updateOrderStatus(id: string, status: string): Promise<boolean> {
   return await convex.mutation(api.orders.updateStatus, { id, status });
 }
@@ -218,11 +230,6 @@ export async function updateOrderTracking(
   payload: { carrier?: string | null; trackingNumber: string; trackingUrl?: string | null },
 ): Promise<AdminOrder | null> {
   return (await convex.mutation(api.orders.updateTracking, { id, ...payload })) as AdminOrder | null;
-}
-
-export async function sendTrackingEmail(id: string): Promise<boolean> {
-  const result = (await convex.action(api.notifications.sendTrackingEmail, { orderId: id })) as { success?: boolean };
-  return Boolean(result?.success);
 }
 
 export interface AdminCustomer {

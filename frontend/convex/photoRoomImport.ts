@@ -1,5 +1,5 @@
 import { mutation } from "./_generated/server";
-import { nowIso } from "./lib";
+import { nowIso, requireAdmin } from "./lib";
 
 const FILES_TEXT = `
 1773570053698-v3uula.png
@@ -435,6 +435,7 @@ function fileFromUrl(url: string | null | undefined) {
 export const importPhotoRoomProducts = mutation({
   args: {},
   handler: async (ctx) => {
+    await requireAdmin(ctx);
     const timestamp = nowIso();
     let inserted = 0;
     let skipped = 0;
@@ -495,6 +496,7 @@ export const importPhotoRoomProducts = mutation({
 export const curatePhotoRoomCatalog = mutation({
   args: {},
   handler: async (ctx) => {
+    await requireAdmin(ctx);
     const timestamp = nowIso();
     const rows = await ctx.db.query("products").collect();
     const byFile = new Map<string, any>();

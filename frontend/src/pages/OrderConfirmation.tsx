@@ -1,6 +1,7 @@
 import { Link, useSearchParams } from "react-router-dom";
 import { CheckCircle2, ArrowRight } from "lucide-react";
 import { SiteLayout } from "@/components/layout/SiteLayout";
+import { OfferOptIn } from "@/components/shop/OfferOptIn";
 
 const OrderConfirmation = () => {
   const [params] = useSearchParams();
@@ -29,6 +30,7 @@ const OrderConfirmation = () => {
             Continue shopping
           </Link>
         </div>
+        <OfferOptIn className="mt-8" />
       </div>
     </SiteLayout>
   );

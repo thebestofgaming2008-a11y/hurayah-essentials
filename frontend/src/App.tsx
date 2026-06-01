@@ -49,6 +49,13 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function RequireAccount({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  if (loading) return <LoadingScreen />;
+  if (!user) return <Navigate to="/login?redirect=/wishlist" replace />;
+  return <>{children}</>;
+}
+
 function CurrencyProfileSync() {
   const { user, profile } = useAuth();
   const { currency, setCurrency } = useCurrency();
@@ -107,7 +114,7 @@ const App = () => (
       <BrowserRouter>
         <BasicAnalytics />
         <ScrollManager />
-        <ConvexAuthProvider client={convex}>
+        <ConvexAuthProvider client={convex} storageNamespace="hurayah-auth-v2">
           <AuthProvider>
             <CurrencyProfileSync />
             <ShopProvider>
@@ -118,7 +125,7 @@ const App = () => (
                   <Route path="/category/:key" element={<Category />} />
                   <Route path="/product/:id" element={<ProductDetail />} />
                   <Route path="/cart" element={<Cart />} />
-                  <Route path="/wishlist" element={<Wishlist />} />
+                  <Route path="/wishlist" element={<RequireAccount><Wishlist /></RequireAccount>} />
                   <Route path="/checkout" element={<Checkout />} />
                   <Route path="/order-confirmation" element={<OrderConfirmation />} />
                   <Route path="/account" element={<Account />} />

@@ -1,5 +1,5 @@
 import { mutation } from "./_generated/server";
-import { nowIso } from "./lib";
+import { nowIso, requireAdmin } from "./lib";
 
 const sampleProducts = [
   {
@@ -117,6 +117,7 @@ const sampleProducts = [
 export const seedSampleProducts = mutation({
   args: {},
   handler: async (ctx) => {
+    await requireAdmin(ctx);
     const existing = await ctx.db.query("products").take(1);
     if (existing.length > 0) return { inserted: 0 };
     const timestamp = nowIso();

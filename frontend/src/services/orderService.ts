@@ -17,16 +17,6 @@ export interface CheckoutCustomer {
 
 export const shippingRate = (_subtotal: number, _cart: CartLine[] = [], country = "India") => checkoutShippingForCountry(country).amount;
 
-export async function createMockedRazorpayOrder(args: {
-  cart: CartLine[];
-  customer: CheckoutCustomer;
-  subtotal: number;
-  shipping: number;
-  total: number;
-}) {
-  return await convex.mutation(api.orders.createMockCheckoutOrder, args);
-}
-
 export async function createRazorpayCheckoutOrder(args: {
   cart: CartLine[];
   customer: CheckoutCustomer;
@@ -37,7 +27,7 @@ export async function createRazorpayCheckoutOrder(args: {
   return await convex.action(api.orders.createRazorpayCheckoutOrder, args);
 }
 
-export async function verifyRazorpayPayment(args: {
+export interface RazorpayVerificationArgs {
   cart: CartLine[];
   customer: CheckoutCustomer;
   subtotal: number;
@@ -46,8 +36,23 @@ export async function verifyRazorpayPayment(args: {
   razorpay_order_id: string;
   razorpay_payment_id: string;
   razorpay_signature: string;
-}) {
+}
+
+export async function verifyRazorpayPayment(args: RazorpayVerificationArgs) {
   return await convex.action(api.orders.verifyRazorpayPayment, args);
+}
+
+export async function verifyRazorpayPaymentWithRetry(args: RazorpayVerificationArgs, attempts = 3) {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      return await verifyRazorpayPayment(args);
+    } catch (error) {
+      lastError = error;
+      if (attempt + 1 < attempts) await new Promise((resolve) => window.setTimeout(resolve, 700 * (attempt + 1)));
+    }
+  }
+  throw lastError;
 }
 
 export async function trackOrder(orderNumber: string, email: string) {

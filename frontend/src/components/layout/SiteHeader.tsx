@@ -135,6 +135,9 @@ export function SiteHeader() {
             <img src={logo} alt="Hurayrah Essentials" className="h-8 w-auto object-contain transition-all sm:h-9 md:h-10" />
           </Link>
           <div className="flex min-w-0 justify-self-end">
+            <Link to="/track" aria-label="Track order" data-testid="site-header-desktop-track-link" className={cn(ICON_BUTTON, "hidden md:inline-flex")}>
+              <Package className="h-5 w-5" />
+            </Link>
             {accountControl}
             <button type="button" onClick={() => setSearchOpen((open) => !open)} aria-label="Search products" data-testid="site-header-search-toggle" className={ICON_BUTTON}>
               {searchOpen ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}

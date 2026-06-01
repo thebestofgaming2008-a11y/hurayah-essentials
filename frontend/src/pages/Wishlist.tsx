@@ -4,6 +4,7 @@ import { SiteLayout } from "@/components/layout/SiteLayout";
 import { ProductCard } from "@/components/shop/ProductCard";
 import { useShop } from "@/store/shop";
 import { listByIds, type Product } from "@/services/productService";
+import { OfferOptIn } from "@/components/shop/OfferOptIn";
 
 const Wishlist = () => {
   const { wishlist, toggleWishlist } = useShop();
@@ -79,6 +80,7 @@ const Wishlist = () => {
             ))}
           </div>
         )}
+        <OfferOptIn className="mt-8" />
       </div>
     </SiteLayout>
   );

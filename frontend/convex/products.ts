@@ -206,6 +206,10 @@ function normalize(input: any, isPatch = false, existingPrice?: number) {
   return output;
 }
 
+function isLaunchReady(product: any) {
+  return Boolean(product.cover_image_url && (product.description || product.short_description));
+}
+
 export const listActiveProducts = query({
   args: {},
   handler: async (ctx) => {
@@ -213,7 +217,7 @@ export const listActiveProducts = query({
       .query("products")
       .withIndex("by_active", (q) => q.eq("is_active", true))
       .collect();
-    return rows.map(publicProduct).sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")));
+    return rows.filter(isLaunchReady).map(publicProduct).sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")));
   },
 });
 
@@ -230,7 +234,7 @@ export const getProductById = query({
   args: { id: v.string() },
   handler: async (ctx, args) => {
     const doc = await ctx.db.get(args.id as any);
-    if (!doc || doc.is_active === false) return null;
+    if (!doc || doc.is_active === false || !isLaunchReady(doc)) return null;
     return publicProduct(doc);
   },
 });
@@ -242,7 +246,7 @@ export const getProductBySlug = query({
       .query("products")
       .withIndex("by_slug", (q) => q.eq("slug", args.slug))
       .first();
-    if (!doc || doc.is_active === false) return null;
+    if (!doc || doc.is_active === false || !isLaunchReady(doc)) return null;
     return publicProduct(doc);
   },
 });
@@ -252,13 +256,13 @@ export const listByCategory = query({
   handler: async (ctx, args) => {
     if (args.category === "books") {
       const rows = await ctx.db.query("products").collect();
-      return rows.map(publicProduct).filter((p: any) => p.is_active !== false && p.category === "books");
+      return rows.filter(isLaunchReady).map(publicProduct).filter((p: any) => p.is_active !== false && p.category === "books");
     }
     const rows = await ctx.db
       .query("products")
       .withIndex("by_category", (q) => q.eq("category", args.category))
       .collect();
-    return rows.filter((p) => p.is_active !== false).map(publicProduct);
+    return rows.filter((p) => p.is_active !== false && isLaunchReady(p)).map(publicProduct);
   },
 });
 
@@ -266,7 +270,7 @@ export const listByIds = query({
   args: { ids: v.array(v.string()) },
   handler: async (ctx, args) => {
     const docs = await Promise.all(args.ids.map((id) => ctx.db.get(id as any)));
-    return docs.filter((doc) => doc && (doc as any).is_active !== false).map((doc) => publicProduct(doc as any));
+    return docs.filter((doc) => doc && (doc as any).is_active !== false && isLaunchReady(doc)).map((doc) => publicProduct(doc as any));
   },
 });
 

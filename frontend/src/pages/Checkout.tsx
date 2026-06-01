@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { SiteLayout } from "@/components/layout/SiteLayout";
 import { PaymentMethods } from "@/components/shop/PaymentMethods";
@@ -6,7 +6,7 @@ import { useCurrency } from "@/contexts/CurrencyContext";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { checkoutShippingForCountry } from "@/services/shipping";
-import { createRazorpayCheckoutOrder, verifyRazorpayPayment } from "@/services/orderService";
+import { createRazorpayCheckoutOrder, verifyRazorpayPaymentWithRetry, type RazorpayVerificationArgs } from "@/services/orderService";
 import { useShop } from "@/store/shop";
 import logo from "@/assets/logo-header.png";
 
@@ -17,6 +17,7 @@ declare global {
 }
 
 const INDIA_ADDRESS = { stateLabel: "State / union territory", postalLabel: "PIN code", cityLabel: "City", stateRequired: true };
+const PENDING_RAZORPAY_ORDER_KEY = "hurayah_pending_razorpay_order";
 
 function loadRazorpayScript() {
   return new Promise<boolean>((resolve) => {
@@ -57,6 +58,41 @@ const Checkout = () => {
   const shippingMeta = checkoutShippingForCountry(form.country);
   const total = cartSubtotal + shippingMeta.amount;
   const address = INDIA_ADDRESS;
+
+  const finishPaidOrder = useCallback(async (verification: RazorpayVerificationArgs) => {
+    localStorage.setItem(PENDING_RAZORPAY_ORDER_KEY, JSON.stringify(verification));
+    const order = await verifyRazorpayPaymentWithRetry(verification);
+    localStorage.removeItem(PENDING_RAZORPAY_ORDER_KEY);
+    clearCart();
+    toast({ title: "Payment received", description: "Your order was saved." });
+    const paymentStatus = checkoutShippingForCountry(verification.customer.country).paymentStatus;
+    navigate(`/order-confirmation?id=${encodeURIComponent(order?.order_number ?? "#1")}&shipping=${paymentStatus}`);
+  }, [clearCart, navigate]);
+
+  useEffect(() => {
+    const raw = localStorage.getItem(PENDING_RAZORPAY_ORDER_KEY);
+    if (!raw) return;
+    let cancelled = false;
+    let verification: RazorpayVerificationArgs;
+    try {
+      verification = JSON.parse(raw) as RazorpayVerificationArgs;
+    } catch {
+      localStorage.removeItem(PENDING_RAZORPAY_ORDER_KEY);
+      return;
+    }
+    setSubmitting(true);
+    toast({ title: "Recovering your paid order", description: "Please keep this page open while we confirm it." });
+    finishPaidOrder(verification)
+      .catch(() => {
+        if (!cancelled) toast({ title: "Payment received, order confirmation pending", description: "Refresh this checkout page to retry. Do not pay again.", variant: "destructive" });
+      })
+      .finally(() => {
+        if (!cancelled) setSubmitting(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [finishPaidOrder]);
 
   const setField = (key: keyof typeof form) => (value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -110,18 +146,15 @@ const Checkout = () => {
           theme: { color: "#030f30" },
           handler: async (response: any) => {
             try {
-              const order = await verifyRazorpayPayment({
+              await finishPaidOrder({
                 ...payload,
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_signature: response.razorpay_signature,
               });
-              clearCart();
-              toast({ title: "Payment received", description: "Your order was saved." });
-              navigate(`/order-confirmation?id=${encodeURIComponent(order?.order_number ?? "#1")}&shipping=${shippingMeta.paymentStatus}`);
               resolve();
             } catch (error) {
-              reject(error);
+              reject(new Error("Payment received, but order confirmation is pending. Refresh this checkout page to retry. Do not pay again."));
             }
           },
           modal: { ondismiss: () => reject(new Error("Payment was cancelled.")) },

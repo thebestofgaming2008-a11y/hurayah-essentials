@@ -14,6 +14,7 @@ const Login = () => {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const redirect = params.get("redirect") || "/account";
+  const isAdminLogin = redirect === "/admin";
   const { signIn, signUp } = useAuth();
 
   const submit = async (event: React.FormEvent) => {
@@ -45,17 +46,24 @@ const Login = () => {
       <div className="commerce-shell mx-auto max-w-[460px] px-4 py-12 md:px-8 md:py-20">
         <div className="rounded-lg border border-[rgb(var(--vibe-border))] bg-white p-6 shadow-sm md:p-8">
           <h1 className="text-center text-[20px] font-semibold tracking-tight text-[rgb(var(--vibe-foreground))]">
-            {mode === "signIn" ? "Sign in" : "Create account"}
+            {isAdminLogin ? "Admin sign in" : mode === "signIn" ? "Sign in" : "Create account"}
           </h1>
           <p className="mt-1 text-center text-[13px] text-[rgb(var(--vibe-muted))]">
-            Access your orders, addresses and saved items.
+            {isAdminLogin ? "Sign in with the store admin account to manage products and orders." : "Access your orders, addresses and saved items."}
           </p>
-          <div className="mt-5 grid grid-cols-2 rounded-md border border-[rgb(var(--vibe-border))] bg-[rgb(var(--vibe-page))] p-1">
-            <button type="button" onClick={() => setMode("signIn")} className={`h-8 rounded text-[12px] ${mode === "signIn" ? "bg-white shadow-sm" : "text-[rgb(var(--vibe-muted))]"}`}>Sign in</button>
-            <button type="button" onClick={() => setMode("signUp")} className={`h-8 rounded text-[12px] ${mode === "signUp" ? "bg-white shadow-sm" : "text-[rgb(var(--vibe-muted))]"}`}>Create</button>
-          </div>
+          {isAdminLogin && (
+            <p className="mt-3 rounded-md border border-[rgb(var(--vibe-border))] bg-[rgb(var(--vibe-page))] px-3 py-2 text-center text-[12px] text-[rgb(var(--vibe-muted))]">
+              Dashboard access is restricted to the configured store administrator.
+            </p>
+          )}
+          {!isAdminLogin && (
+            <div className="mt-5 grid grid-cols-2 rounded-md border border-[rgb(var(--vibe-border))] bg-[rgb(var(--vibe-page))] p-1">
+              <button type="button" onClick={() => setMode("signIn")} className={`h-8 rounded text-[12px] ${mode === "signIn" ? "bg-white shadow-sm" : "text-[rgb(var(--vibe-muted))]"}`}>Sign in</button>
+              <button type="button" onClick={() => setMode("signUp")} className={`h-8 rounded text-[12px] ${mode === "signUp" ? "bg-white shadow-sm" : "text-[rgb(var(--vibe-muted))]"}`}>Create</button>
+            </div>
+          )}
 
-          <form onSubmit={submit} className="mt-6 space-y-3" noValidate>
+          <form onSubmit={submit} className={`${isAdminLogin ? "mt-5" : "mt-6"} space-y-3`} noValidate>
             {mode === "signUp" && <Field label="Full name" value={fullName} onChange={setFullName} autoComplete="name" />}
             <Field label="Email" type="email" value={email} onChange={setEmail} autoComplete="email" required />
             <Field label="Password" type="password" value={password} onChange={setPassword} autoComplete={mode === "signIn" ? "current-password" : "new-password"} required />
@@ -84,6 +92,16 @@ const Login = () => {
               Storefront
             </Link>
           </div>
+          {mode === "signIn" && (
+            <a
+              href="https://wa.me/918491943437?text=Assalamu%20alaikum%2C%20I%20need%20help%20accessing%20my%20Hurayrah%20Essentials%20account."
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-4 block text-center text-[12px] text-brand hover:underline"
+            >
+              Forgot your password? Contact us on WhatsApp
+            </a>
+          )}
         </div>
       </div>
     </SiteLayout>

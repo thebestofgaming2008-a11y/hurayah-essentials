@@ -233,7 +233,7 @@ All colors MUST be HSL.
   }
 
   .commerce-quick-add-in {
-    animation: commerce-quick-add-in 240ms cubic-bezier(0.2, 0.65, 0.3, 1) both;
+    transition: box-shadow 180ms ease, background-color 180ms ease;
   }
 
   @keyframes commerce-sheet-in {
@@ -243,11 +243,6 @@ All colors MUST be HSL.
 
   @keyframes commerce-card-in {
     from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  @keyframes commerce-quick-add-in {
-    from { opacity: 0; transform: translateY(100%); }
     to { opacity: 1; transform: translateY(0); }
   }
 

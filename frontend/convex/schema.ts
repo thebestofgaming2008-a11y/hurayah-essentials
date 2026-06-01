@@ -40,6 +40,13 @@ export default defineSchema({
     created_at: optionalString,
     updated_at: optionalString,
   }).index("by_user_id", ["user_id"]),
+  wishlist_items: defineTable({
+    user_id: v.string(),
+    product_id: v.string(),
+    created_at: v.string(),
+  })
+    .index("by_user_id", ["user_id"])
+    .index("by_user_product", ["user_id", "product_id"]),
   products: defineTable({
     name: v.string(),
     slug: optionalString,
@@ -71,9 +78,13 @@ export default defineSchema({
     cover_image_url: optionalString,
     images: optionalStringArray,
     linked_product_ids: optionalStringArray,
+    cross_sell_product_ids: optionalStringArray,
+    upsell_product_ids: optionalStringArray,
     variant_label: optionalString,
     color_options: optionalStringArray,
     size_options: optionalStringArray,
+    option_types: v.optional(v.array(v.any())),
+    variants: v.optional(v.array(v.any())),
     badge: optionalString,
     rating: optionalNumber,
     reviews_count: optionalNumber,
@@ -109,11 +120,15 @@ export default defineSchema({
     currency: optionalString,
     shipping_address: v.optional(v.any()),
     payment_provider: optionalString,
+    payment_method: optionalString,
     payment_order_id: optionalString,
     payment_id: optionalString,
+    carrier: optionalString,
+    items: v.optional(v.array(v.any())),
     tracking_carrier: optionalString,
     tracking_number: optionalString,
     tracking_url: optionalString,
+    // Kept for backward compatibility with legacy test orders. Email sending is disabled.
     tracking_email_sent_at: optionalString,
     tracking_email_status: optionalString,
     tracking_email_error: optionalString,
@@ -123,7 +138,30 @@ export default defineSchema({
     .index("by_user_id", ["user_id"])
     .index("by_customer_email", ["customer_email"])
     .index("by_order_number", ["order_number"])
+    .index("by_payment_order_id", ["payment_order_id"])
+    .index("by_payment_id", ["payment_id"])
     .index("by_created_at", ["created_at"]),
+  checkout_intents: defineTable({
+    razorpay_order_id: v.string(),
+    user_id: optionalString,
+    payment_id: optionalString,
+    status: v.string(),
+    cart: v.array(v.any()),
+    customer: v.any(),
+    amount_paise: v.number(),
+    error: optionalString,
+    expires_at: v.number(),
+    created_at: v.string(),
+    updated_at: v.string(),
+  })
+    .index("by_razorpay_order_id", ["razorpay_order_id"])
+    .index("by_status", ["status"])
+    .index("by_expires_at", ["expires_at"]),
+  razorpay_webhook_events: defineTable({
+    event_id: v.string(),
+    event_type: v.string(),
+    created_at: v.string(),
+  }).index("by_event_id", ["event_id"]),
   order_items: defineTable({
     order_id: v.id("orders"),
     product_id: optionalString,
@@ -150,6 +188,7 @@ export default defineSchema({
     updated_at: optionalString,
   })
     .index("by_product_id", ["product_id"])
+    .index("by_user_product", ["user_id", "product_id"])
     .index("by_status", ["status"])
     .index("by_created_at", ["created_at"]),
   discounts: defineTable({

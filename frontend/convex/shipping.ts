@@ -2,12 +2,12 @@ export const SHIPPING_500G_INR = 50;
 export const SHIPPING_1KG_INR = 80;
 const DEFAULT_PRODUCT_WEIGHT_G = 350;
 
-export type CustomerCountryType = "india" | "international";
-export type ShippingPaymentStatus = "included" | "pending_whatsapp" | "paid_separately";
+export type CustomerCountryType = "india" | "unsupported";
+export type ShippingPaymentStatus = "included";
 
 export function customerCountryType(country: string | null | undefined): CustomerCountryType {
   const normalized = String(country ?? "").trim().toLowerCase();
-  return normalized === "india" || normalized === "in" || normalized === "bharat" ? "india" : "international";
+  return normalized === "india" || normalized === "in" || normalized === "bharat" ? "india" : "unsupported";
 }
 
 export function checkoutShippingForCountry(country: string | null | undefined): {
@@ -28,8 +28,8 @@ export function checkoutShippingForCountry(country: string | null | undefined): 
   return {
     amount: 0,
     countryType,
-    paymentStatus: "pending_whatsapp",
-    note: "International shipping is billed separately after order confirmation on WhatsApp.",
+    paymentStatus: "included",
+    note: "We currently deliver within India only.",
   };
 }
 

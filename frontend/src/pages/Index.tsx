@@ -368,7 +368,7 @@ const Index = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
             {TESTIMONIALS.map((t) => (
               <figure
-                key={t.name}
+                key={t.quote}
                 className="relative rounded-2xl bg-background border border-border p-7 md:p-8 flex flex-col gap-5 hover:shadow-lg transition-shadow"
               >
                 <Quote className="h-7 w-7 text-brand/30" aria-hidden />

@@ -54,6 +54,7 @@ import {
   listAllCustomers,
   listDiscounts,
   listAllOrders,
+  listPaymentRecoveries,
   listAllProducts,
   listAllReviews,
   listShippingRates,
@@ -69,6 +70,7 @@ import {
   type AdminNotification,
   type AdminCustomer,
   type AdminOrder,
+  type PaymentRecovery,
   type AdminReview,
   type ShippingRate,
 } from "@/services/adminService";
@@ -142,7 +144,6 @@ const navGroups: Array<{
     label: "Overview",
     items: [
       { key: "dashboard", icon: LayoutDashboard, label: "Dashboard" },
-      { key: "analytics", icon: BarChart3, label: "Analytics" },
     ],
   },
   {
@@ -151,7 +152,6 @@ const navGroups: Array<{
       { key: "orders", icon: ShoppingCart, label: "Orders", badgeKey: "orders" },
       { key: "products", icon: Package, label: "Products" },
       { key: "shipping", icon: Truck, label: "Shipping", badgeKey: "shipping" },
-      { key: "discounts", icon: Tag, label: "Discounts" },
     ],
   },
   {
@@ -216,7 +216,7 @@ function isShippingReviewDue(rates: ShippingRate[]) {
 }
 
 function fmtAmount(n: number) {
-  return `$${n.toFixed(2)}`;
+  return `₹${Math.round(n).toLocaleString("en-IN")}`;
 }
 
 function fmtDate(iso?: string | null) {
@@ -264,7 +264,7 @@ function dayKey(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
-function makeRangeData(orders: AdminOrder[], range: RangeKey) {
+function makeRangeData(orders: AdminOrder[], customers: AdminCustomer[], range: RangeKey) {
   const length = range === "7d" ? 7 : range === "30d" ? 30 : 90;
   return Array.from({ length }, (_, index) => {
     const d = new Date();
@@ -273,9 +273,9 @@ function makeRangeData(orders: AdminOrder[], range: RangeKey) {
     const dayOrders = orders.filter((order) => (order.created_at ?? "").slice(0, 10) === key);
     return {
       label: d.toLocaleDateString("en-US", length <= 10 ? { weekday: "short" } : { month: "short", day: "numeric" }),
-      revenue: Math.round(dayOrders.reduce((sum, order) => sum + (order.total_inr ?? order.total ?? 0), 0) / 83),
+      revenue: Math.round(dayOrders.reduce((sum, order) => sum + (order.total_inr ?? order.total ?? 0), 0)),
       orders: dayOrders.length,
-      visitors: Math.max(dayOrders.length * 22, Math.round(18 + index * 1.7)),
+      visitors: customers.filter((customer) => (customer.created_at ?? "").slice(0, 10) === key).length,
     };
   });
 }
@@ -288,13 +288,13 @@ function summarize(orders: AdminOrder[], customers: AdminCustomer[], range: Rang
     return now - new Date(order.created_at).getTime() <= rangeDays * 24 * 60 * 60 * 1000;
   });
   const revenue = inRange.reduce((sum, order) => sum + (order.total_inr ?? order.total ?? 0), 0);
-  const visitors = Math.max(customers.length * 18, inRange.length * 22, 1);
+  const visitors = customers.length;
   return {
-    revenue: { value: Math.round(revenue), change: inRange.length ? 12.4 : 0 },
-    orders: { value: inRange.length, change: inRange.length ? 8.7 : 0 },
-    visitors: { value: visitors, change: 5.3 },
-    aov: { value: inRange.length ? revenue / inRange.length : 0, change: 3.1 },
-    conversion: { value: (inRange.length / visitors) * 100, change: 1.8 },
+    revenue: { value: Math.round(revenue), change: 0 },
+    orders: { value: inRange.length, change: 0 },
+    visitors: { value: visitors, change: 0 },
+    aov: { value: inRange.length ? revenue / inRange.length : 0, change: 0 },
+    conversion: { value: visitors > 0 ? (inRange.length / visitors) * 100 : 0, change: 0 },
   };
 }
 
@@ -305,16 +305,16 @@ function topProducts(orders: AdminOrder[], products: Product[]) {
       const key = item.product_id ?? item.product_name ?? "unknown";
       const current = fromOrders.get(key) ?? { name: item.product_name ?? "Unknown product", sales: 0, revenue: 0 };
       current.sales += item.quantity;
-      current.revenue += Math.round(item.subtotal / 83);
+      current.revenue += Math.round(item.subtotal);
       fromOrders.set(key, current);
     }
   }
   const rows = [...fromOrders.values()].sort((a, b) => b.revenue - a.revenue);
   if (rows.length) return rows.slice(0, 5);
-  return products.slice(0, 5).map((product, index) => ({
+  return products.slice(0, 5).map((product) => ({
     name: product.name,
-    sales: Math.max(0, 28 - index * 4),
-    revenue: Math.round((product.price_inr ?? product.price ?? 0) / 83) * Math.max(1, 7 - index),
+    sales: 0,
+    revenue: 0,
   }));
 }
 
@@ -325,6 +325,7 @@ export default function Admin() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [range, setRange] = useState<RangeKey>("7d");
   const [orders, setOrders] = useState<AdminOrder[]>([]);
+  const [paymentRecoveries, setPaymentRecoveries] = useState<PaymentRecovery[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<AdminCustomer[]>([]);
   const [reviews, setReviews] = useState<AdminReview[]>([]);
@@ -350,11 +351,12 @@ export default function Admin() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    Promise.all([listAllProducts(), listAllOrders(200), listAllCustomers(200), listAllReviews(200), listDiscounts(), listShippingRates(), getStoreSettings(), listAdminNotifications()]).then(
-      ([nextProducts, nextOrders, nextCustomers, nextReviews, nextDiscounts, nextShippingRates, nextStoreSettings, nextNotifications]) => {
+    Promise.all([listAllProducts(), listAllOrders(200), listPaymentRecoveries(), listAllCustomers(200), listAllReviews(200), listDiscounts(), listShippingRates(), getStoreSettings(), listAdminNotifications()]).then(
+      ([nextProducts, nextOrders, nextRecoveries, nextCustomers, nextReviews, nextDiscounts, nextShippingRates, nextStoreSettings, nextNotifications]) => {
         if (cancelled) return;
         setProducts(nextProducts);
         setOrders(nextOrders);
+        setPaymentRecoveries(nextRecoveries);
         setCustomers(nextCustomers);
         setReviews(nextReviews);
         setDiscounts(nextDiscounts);
@@ -386,7 +388,7 @@ export default function Admin() {
   }, [orders, reviews, shippingRates]);
 
   const summary = useMemo(() => summarize(orders, customers, range), [orders, customers, range]);
-  const chartData = useMemo(() => makeRangeData(orders, range), [orders, range]);
+  const chartData = useMemo(() => makeRangeData(orders, customers, range), [orders, customers, range]);
   const top = useMemo(() => topProducts(orders, products), [orders, products]);
   const title = navGroups.flatMap((group) => group.items).find((item) => item.key === section)?.label ?? "Dashboard";
   const subtitle =
@@ -906,7 +908,7 @@ export default function Admin() {
           ) : section === "dashboard" ? (
             <Dashboard orders={orders} counts={counts} range={range} setRange={setRange} summary={summary} chartData={chartData} top={top} onGoOrders={() => setSection("orders")} />
           ) : section === "orders" ? (
-            <OrdersPanel orders={orders} products={products} counts={counts} query={query} setQuery={setQuery} active={orderFilter} setActive={setOrderFilter} onViewOrder={setSelectedOrder} />
+            <OrdersPanel orders={orders} paymentRecoveries={paymentRecoveries} products={products} counts={counts} query={query} setQuery={setQuery} active={orderFilter} setActive={setOrderFilter} onViewOrder={setSelectedOrder} />
           ) : section === "products" ? (
             <ProductsPanel
               products={products}
@@ -998,7 +1000,7 @@ function Dashboard({
           <div>
             <h3 className="text-[13px] font-medium">Revenue</h3>
             <div className="mt-1 flex items-baseline gap-2">
-              <span className="text-[22px] font-semibold tracking-tight tabular-nums">{fmtAmount(summary.revenue.value / 83)}</span>
+              <span className="text-[22px] font-semibold tracking-tight tabular-nums">{fmtAmount(summary.revenue.value)}</span>
               <ChangeBadge value={summary.revenue.change} />
             </div>
           </div>
@@ -1131,7 +1133,6 @@ function OrderRow({
   onViewOrder?: (order: AdminOrder) => void;
 }) {
   const meta = statusMeta[normalizeStatus(order)];
-  const needsShippingFollowUp = order.shipping_payment_status === "pending_whatsapp" || order.customer_country_type === "international";
   const item = order.items?.[0];
   const itemLabel = order.items && order.items.length > 1 ? `${item?.product_name ?? "Product"} +${order.items.length - 1}` : item?.product_name ?? "Product";
   return (
@@ -1144,10 +1145,9 @@ function OrderRow({
             {item?.product_image_url && <img src={item.product_image_url} alt="" className="h-9 w-8 shrink-0 rounded border border-[rgb(var(--vibe-border))] object-cover" />}
             <span className="truncate">{itemLabel}</span>
           </span>
-          {needsShippingFollowUp && <span className="w-fit rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800">WhatsApp shipping</span>}
         </div>
       </td>
-      <td className="px-6 py-3 text-right font-mono text-[13px] font-medium">{fmtAmount((order.total_inr ?? order.total ?? 0) / 83)}</td>
+      <td className="px-6 py-3 text-right font-mono text-[13px] font-medium">{fmtAmount(order.total_inr ?? order.total ?? 0)}</td>
       <td className="px-6 py-3">
         <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-[12px] text-[rgb(var(--vibe-muted))]">
           <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />
@@ -1169,7 +1169,6 @@ function MobileOrders({ orders, onViewOrder }: { orders: AdminOrder[]; onViewOrd
     <ul className="divide-y divide-[rgb(var(--vibe-border))] border-t border-[rgb(var(--vibe-border))] sm:hidden">
       {orders.map((order) => {
         const meta = statusMeta[normalizeStatus(order)];
-        const needsShippingFollowUp = order.shipping_payment_status === "pending_whatsapp" || order.customer_country_type === "international";
         return (
           <li key={order.id} className="px-4 py-3">
             <div className="flex items-start justify-between gap-3">
@@ -1186,10 +1185,9 @@ function MobileOrders({ orders, onViewOrder }: { orders: AdminOrder[]; onViewOrd
                   {order.items?.[0]?.product_image_url && <img src={order.items[0].product_image_url} alt="" className="h-10 w-8 shrink-0 rounded border border-[rgb(var(--vibe-border))] object-cover" />}
                   <span className="truncate">{order.items?.[0]?.product_name ?? "Product"}</span>
                 </p>
-                {needsShippingFollowUp && <p className="mt-2 w-fit rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800">WhatsApp shipping follow-up</p>}
               </div>
               <div className="shrink-0 text-right">
-                <p className="font-mono text-[13px] font-semibold">{fmtAmount((order.total_inr ?? order.total ?? 0) / 83)}</p>
+                <p className="font-mono text-[13px] font-semibold">{fmtAmount(order.total_inr ?? order.total ?? 0)}</p>
                 <p className="text-[11px] text-[rgb(var(--vibe-muted))]">{fmtDate(order.created_at)}</p>
               </div>
             </div>
@@ -1214,7 +1212,7 @@ function TopProducts({ rows }: { rows: ReturnType<typeof topProducts> }) {
           <div key={row.name} className="group">
             <div className="mb-1.5 flex items-center justify-between gap-2">
               <span className="truncate text-[13px]">{row.name}</span>
-              <span className="shrink-0 font-mono text-[12px] text-[rgb(var(--vibe-muted))]">${row.revenue.toLocaleString()}</span>
+              <span className="shrink-0 font-mono text-[12px] text-[rgb(var(--vibe-muted))]">{fmtAmount(row.revenue)}</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="h-1 flex-1 overflow-hidden rounded-full bg-[rgb(var(--vibe-surface))]">
@@ -1231,6 +1229,7 @@ function TopProducts({ rows }: { rows: ReturnType<typeof topProducts> }) {
 
 function OrdersPanel({
   orders,
+  paymentRecoveries,
   products,
   counts,
   query,
@@ -1240,6 +1239,7 @@ function OrdersPanel({
   onViewOrder,
 }: {
   orders: AdminOrder[];
+  paymentRecoveries: PaymentRecovery[];
   products: Product[];
   counts: Record<string, number>;
   query: string;
@@ -1256,6 +1256,29 @@ function OrdersPanel({
   });
   return (
     <>
+      {paymentRecoveries.length > 0 && (
+        <section className="rounded-md border border-red-200 bg-red-50 p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+            <div>
+              <h3 className="text-[13px] font-semibold text-red-800">Paid orders need manual recovery</h3>
+              <p className="mt-1 text-[12px] text-red-700">Do not ask these customers to pay again. Match the Razorpay payment IDs in the Razorpay dashboard, then resolve the order before fulfillment.</p>
+            </div>
+          </div>
+          <div className="mt-3 grid gap-2">
+            {paymentRecoveries.map((recovery) => (
+              <div key={recovery.id} className="rounded-md border border-red-100 bg-white px-3 py-2 text-[12px] text-red-800">
+                <span className="font-mono">{recovery.payment_id ?? recovery.razorpay_order_id}</span>
+                <span className="mx-2">·</span>
+                <span>{recovery.customer?.name || recovery.customer?.email || "Customer"}</span>
+                <span className="mx-2">·</span>
+                <span>{fmtAmount(recovery.amount_paise / 100)}</span>
+                {recovery.error && <p className="mt-1 text-[11px] text-red-600">{recovery.error}</p>}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
         {filters.map((filter) => {
           const Icon = filter.icon;
@@ -1732,7 +1755,6 @@ function OrderDetailsDialog({
 }) {
   const meta = statusMeta[normalizeStatus(order)];
   const total = order.total_inr ?? order.total ?? 0;
-  const needsShippingFollowUp = order.shipping_payment_status === "pending_whatsapp" || order.customer_country_type === "international";
   const [saving, setSaving] = useState(false);
   const [savingStatus, setSavingStatus] = useState(false);
   const [form, setForm] = useState<OrderFulfillmentState>({
@@ -1781,12 +1803,6 @@ function OrderDetailsDialog({
         </div>
         <div className="grid max-h-[calc(95vh-68px)] gap-5 overflow-y-auto p-4 sm:p-5 lg:grid-cols-[1fr_320px]">
           <div className="space-y-3">
-            {needsShippingFollowUp && (
-              <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-[13px] text-amber-900">
-                <p className="font-medium">International shipping follow-up needed</p>
-                <p className="mt-1 text-[12px] leading-5 text-amber-800">The customer paid the product total online. Message them on WhatsApp to collect the actual international shipping fee separately.</p>
-              </div>
-            )}
             {(order.items ?? []).map((item) => {
               const product = products.find((candidate) => candidate.id === item.product_id);
               const images = [product?.cover_image_url, ...(product?.images ?? [])].filter(Boolean);
@@ -1855,7 +1871,7 @@ function OrderDetailsDialog({
             </div>
             <div className="rounded-lg border border-[rgb(var(--vibe-border))] p-4 text-[12px]">
               <div className="flex justify-between"><span>Payment</span><span className="capitalize">{order.payment_status ?? "unknown"}</span></div>
-              <div className="mt-2 flex justify-between gap-3"><span>Shipping</span><span className="text-right capitalize">{needsShippingFollowUp ? "WhatsApp follow-up" : "Included"}</span></div>
+              <div className="mt-2 flex justify-between gap-3"><span>Shipping</span><span className="text-right capitalize">Included</span></div>
               {order.shipping_payment_note && <p className="mt-2 rounded-md bg-[rgb(var(--vibe-surface))] px-2 py-1.5 text-[11px] text-[rgb(var(--vibe-muted))]">{order.shipping_payment_note}</p>}
               <div className="mt-2 flex justify-between font-medium"><span>Total</span><span>{formatPrice(total)}</span></div>
               <div className="mt-2 text-[rgb(var(--vibe-muted))]">Tracking: {order.tracking_number ?? "Not added"}</div>
@@ -2031,14 +2047,14 @@ function AnalyticsPanel({
         <RangeToggle value={range} onChange={setRange} />
       </div>
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <Kpi label="Revenue" value={fmtAmount(summary.revenue.value / 83)} change={summary.revenue.change} active={metric === "revenue"} onClick={() => setMetric("revenue")} />
+        <Kpi label="Revenue" value={fmtAmount(summary.revenue.value)} change={summary.revenue.change} active={metric === "revenue"} onClick={() => setMetric("revenue")} />
         <Kpi label="Orders" value={summary.orders.value.toString()} change={summary.orders.change} active={metric === "orders"} onClick={() => setMetric("orders")} />
-        <Kpi label="Visitors" value={summary.visitors.value.toString()} change={summary.visitors.change} active={metric === "visitors"} onClick={() => setMetric("visitors")} />
+        <Kpi label="Customers" value={summary.visitors.value.toString()} change={summary.visitors.change} active={metric === "visitors"} onClick={() => setMetric("visitors")} />
         <Kpi label="Avg order value" value={formatPrice(summary.aov.value)} change={summary.aov.change} />
       </div>
       <div className="vibe-card p-5 sm:p-6">
-        <h3 className="text-[13px] font-medium">{metric === "revenue" ? "Revenue" : metric === "orders" ? "Orders" : "Visitors"} over time</h3>
-        <p className="mt-0.5 text-[11px] text-[rgb(var(--vibe-muted))]">Conversion rate {summary.conversion.value.toFixed(2)}% <ChangeBadge value={summary.conversion.change} /></p>
+        <h3 className="text-[13px] font-medium">{metric === "revenue" ? "Revenue" : metric === "orders" ? "Orders" : "Customers"} over time</h3>
+        <p className="mt-0.5 text-[11px] text-[rgb(var(--vibe-muted))]">Orders per customer {summary.conversion.value.toFixed(2)}% <ChangeBadge value={summary.conversion.change} /></p>
         <div className="mt-5"><TrendChart data={chartData} dataKey={metric} variant={metric === "orders" ? "bar" : "area"} height={240} /></div>
       </div>
       <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
@@ -2344,30 +2360,17 @@ function DiscountsPanel({ products, discounts, onCreate, onUpdate, onDelete }: {
 function SettingsPanel({ settings: savedSettings, onSave }: { settings: Record<string, unknown>; onSave: (settings: Record<string, unknown>) => void }) {
   const [settings, setSettings] = useState({
     storeName: String(savedSettings.storeName ?? "Hurayrah Essentials"),
-    supportEmail: String(savedSettings.supportEmail ?? "hello@hurayrahessentials.com"),
     lowStock: String(savedSettings.lowStock ?? "5"),
-    autoArchive: Boolean(savedSettings.autoArchive ?? false),
-    emailNotifications: Boolean(savedSettings.emailNotifications ?? true),
-    reviewModeration: Boolean(savedSettings.reviewModeration ?? true),
   });
-  const update = (key: keyof typeof settings, value: string | boolean) => setSettings((current) => ({ ...current, [key]: value }));
+  const update = (key: keyof typeof settings, value: string) => setSettings((current) => ({ ...current, [key]: value }));
   const save = () => onSave(settings);
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
+    <div className="max-w-xl">
       <div className="vibe-card p-5">
         <h3 className="text-[13px] font-medium">Store profile</h3>
         <div className="mt-4 space-y-3">
           <ProductInputField label="Store name" value={settings.storeName} onChange={(value) => update("storeName", value)} />
-          <ProductInputField label="Support email" value={settings.supportEmail} onChange={(value) => update("supportEmail", value)} />
           <ProductInputField label="Low stock alert threshold" type="number" value={settings.lowStock} onChange={(value) => update("lowStock", value)} />
-        </div>
-      </div>
-      <div className="vibe-card p-5">
-        <h3 className="text-[13px] font-medium">Admin automation</h3>
-        <div className="mt-4 space-y-2">
-          <ProductToggle label="Email notifications" checked={settings.emailNotifications} onChange={(value) => update("emailNotifications", value)} />
-          <ProductToggle label="Review moderation queue" checked={settings.reviewModeration} onChange={(value) => update("reviewModeration", value)} />
-          <ProductToggle label="Auto-archive out-of-stock items" checked={settings.autoArchive} onChange={(value) => update("autoArchive", value)} />
         </div>
         <button type="button" onClick={save} className="mt-4 h-8 rounded-md bg-[rgb(var(--vibe-foreground))] px-3 text-[12px] text-white">Save settings</button>
       </div>

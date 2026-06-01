@@ -1,5 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { useMutation, useQuery } from "convex/react";
 import { toast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { api } from "../../convex/_generated/api";
 
 export interface CartProductInput {
   id: string;
@@ -50,7 +54,6 @@ interface ShopState {
 const ShopContext = createContext<ShopState | null>(null);
 
 const KEY_CART = "he_cart_v2";
-const KEY_WISH = "he_wishlist_v1";
 
 function load<T>(k: string, fallback: T): T {
   try {
@@ -64,15 +67,20 @@ function load<T>(k: string, fallback: T): T {
 
 export function ShopProvider({ children }: { children: React.ReactNode }) {
   const [cart, setCart] = useState<CartLine[]>(() => load<CartLine[]>(KEY_CART, []));
-  const [wishlist, setWishlist] = useState<string[]>(() => load<string[]>(KEY_WISH, []));
+  const [wishlist, setWishlist] = useState<string[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const remoteWishlist = useQuery(api.wishlists.listMine, user ? {} : "skip");
+  const toggleRemoteWishlist = useMutation(api.wishlists.toggle);
 
   useEffect(() => {
     if (typeof window !== "undefined") localStorage.setItem(KEY_CART, JSON.stringify(cart));
   }, [cart]);
   useEffect(() => {
-    if (typeof window !== "undefined") localStorage.setItem(KEY_WISH, JSON.stringify(wishlist));
-  }, [wishlist]);
+    setWishlist(user ? remoteWishlist ?? [] : []);
+  }, [remoteWishlist, user]);
 
   const addToCart = useCallback((product: CartProductInput, qty = 1) => {
     setCart((prev) => {
@@ -124,6 +132,12 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
   const toggleCart = useCallback(() => setCartOpen((open) => !open), []);
 
   const toggleWishlist = useCallback((id: string) => {
+    if (!user) {
+      toast({ title: "Sign in to save items", description: "Wishlists are connected to your account." });
+      navigate(`/login?redirect=${encodeURIComponent(location.pathname + location.search)}`);
+      return;
+    }
+    const wasSaved = wishlist.includes(id);
     setWishlist((prev) => {
       if (prev.includes(id)) {
         toast({ title: "Removed from wishlist" });
@@ -132,7 +146,12 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
       toast({ title: "Saved to wishlist" });
       return [...prev, id];
     });
-  }, []);
+    void toggleRemoteWishlist({ productId: id }).catch((error) => {
+      console.error("wishlist toggle", error);
+      setWishlist((prev) => (wasSaved ? [...new Set([...prev, id])] : prev.filter((item) => item !== id)));
+      toast({ title: "Could not update wishlist", variant: "destructive" });
+    });
+  }, [location.pathname, location.search, navigate, toggleRemoteWishlist, user, wishlist]);
 
   const isWishlisted = useCallback((id: string) => wishlist.includes(id), [wishlist]);
 
