@@ -159,6 +159,9 @@ export function SiteHeader() {
                   <X className="h-4 w-4" />
                 </button>
               )}
+              <button type="submit" aria-label="Submit search" data-testid="site-header-submit-search-button" className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-brand text-brand-foreground transition-opacity hover:opacity-90">
+                <Search className="h-3.5 w-3.5" />
+              </button>
             </label>
           </form>
         )}
