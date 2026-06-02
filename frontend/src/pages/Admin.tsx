@@ -46,13 +46,10 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import {
   createProduct,
-  createDiscount,
-  deleteDiscount,
   deleteProduct,
   getStoreSettings,
   listAdminNotifications,
   listAllCustomers,
-  listDiscounts,
   listAllOrders,
   listPaymentRecoveries,
   listAllProducts,
@@ -60,13 +57,11 @@ import {
   listShippingRates,
   saveStoreSettings,
   uploadProductImage,
-  updateDiscount,
   updateProduct,
   updateOrderTracking,
   updateOrderStatus,
   updateReviewStatus,
   updateShippingRate,
-  type AdminDiscount,
   type AdminNotification,
   type AdminCustomer,
   type AdminOrder,
@@ -85,7 +80,6 @@ type SectionKey =
   | "orders"
   | "products"
   | "shipping"
-  | "discounts"
   | "customers"
   | "reviews"
   | "settings";
@@ -329,7 +323,6 @@ export default function Admin() {
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<AdminCustomer[]>([]);
   const [reviews, setReviews] = useState<AdminReview[]>([]);
-  const [discounts, setDiscounts] = useState<AdminDiscount[]>([]);
   const [shippingRates, setShippingRates] = useState<ShippingRate[]>([]);
   const [storeSettings, setStoreSettings] = useState<Record<string, unknown>>({});
   const [adminNotifications, setAdminNotifications] = useState<AdminNotification[]>([]);
@@ -351,15 +344,14 @@ export default function Admin() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    Promise.all([listAllProducts(), listAllOrders(200), listPaymentRecoveries(), listAllCustomers(200), listAllReviews(200), listDiscounts(), listShippingRates(), getStoreSettings(), listAdminNotifications()]).then(
-      ([nextProducts, nextOrders, nextRecoveries, nextCustomers, nextReviews, nextDiscounts, nextShippingRates, nextStoreSettings, nextNotifications]) => {
+    Promise.all([listAllProducts(), listAllOrders(200), listPaymentRecoveries(), listAllCustomers(200), listAllReviews(200), listShippingRates(), getStoreSettings(), listAdminNotifications()]).then(
+      ([nextProducts, nextOrders, nextRecoveries, nextCustomers, nextReviews, nextShippingRates, nextStoreSettings, nextNotifications]) => {
         if (cancelled) return;
         setProducts(nextProducts);
         setOrders(nextOrders);
         setPaymentRecoveries(nextRecoveries);
         setCustomers(nextCustomers);
         setReviews(nextReviews);
-        setDiscounts(nextDiscounts);
         setShippingRates(nextShippingRates);
         setStoreSettings(nextStoreSettings);
         setAdminNotifications(nextNotifications);
@@ -706,38 +698,6 @@ export default function Admin() {
     }
   };
 
-  const handleCreateDiscount = async (input: Parameters<typeof createDiscount>[0]) => {
-    try {
-      const created = await createDiscount(input);
-      if (!created) throw new Error("Discount create failed");
-      setDiscounts((current) => [created, ...current]);
-      toast({ title: "Discount created", description: created.code });
-    } catch (error) {
-      toast({ title: "Could not create discount", description: error instanceof Error ? error.message : undefined, variant: "destructive" });
-    }
-  };
-
-  const handleUpdateDiscount = async (id: string, patch: Partial<AdminDiscount>) => {
-    try {
-      const updated = await updateDiscount(id, patch);
-      if (!updated) throw new Error("Discount update failed");
-      setDiscounts((current) => current.map((discount) => (discount.id === id ? updated : discount)));
-    } catch {
-      toast({ title: "Could not update discount", variant: "destructive" });
-    }
-  };
-
-  const handleDeleteDiscount = async (id: string) => {
-    if (!window.confirm("Delete this discount code?")) return;
-    try {
-      await deleteDiscount(id);
-      setDiscounts((current) => current.filter((discount) => discount.id !== id));
-      toast({ title: "Discount deleted" });
-    } catch {
-      toast({ title: "Could not delete discount", variant: "destructive" });
-    }
-  };
-
   const handleUpdateShippingRate = async (id: string, patch: Partial<ShippingRate>) => {
     try {
       const updated = await updateShippingRate(id, patch);
@@ -930,8 +890,6 @@ export default function Admin() {
             <CustomersPanel customers={customers} />
           ) : section === "reviews" ? (
             <ReviewsPanel reviews={reviews} products={products} onStatusChange={handleReviewStatus} />
-          ) : section === "discounts" ? (
-            <DiscountsPanel products={products} discounts={discounts} onCreate={handleCreateDiscount} onUpdate={handleUpdateDiscount} onDelete={handleDeleteDiscount} />
           ) : (
             <SettingsPanel settings={storeSettings} onSave={handleSaveSettings} />
           )}
@@ -2326,34 +2284,6 @@ function ReviewsPanel({
           </div>
         </article>
       ))}
-    </div>
-  );
-}
-
-function DiscountsPanel({ products, discounts, onCreate, onUpdate, onDelete }: { products: Product[]; discounts: AdminDiscount[]; onCreate: (input: Parameters<typeof createDiscount>[0]) => void; onUpdate: (id: string, patch: Partial<AdminDiscount>) => void; onDelete: (id: string) => void }) {
-  const [draft, setDraft] = useState({ code: "", type: "Percent", value: "10" });
-  const addCode = () => {
-    if (!draft.code.trim()) return toast({ title: "Discount code required", variant: "destructive" });
-    void onCreate({ code: draft.code, type: draft.type.toLowerCase(), value: Number(draft.value) || 0, usage_limit: null, starts_at: null, ends_at: null, scope_type: "all", scope_value: null });
-    setDraft({ code: "", type: "Percent", value: "10" });
-  };
-  return (
-    <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
-      <div className="vibe-card p-5">
-        <h3 className="text-[13px] font-medium">Create discount</h3>
-        <div className="mt-4 space-y-3">
-          <ProductInputField label="Code" value={draft.code} onChange={(value) => setDraft((current) => ({ ...current, code: value }))} placeholder="RAMADAN15" />
-          <label className="block"><span className="mb-1.5 block text-[11px] text-[rgb(var(--vibe-muted))]">Type</span><select value={draft.type} onChange={(event) => setDraft((current) => ({ ...current, type: event.target.value }))} className="h-9 w-full rounded-md border border-[rgb(var(--vibe-border))] bg-white px-3 text-[13px]"><option>Percent</option><option>Fixed</option><option>Shipping</option></select></label>
-          <ProductInputField label="Value" type="number" value={draft.value} onChange={(value) => setDraft((current) => ({ ...current, value }))} />
-          <button type="button" onClick={addCode} className="h-8 w-full rounded-md bg-[rgb(var(--vibe-foreground))] px-3 text-[12px] text-white">Add discount</button>
-        </div>
-      </div>
-      <div className="vibe-card overflow-hidden">
-        <div className="border-b border-[rgb(var(--vibe-border))] px-5 py-4"><h3 className="text-[13px] font-medium">Campaign codes</h3><p className="mt-0.5 text-[11px] text-[rgb(var(--vibe-muted))]">{products.length} products available for campaigns</p></div>
-        <table className="w-full min-w-[640px] text-[12.5px]">
-          <tbody>{discounts.map((row) => <tr key={row.id} className="border-b border-[rgb(var(--vibe-border))] last:border-0"><td className="px-5 py-3 font-mono font-medium">{row.code}</td><td className="px-5 py-3 capitalize">{row.type}</td><td className="px-5 py-3 font-mono">{row.type === "percent" ? `${row.value}%` : formatPrice(row.value)}</td><td className="px-5 py-3 text-[rgb(var(--vibe-muted))]">{row.used_count}{row.usage_limit ? ` / ${row.usage_limit}` : ""} uses</td><td className="px-5 py-3 text-right"><button type="button" onClick={() => onUpdate(row.id, { active: !row.active })} className="h-7 rounded-md border border-[rgb(var(--vibe-border))] px-2 text-[11px]">{row.active ? "Pause" : "Activate"}</button><button type="button" onClick={() => onDelete(row.id)} className="ml-2 h-7 rounded-md border border-red-100 px-2 text-[11px] text-red-600">Delete</button></td></tr>)}</tbody>
-        </table>
-      </div>
     </div>
   );
 }

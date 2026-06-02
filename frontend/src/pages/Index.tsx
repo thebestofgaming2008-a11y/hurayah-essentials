@@ -191,7 +191,7 @@ const Index = () => {
             </div>
           ) : featuredView.length === 0 ? (
             <p className="text-sm text-foreground/60">
-              No products yet - your shop is ready for its first listing.
+              Products are temporarily unavailable. Please try again shortly.
             </p>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">

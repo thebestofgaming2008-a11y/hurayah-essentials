@@ -266,7 +266,7 @@ const Shop = () => {
               <div className="rounded-xl border border-dashed border-border p-12 text-center">
                 <p className="text-foreground/70 mb-3">
                   {allProducts.length === 0
-                    ? "No products yet - your shop is ready for its first listing."
+                    ? "Products are temporarily unavailable. Please try again shortly."
                     : "No products match your filters."}
                 </p>
                 <button

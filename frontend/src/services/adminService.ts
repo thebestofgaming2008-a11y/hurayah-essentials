@@ -94,22 +94,6 @@ export async function uploadProductImage(file: File): Promise<string | null> {
   return url ? `${url}#${encodeURIComponent(file.name)}` : null;
 }
 
-export interface AdminDiscount {
-  id: string;
-  code: string;
-  type: string;
-  value: number;
-  active: boolean;
-  usage_limit: number | null;
-  used_count: number;
-  starts_at: string | null;
-  ends_at: string | null;
-  scope_type: string;
-  scope_value: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
 export interface ShippingRate {
   id: string;
   carrier: string;
@@ -127,22 +111,6 @@ export interface AdminNotification {
   title: string;
   body: string;
   section: string;
-}
-
-export async function listDiscounts(): Promise<AdminDiscount[]> {
-  return (await convex.query(api.admin.listDiscounts, {})) as AdminDiscount[];
-}
-
-export async function createDiscount(input: Omit<AdminDiscount, "id" | "active" | "used_count" | "created_at" | "updated_at">): Promise<AdminDiscount | null> {
-  return (await convex.mutation(api.admin.createDiscount, input)) as AdminDiscount | null;
-}
-
-export async function updateDiscount(id: string, patch: Partial<AdminDiscount>): Promise<AdminDiscount | null> {
-  return (await convex.mutation(api.admin.updateDiscount, { id, patch })) as AdminDiscount | null;
-}
-
-export async function deleteDiscount(id: string): Promise<boolean> {
-  return await convex.mutation(api.admin.deleteDiscount, { id });
 }
 
 export async function listShippingRates(): Promise<ShippingRate[]> {

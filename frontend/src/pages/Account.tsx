@@ -125,9 +125,6 @@ const Account = () => {
                 <button onClick={signOut} className="h-12 rounded-md border border-[rgb(var(--vibe-border))] bg-white px-4 text-[13px] font-medium text-brand hover:bg-[rgb(var(--vibe-accent))]">
                   Sign out
                 </button>
-                <button onClick={signOut} className="text-[13px] font-medium text-brand hover:underline">
-                  Sign out of all devices
-                </button>
               </div>
             </div>
           )}
