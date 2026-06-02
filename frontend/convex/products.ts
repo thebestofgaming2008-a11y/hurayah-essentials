@@ -36,6 +36,7 @@ const productInput = {
   variant_label: v.optional(v.union(v.string(), v.null())),
   color_options: v.optional(v.union(v.array(v.string()), v.null())),
   size_options: v.optional(v.union(v.array(v.string()), v.null())),
+  option_types: v.optional(v.union(v.array(v.any()), v.null())),
   badge: v.optional(v.union(v.string(), v.null())),
   rating: v.optional(v.union(v.number(), v.null())),
   reviews_count: v.optional(v.union(v.number(), v.null())),
@@ -81,6 +82,7 @@ const productPatch = {
   variant_label: v.optional(v.union(v.string(), v.null())),
   color_options: v.optional(v.union(v.array(v.string()), v.null())),
   size_options: v.optional(v.union(v.array(v.string()), v.null())),
+  option_types: v.optional(v.union(v.array(v.any()), v.null())),
   badge: v.optional(v.union(v.string(), v.null())),
   rating: v.optional(v.union(v.number(), v.null())),
   reviews_count: v.optional(v.union(v.number(), v.null())),
@@ -197,6 +199,19 @@ function normalize(input: any, isPatch = false, existingPrice?: number) {
         ? Array.from(new Set(input[field].map((option: string) => cleanText(option, 60)).filter(Boolean))).slice(0, 30)
         : [];
     }
+  }
+  if (input.option_types !== undefined || !isPatch) {
+    output.option_types = Array.isArray(input.option_types)
+      ? input.option_types
+          .map((group: any) => ({
+            name: cleanText(group?.name, 60),
+            values: Array.isArray(group?.values)
+              ? Array.from(new Set(group.values.map((value: string) => cleanText(value, 60)).filter(Boolean))).slice(0, 30)
+              : [],
+          }))
+          .filter((group: { name: string; values: string[] }) => group.name && group.values.length)
+          .slice(0, 3)
+      : [];
   }
   output.is_active = input.is_active ?? (isPatch ? undefined : true);
   output.is_featured = input.is_featured ?? (isPatch ? undefined : false);

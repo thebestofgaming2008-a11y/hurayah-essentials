@@ -36,6 +36,7 @@ export interface Product {
   variant_label?: string | null;
   color_options?: string[] | null;
   size_options?: string[] | null;
+  option_types?: Array<{ name: string; values: string[] }> | null;
   badge: string | null;
   rating: number | null;
   reviews_count: number | null;
@@ -57,6 +58,7 @@ function normalize(p: unknown): Product {
     tags: Array.isArray(r.tags) ? (r.tags as string[]) : [],
     color_options: Array.isArray(r.color_options) ? (r.color_options as string[]) : [],
     size_options: Array.isArray(r.size_options) ? (r.size_options as string[]) : [],
+    option_types: Array.isArray(r.option_types) ? (r.option_types as Array<{ name: string; values: string[] }>) : [],
   } as Product;
 }
 

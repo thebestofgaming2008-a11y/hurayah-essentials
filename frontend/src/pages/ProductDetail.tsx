@@ -30,6 +30,7 @@ const ProductDetail = () => {
   const [mainImgError, setMainImgError] = useState(false);
   const [selectedColor, setSelectedColor] = useState("");
   const [selectedSize, setSelectedSize] = useState("");
+  const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!id) return;
@@ -40,6 +41,7 @@ const ProductDetail = () => {
     setMainImgError(false);
     setSelectedColor("");
     setSelectedSize("");
+    setSelectedOptions({});
 
     (async () => {
       let nextProduct = await getProductBySlug(id);
@@ -95,6 +97,10 @@ const ProductDetail = () => {
   const inStock = product.in_stock !== false && stock > 0;
   const colorOptions = product.color_options ?? [];
   const sizeOptions = product.size_options ?? [];
+  const optionGroups = normalizeOptionGroupsForDisplay(product.option_types?.length ? product.option_types : [
+    ...(sizeOptions.length ? [{ name: "Size", values: sizeOptions }] : []),
+    ...(colorOptions.length ? [{ name: "Colour", values: colorOptions }] : []),
+  ]);
   const activeColor = selectedColor || colorOptions[0] || "";
   const activeSize = selectedSize || sizeOptions[0] || "";
 
@@ -106,7 +112,7 @@ const ProductDetail = () => {
 
   return (
     <SiteLayout>
-      <main className="min-h-screen bg-background px-4 py-4 text-[#06133a] sm:px-6 sm:py-8 lg:px-10 lg:pb-10">
+      <main className="min-h-screen overflow-x-hidden bg-background px-4 py-4 text-[#06133a] sm:px-6 sm:py-8 lg:px-10 lg:pb-10">
         <div className="mx-auto max-w-[1220px]">
           <nav className="mb-5 flex flex-wrap items-center gap-1 text-xs text-[#06133a]/65 sm:mb-8 sm:text-sm">
             <Link to="/" className="hover:text-[#06133a]">Home</Link>
@@ -122,22 +128,22 @@ const ProductDetail = () => {
 
           <section className="pdp-fade-in">
           <div className="grid gap-8 lg:grid-cols-[minmax(0,1.08fr)_minmax(360px,0.92fr)] lg:gap-12 xl:gap-20">
-            <div className="mx-auto w-full max-w-[620px] lg:mx-0">
-              <div className="aspect-square overflow-hidden rounded-md border border-[#06133a]/15 bg-white shadow-[0_18px_40px_-30px_rgba(3,15,48,0.5)]">
+            <div className="mx-auto w-full max-w-[620px] min-w-0 lg:mx-0">
+              <div className="aspect-square max-h-[calc(100dvh-220px)] overflow-hidden rounded-md border border-[#06133a]/15 bg-white shadow-[0_18px_40px_-30px_rgba(3,15,48,0.5)]">
                 {mainImage && !mainImgError ? (
                   isVideoUrl(mainImage) ? (
-                    <video key={mainImage} src={mainImage} className="pdp-image-swap h-full w-full object-cover" controls playsInline />
+                    <video key={mainImage} src={mainImage} className="pdp-image-swap h-full w-full object-contain" controls playsInline />
                   ) : (
-                    <img key={mainImage} src={mainImage} alt={product.name} loading="eager" fetchPriority="high" decoding="async" onError={() => setMainImgError(true)} className="pdp-image-swap h-full w-full object-cover" />
+                    <img key={mainImage} src={mainImage} alt={product.name} loading="eager" fetchPriority="high" decoding="async" onError={() => setMainImgError(true)} className="pdp-image-swap h-full w-full object-contain" />
                   )
                 ) : (
                   <div className="h-full w-full bg-[#d9d9d9]" />
                 )}
               </div>
-              <div className="no-scrollbar mt-3 flex gap-3 overflow-x-auto pb-1 sm:gap-4">
+              <div className="no-scrollbar mt-3 flex max-w-full gap-2 overflow-x-auto pb-1 sm:gap-4">
                 {gallery.map((src, index) => (
-                  <button key={src} type="button" onClick={() => setActiveImage(index)} className={cn("pdp-press aspect-square w-[82px] shrink-0 overflow-hidden rounded-md bg-[#d9d9d9] sm:w-[96px]", activeImage === index && "ring-2 ring-[#06133a]")}>
-                    {isVideoUrl(src) ? <video src={src} className="h-full w-full object-cover" muted playsInline /> : <img src={src} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />}
+                  <button key={src} type="button" onClick={() => setActiveImage(index)} className={cn("pdp-press aspect-square w-[68px] shrink-0 overflow-hidden rounded-md bg-[#d9d9d9] sm:w-[96px]", activeImage === index && "ring-2 ring-[#06133a]")}>
+                    {isVideoUrl(src) ? <video src={src} className="h-full w-full object-contain" muted playsInline /> : <img src={src} alt="" loading="lazy" decoding="async" className="h-full w-full object-contain" />}
                   </button>
                 ))}
               </div>
@@ -178,10 +184,29 @@ const ProductDetail = () => {
                 {compareAt && <span className="ml-4 text-2xl text-black/35 line-through">{format(compareAt)}</span>}
               </div>
 
-              {(colorOptions.length > 0 || sizeOptions.length > 0) && (
+              {optionGroups.length > 0 && (
                 <div className="mt-6 grid max-w-[49rem] gap-4 sm:grid-cols-2">
-                  {colorOptions.length > 0 && <OptionGroup label="Colour" options={colorOptions} value={activeColor} onChange={setSelectedColor} />}
-                  {sizeOptions.length > 0 && <OptionGroup label="Size" options={sizeOptions} value={activeSize} onChange={setSelectedSize} />}
+                  {optionGroups.map((group) => {
+                    const lower = group.name.toLowerCase();
+                    const value = lower === "color" || lower === "colour"
+                      ? selectedColor || group.values[0] || ""
+                      : lower === "size"
+                        ? selectedSize || group.values[0] || ""
+                        : selectedOptions[group.name] || group.values[0] || "";
+                    return (
+                      <OptionGroup
+                        key={group.name}
+                        label={group.name}
+                        options={group.values}
+                        value={value}
+                        onChange={(next) => {
+                          if (lower === "color" || lower === "colour") setSelectedColor(next);
+                          else if (lower === "size") setSelectedSize(next);
+                          else setSelectedOptions((current) => ({ ...current, [group.name]: next }));
+                        }}
+                      />
+                    );
+                  })}
                 </div>
               )}
 
@@ -301,6 +326,16 @@ function Fact({ label, value }: { label: string; value: string }) {
 
 function isVideoUrl(url: string) {
   return /\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(url);
+}
+
+function normalizeOptionGroupsForDisplay(groups: Array<{ name: string; values: string[] }> | null | undefined) {
+  return (groups ?? [])
+    .map((group) => ({
+      name: group.name?.trim(),
+      values: Array.from(new Set((group.values ?? []).map((value) => value.trim()).filter(Boolean))),
+    }))
+    .filter((group): group is { name: string; values: string[] } => Boolean(group.name && group.values.length))
+    .slice(0, 3);
 }
 
 function ReviewsSection({ productId, userReady, canReview, reviews, onSubmitted }: { productId: string; userReady: boolean; canReview: boolean; reviews: ProductReview[]; onSubmitted: () => Promise<void> }) {

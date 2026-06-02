@@ -37,6 +37,7 @@ export interface ProductInput {
   variant_label?: string | null;
   color_options?: string[] | null;
   size_options?: string[] | null;
+  option_types?: Array<{ name: string; values: string[] }> | null;
   badge?: string | null;
   is_active?: boolean;
   is_featured?: boolean;

@@ -79,6 +79,8 @@ type SectionKey =
   | "analytics"
   | "orders"
   | "products"
+  | "inventory"
+  | "categories"
   | "shipping"
   | "customers"
   | "reviews"
@@ -113,6 +115,7 @@ type ProductFormState = {
   variant_label: string;
   color_options: string;
   size_options: string;
+  option_types: Array<{ name: string; values: string[] }>;
   cover_image_url: string;
   images: string;
   badge: string;
@@ -121,6 +124,13 @@ type ProductFormState = {
   is_featured: boolean;
   is_bestseller: boolean;
   is_new_arrival: boolean;
+};
+
+type AdminCategory = {
+  key: string;
+  label: string;
+  blurb: string;
+  parent?: string;
 };
 
 type OrderFulfillmentState = {
@@ -145,6 +155,8 @@ const navGroups: Array<{
     items: [
       { key: "orders", icon: ShoppingCart, label: "Orders", badgeKey: "orders" },
       { key: "products", icon: Package, label: "Products" },
+      { key: "inventory", icon: PackageOpen, label: "Inventory" },
+      { key: "categories", icon: Tag, label: "Categories" },
       { key: "shipping", icon: Truck, label: "Shipping", badgeKey: "shipping" },
     ],
   },
@@ -382,6 +394,7 @@ export default function Admin() {
   const summary = useMemo(() => summarize(orders, customers, range), [orders, customers, range]);
   const chartData = useMemo(() => makeRangeData(orders, customers, range), [orders, customers, range]);
   const top = useMemo(() => topProducts(orders, products), [orders, products]);
+  const adminCategories = useMemo(() => mergeCategories(storeSettings), [storeSettings]);
   const title = navGroups.flatMap((group) => group.items).find((item) => item.key === section)?.label ?? "Dashboard";
   const subtitle =
     section === "dashboard"
@@ -392,6 +405,10 @@ export default function Admin() {
           ? `${orders.length} total`
           : section === "products"
             ? `${products.length} active`
+            : section === "inventory"
+              ? "Stock, weights, and active status"
+              : section === "categories"
+                ? `${adminCategories.length} categories`
             : section === "shipping"
               ? "Carrier rates · Calculator · Recalc reminders"
               : undefined;
@@ -479,8 +496,8 @@ export default function Admin() {
   };
 
   const handleSaveProduct = async (form: ProductFormState) => {
-    if (!form.name.trim() || !form.slug.trim() || Number(form.price_inr) <= 0 || !form.category.trim()) {
-      toast({ title: "Name, slug, price, and category are required", variant: "destructive" });
+    if (!form.name.trim() || Number(form.price_inr) <= 0 || !form.category.trim()) {
+      toast({ title: "Name, price, and category are required", variant: "destructive" });
       return;
     }
     const currentProduct = productEditor && productEditor !== "new" ? productEditor : null;
@@ -499,9 +516,10 @@ export default function Admin() {
       ? products.filter((product) => product.id !== currentProduct?.id && variantGroupFromTags(product.tags) === variantGroup)
       : [];
     const selectedCategory = form.category.trim() || "books";
-    const selectedMeta = CATEGORIES.find((category) => category.key === selectedCategory);
+    const selectedMeta = adminCategories.find((category) => category.key === selectedCategory);
     const topCategory = selectedMeta?.parent || selectedCategory;
     const subjectTag = selectedMeta?.parent === "books" ? selectedMeta.label : null;
+    const optionGroups = normalizeOptionGroups(form.option_types);
     const payload = {
       name: form.name.trim(),
       slug: form.slug.trim() || null,
@@ -528,8 +546,9 @@ export default function Admin() {
       images: form.images.split("\n").map((image) => image.trim()).filter(Boolean),
       linked_product_ids: variantPeers.map((product) => product.id),
       variant_label: form.variant_label.trim() || null,
-      color_options: splitOptionInput(form.color_options),
-      size_options: splitOptionInput(form.size_options),
+      color_options: optionValuesByName(optionGroups, "Color").length ? optionValuesByName(optionGroups, "Color") : optionValuesByName(optionGroups, "Colour"),
+      size_options: optionValuesByName(optionGroups, "Size"),
+      option_types: optionGroups,
       badge: form.badge.trim() || null,
       is_active: form.is_active,
       is_featured: form.is_featured,
@@ -720,6 +739,17 @@ export default function Admin() {
     }
   };
 
+  const handleSaveCategories = async (categories: AdminCategory[]) => {
+    try {
+      const nextSettings = { ...storeSettings, customCategories: categories };
+      await saveStoreSettings(nextSettings);
+      setStoreSettings(nextSettings);
+      toast({ title: "Categories saved" });
+    } catch {
+      toast({ title: "Could not save categories", variant: "destructive" });
+    }
+  };
+
   return (
     <div className="vibe-admin flex min-h-screen bg-[rgb(var(--vibe-page))] text-[rgb(var(--vibe-foreground))]">
       {mobileOpen && (
@@ -848,9 +878,9 @@ export default function Admin() {
                 type="text"
                 placeholder="Search..."
                 className="h-8 w-52 rounded-md border border-[rgb(var(--vibe-border))] bg-white pl-8 pr-3 text-[13px] outline-none focus:ring-1 focus:ring-zinc-500"
-                value={["orders", "products"].includes(section) ? query : ""}
+                value={["orders", "products", "inventory"].includes(section) ? query : ""}
                 onChange={(event) => setQuery(event.target.value)}
-                disabled={!["orders", "products"].includes(section)}
+                disabled={!["orders", "products", "inventory"].includes(section)}
               />
             </div>
             <Link
@@ -882,6 +912,10 @@ export default function Admin() {
               onToggleActive={handleToggleProductActive}
               onDuplicateProduct={handleDuplicateProduct}
             />
+          ) : section === "inventory" ? (
+            <InventoryPanel products={products} query={query} setQuery={setQuery} onStockChange={handleStockChange} onEditProduct={(product) => setProductEditor(product)} onToggleActive={handleToggleProductActive} />
+          ) : section === "categories" ? (
+            <CategoriesPanel categories={adminCategories} customCategories={customCategoriesFromSettings(storeSettings)} onSave={handleSaveCategories} />
           ) : section === "analytics" ? (
             <AnalyticsPanel range={range} setRange={setRange} summary={summary} chartData={chartData} top={top} customers={customers} orders={orders} products={products} />
           ) : section === "shipping" ? (
@@ -899,6 +933,7 @@ export default function Admin() {
         <ProductEditorDialog
           product={productEditor === "new" ? null : productEditor}
           products={products}
+          categories={adminCategories}
           onClose={() => setProductEditor(null)}
           onSave={handleSaveProduct}
         />
@@ -1304,6 +1339,60 @@ function splitOptionInput(value: string) {
   return Array.from(new Set(value.split(/[\n,]+/).map((item) => item.trim()).filter(Boolean)));
 }
 
+function normalizeOptionGroups(groups: Array<{ name: string; values: string[] }>) {
+  return groups
+    .map((group) => ({
+      name: group.name.trim(),
+      values: Array.from(new Set((group.values ?? []).map((value) => value.trim()).filter(Boolean))),
+    }))
+    .filter((group) => group.name && group.values.length)
+    .slice(0, 3);
+}
+
+function optionGroupsFromProduct(product: Product | null): Array<{ name: string; values: string[] }> {
+  const saved = normalizeOptionGroups(product?.option_types ?? []);
+  if (saved.length) return saved;
+  const groups: Array<{ name: string; values: string[] }> = [];
+  if (product?.size_options?.length) groups.push({ name: "Size", values: product.size_options });
+  if (product?.color_options?.length) groups.push({ name: "Color", values: product.color_options });
+  return groups;
+}
+
+function optionValuesByName(groups: Array<{ name: string; values: string[] }>, name: string) {
+  return groups.find((group) => group.name.trim().toLowerCase() === name.toLowerCase())?.values ?? [];
+}
+
+function plainDefaultCategories(): AdminCategory[] {
+  return CATEGORIES.map((category) => ({
+    key: category.key,
+    label: category.label,
+    blurb: category.blurb,
+    parent: category.parent,
+  }));
+}
+
+function customCategoriesFromSettings(settings: Record<string, unknown>): AdminCategory[] {
+  const rows = settings.customCategories;
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .map((row) => row as Record<string, unknown>)
+    .map((row) => ({
+      key: slugifyAdmin(String(row.key ?? row.label ?? "")),
+      label: String(row.label ?? "").trim(),
+      blurb: String(row.blurb ?? "").trim(),
+      parent: row.parent ? slugifyAdmin(String(row.parent)) : undefined,
+    }))
+    .filter((row) => row.key && row.label);
+}
+
+function mergeCategories(settings: Record<string, unknown>): AdminCategory[] {
+  const merged = new Map<string, AdminCategory>();
+  for (const category of [...plainDefaultCategories(), ...customCategoriesFromSettings(settings)]) {
+    merged.set(category.key, category);
+  }
+  return [...merged.values()];
+}
+
 function isVideoUrl(url: string) {
   return /\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(url);
 }
@@ -1329,11 +1418,12 @@ function productToForm(product: Product | null): ProductFormState {
     sale_price_inr: String(product?.sale_price_inr ?? product?.sale_price ?? ""),
     sku: product?.sku ?? "",
     stock_quantity: String(product?.stock_quantity ?? 0),
-    category: product?.category ?? "books",
+    category: product?.category_id ?? product?.category ?? "books",
     variant_group: variantGroupFromTags(product?.tags),
     variant_label: product?.variant_label ?? "",
     color_options: (product?.color_options ?? []).join("\n"),
     size_options: (product?.size_options ?? []).join("\n"),
+    option_types: optionGroupsFromProduct(product),
     cover_image_url: product?.cover_image_url ?? "",
     images: (product?.images ?? []).join("\n"),
     badge: product?.badge ?? "",
@@ -1348,11 +1438,13 @@ function productToForm(product: Product | null): ProductFormState {
 function ProductEditorDialog({
   product,
   products,
+  categories,
   onClose,
   onSave,
 }: {
   product: Product | null;
   products: Product[];
+  categories: AdminCategory[];
   onClose: () => void;
   onSave: (form: ProductFormState) => Promise<void>;
 }) {
@@ -1447,7 +1539,7 @@ function ProductEditorDialog({
           <div className="space-y-3">
             <div className="aspect-[3/4] overflow-hidden rounded-md border border-[rgb(var(--vibe-border))] bg-[rgb(var(--vibe-surface))]">
               {form.cover_image_url ? (
-                <img src={form.cover_image_url} alt={form.name || "Product cover"} className="h-full w-full object-cover" />
+                <img src={form.cover_image_url} alt={form.name || "Product cover"} className="h-full w-full object-contain" />
               ) : (
                 <div className="grid h-full place-items-center text-[12px] text-[rgb(var(--vibe-muted))]">No image</div>
               )}
@@ -1467,8 +1559,8 @@ function ProductEditorDialog({
             {gallery.length > 0 && (
               <div className="flex gap-3 overflow-x-auto pb-2">
                 {gallery.map((image, index) => (
-                  <div key={`${image}-${index}`} className="group relative h-28 w-24 shrink-0 overflow-hidden rounded-md border border-[rgb(var(--vibe-border))] bg-white">
-                    {isVideoUrl(image) ? <video src={image} className="h-full w-full object-cover" muted playsInline /> : <img src={image} alt="" className="h-full w-full object-cover" />}
+                  <div key={`${image}-${index}`} className="group relative h-32 w-28 shrink-0 overflow-hidden rounded-md border border-[rgb(var(--vibe-border))] bg-white">
+                    {isVideoUrl(image) ? <video src={image} className="h-full w-full object-contain" muted playsInline /> : <img src={image} alt="" className="h-full w-full object-contain" />}
                     {image === form.cover_image_url ? (
                       <span className="absolute bottom-1 left-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-center text-[9px] font-medium text-white">Cover</span>
                     ) : (
@@ -1483,20 +1575,20 @@ function ProductEditorDialog({
           <div className="space-y-5">
             <div className="grid gap-3 sm:grid-cols-2">
               <ProductInputField label="Name" value={form.name} onChange={(value) => setField("name", value)} required />
-              <ProductInputField label="Slug" value={form.slug} onChange={(value) => setField("slug", value)} placeholder="auto-generated if blank" />
-              <ProductInputField label="SKU" value={form.sku} onChange={(value) => setField("sku", value)} />
+              <ProductInputField label="Slug (optional)" value={form.slug} onChange={(value) => setField("slug", value)} placeholder="auto-generated if blank" />
+              <ProductInputField label="SKU (optional)" value={form.sku} onChange={(value) => setField("sku", value)} />
               <label className="space-y-1 text-[11px] font-medium text-[rgb(var(--vibe-muted))]">
                 <span>Category</span>
                 <select value={form.category} onChange={(event) => setField("category", event.target.value)} className="h-9 w-full rounded-md border border-[rgb(var(--vibe-border))] bg-white px-3 text-[13px] text-[rgb(var(--vibe-foreground))] outline-none focus:ring-1 focus:ring-zinc-500">
-                  {CATEGORIES.map((category) => (
+                  {categories.map((category) => (
                     <option key={category.key} value={category.key}>{category.parent ? `${category.label} (${category.parent})` : category.label}</option>
                   ))}
                 </select>
               </label>
               <ProductInputField label="Price" type="number" value={form.price_inr} onChange={(value) => setField("price_inr", value)} required />
-              <ProductInputField label="Sale price" type="number" value={form.sale_price_inr} onChange={(value) => setField("sale_price_inr", value)} />
+              <ProductInputField label="Sale price (optional)" type="number" value={form.sale_price_inr} onChange={(value) => setField("sale_price_inr", value)} />
               <ProductInputField label="Stock" type="number" value={form.stock_quantity} onChange={(value) => setField("stock_quantity", value)} />
-              <ProductInputField label="Badge" value={form.badge} onChange={(value) => setField("badge", value)} placeholder="New, Sale, Bestseller..." />
+              <ProductInputField label="Badge (optional)" value={form.badge} onChange={(value) => setField("badge", value)} placeholder="New, Sale, Bestseller..." />
               <ProductInputField label="Author" value={form.author} onChange={(value) => setField("author", value)} />
               <ProductInputField label="Publisher" value={form.publisher} onChange={(value) => setField("publisher", value)} />
               <ProductInputField label="Language" value={form.language} onChange={(value) => setField("language", value)} />
@@ -1546,9 +1638,10 @@ function ProductEditorDialog({
             </div>
             <div className="grid gap-3 rounded-lg border border-[rgb(var(--vibe-border))] p-3 sm:grid-cols-2">
               <ProductInputField label="Variant group" value={form.variant_group} onChange={(value) => setField("variant_group", slugifyAdmin(value))} placeholder="kufi-prayer-cap" list="variant-groups" />
-              <ProductInputField label="Variant label" value={form.variant_label} onChange={(value) => setField("variant_label", value)} placeholder="Brown, Large, Urdu..." />
-              <ProductOptionField label="Colours" value={form.color_options} onChange={(value) => setField("color_options", value)} placeholder="Black, White, Olive" suggestions={["Black", "White", "Grey", "Brown", "Olive", "Navy"]} />
-              <ProductOptionField label="Sizes" value={form.size_options} onChange={(value) => setField("size_options", value)} placeholder="S, M, L, XL" suggestions={["XS", "S", "M", "L", "XL", "XXL", "Free size"]} />
+              <ProductInputField label="Variant label (optional)" value={form.variant_label} onChange={(value) => setField("variant_label", value)} placeholder="Brown, Large, Urdu..." />
+              <div className="sm:col-span-2">
+                <VariantOptionsEditor value={form.option_types} onChange={(value) => setField("option_types", value)} />
+              </div>
               <datalist id="variant-groups">
                 {variantGroups.map((group) => <option key={group} value={group} />)}
               </datalist>
@@ -1624,6 +1717,89 @@ function ProductInputField({
       <span className="mb-1.5 block text-[11px] text-[rgb(var(--vibe-muted))]">{label}</span>
       <input type={type} value={value} required={required} placeholder={placeholder} list={list} onChange={(event) => onChange(event.target.value)} className="h-9 w-full rounded-md border border-[rgb(var(--vibe-border))] bg-white px-3 text-[13px] outline-none focus:ring-1 focus:ring-zinc-500" />
     </label>
+  );
+}
+
+function VariantOptionsEditor({ value, onChange }: { value: Array<{ name: string; values: string[] }>; onChange: (value: Array<{ name: string; values: string[] }>) => void }) {
+  const groups = value.length ? value : [{ name: "Size", values: [] }, { name: "Color", values: [] }];
+  const updateGroup = (index: number, patch: Partial<{ name: string; values: string[] }>) => {
+    onChange(groups.map((group, i) => (i === index ? { ...group, ...patch } : group)));
+  };
+  const addValue = (index: number, raw: string) => {
+    const clean = raw.trim();
+    if (!clean) return;
+    const nextValues = Array.from(new Set([...(groups[index]?.values ?? []), clean]));
+    updateGroup(index, { values: nextValues });
+  };
+  const removeValue = (index: number, option: string) => {
+    updateGroup(index, { values: groups[index].values.filter((value) => value !== option) });
+  };
+  const removeGroup = (index: number) => {
+    onChange(groups.filter((_, i) => i !== index));
+  };
+  const addGroup = () => {
+    if (groups.length >= 3) return;
+    onChange([...groups, { name: groups.length === 0 ? "Size" : groups.length === 1 ? "Color" : "Material", values: [] }]);
+  };
+  return (
+    <div className="rounded-md border border-[rgb(var(--vibe-border))] bg-white">
+      <div className="flex items-center justify-between gap-3 border-b border-[rgb(var(--vibe-border))] px-3 py-3">
+        <label className="flex items-center gap-2 text-[12px] font-medium text-[rgb(var(--vibe-foreground))]">
+          <input type="checkbox" checked={groups.some((group) => group.values.length)} readOnly className="h-4 w-4 rounded border-[rgb(var(--vibe-border))]" />
+          This product has multiple options, like different sizes or colors
+        </label>
+        <button type="button" onClick={addGroup} disabled={groups.length >= 3} className="h-8 rounded-md border border-[rgb(var(--vibe-border))] px-3 text-[11px] disabled:opacity-40">
+          Add option
+        </button>
+      </div>
+      <div className="divide-y divide-[rgb(var(--vibe-border))]">
+        {groups.map((group, index) => (
+          <VariantOptionRow key={`${group.name}-${index}`} group={group} index={index} onName={(name) => updateGroup(index, { name })} onAdd={(option) => addValue(index, option)} onRemove={(option) => removeValue(index, option)} onRemoveGroup={() => removeGroup(index)} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function VariantOptionRow({ group, index, onName, onAdd, onRemove, onRemoveGroup }: { group: { name: string; values: string[] }; index: number; onName: (name: string) => void; onAdd: (value: string) => void; onRemove: (value: string) => void; onRemoveGroup: () => void }) {
+  const [draft, setDraft] = useState("");
+  const commit = () => {
+    onAdd(draft);
+    setDraft("");
+  };
+  return (
+    <div className="grid gap-3 px-3 py-4 sm:grid-cols-[160px_1fr]">
+      <div>
+        <div className="mb-2 flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-[rgb(var(--vibe-muted))]">
+          Option {index + 1}
+          <button type="button" onClick={onRemoveGroup} className="text-[11px] normal-case tracking-normal text-blue-700">Remove</button>
+        </div>
+        <input value={group.name} onChange={(event) => onName(event.target.value)} className="h-10 w-full rounded-md border border-[rgb(var(--vibe-border))] bg-white px-3 text-[13px] outline-none focus:ring-1 focus:ring-zinc-500" />
+      </div>
+      <div className="min-h-12 rounded-md border border-[rgb(var(--vibe-border))] bg-white p-2">
+        <div className="flex flex-wrap gap-1.5">
+          {group.values.map((option) => (
+            <button key={option} type="button" onClick={() => onRemove(option)} className="inline-flex h-8 items-center gap-1.5 rounded bg-[#e6e9f0] px-2.5 text-[12px] text-zinc-800">
+              {option}
+              <X className="h-3.5 w-3.5" />
+            </button>
+          ))}
+          <input
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === ",") {
+                event.preventDefault();
+                commit();
+              }
+            }}
+            onBlur={commit}
+            placeholder="Add value"
+            className="h-8 min-w-[120px] flex-1 border-0 bg-transparent px-2 text-[13px] outline-none"
+          />
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1893,7 +2069,7 @@ function ProductsPanel({
               <div key={product.id} className="grid gap-3 px-4 py-3 transition-colors hover:bg-[rgb(var(--vibe-accent))]/50 sm:grid-cols-[minmax(0,1fr)_120px_110px_260px] sm:items-center sm:px-6">
                 <div className="flex min-w-0 items-center gap-3">
                   <div className="h-14 w-12 shrink-0 overflow-hidden rounded-md border border-[rgb(var(--vibe-border))] bg-[rgb(var(--vibe-surface))]">
-                    {product.cover_image_url ? <img src={product.cover_image_url} alt={product.name} loading="lazy" decoding="async" className="h-full w-full object-cover" /> : <div className="grid h-full place-items-center"><Package className="h-4 w-4 text-[rgb(var(--vibe-muted))]" /></div>}
+                    {product.cover_image_url ? <img src={product.cover_image_url} alt={product.name} loading="lazy" decoding="async" className="h-full w-full object-contain" /> : <div className="grid h-full place-items-center"><Package className="h-4 w-4 text-[rgb(var(--vibe-muted))]" /></div>}
                   </div>
                   <div className="min-w-0">
                     <p className="truncate text-[13px] font-medium">{product.name}</p>
@@ -1932,12 +2108,12 @@ function ProductsPanel({
           {filtered.map((product) => (
             <li key={product.id} className="rounded-lg border border-[rgb(var(--vibe-border))] bg-white p-3 transition-all hover:-translate-y-0.5 hover:border-zinc-300 hover:shadow-sm">
               <div className="aspect-[4/3] overflow-hidden rounded-md bg-[rgb(var(--vibe-surface))]">
-                {product.cover_image_url ? <img src={product.cover_image_url} alt={product.name} loading="lazy" decoding="async" className="h-full w-full object-cover" /> : <div className="grid h-full place-items-center"><Package className="h-7 w-7 text-[rgb(var(--vibe-muted))]" /></div>}
+                {product.cover_image_url ? <img src={product.cover_image_url} alt={product.name} loading="lazy" decoding="async" className="h-full w-full object-contain" /> : <div className="grid h-full place-items-center"><Package className="h-7 w-7 text-[rgb(var(--vibe-muted))]" /></div>}
               </div>
               {(product.images?.length ?? 0) > 0 && (
                 <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
                   {[product.cover_image_url, ...(product.images ?? [])].filter(Boolean).map((image, index) => (
-                    <img key={`${product.id}-${index}`} src={image ?? ""} alt="" loading="lazy" decoding="async" className="h-14 w-14 shrink-0 rounded border border-[rgb(var(--vibe-border))] object-cover" />
+                    <img key={`${product.id}-${index}`} src={image ?? ""} alt="" loading="lazy" decoding="async" className="h-16 w-16 shrink-0 rounded border border-[rgb(var(--vibe-border))] object-contain" />
                   ))}
                 </div>
               )}
@@ -1967,6 +2143,116 @@ function ProductsPanel({
         )}
       </div>
     </>
+  );
+}
+
+function InventoryPanel({ products, query, setQuery, onStockChange, onEditProduct, onToggleActive }: { products: Product[]; query: string; setQuery: (value: string) => void; onStockChange: (product: Product, delta: number) => void; onEditProduct: (product: Product) => void; onToggleActive: (product: Product) => void }) {
+  const filtered = products.filter((product) => [product.name, product.sku, product.category, product.category_id].some((value) => String(value ?? "").toLowerCase().includes(query.toLowerCase())));
+  const low = products.filter((product) => (product.stock_quantity ?? 0) > 0 && (product.stock_quantity ?? 0) <= 5);
+  const out = products.filter((product) => (product.stock_quantity ?? 0) <= 0);
+  const unweighed = products.filter((product) => product.weight_g == null);
+  return (
+    <>
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        <Stat label="Total SKUs" value={products.length.toString()} />
+        <Stat label="Low stock" value={low.length.toString()} accent={low.length ? "warning" : undefined} />
+        <Stat label="Out of stock" value={out.length.toString()} accent={out.length ? "destructive" : undefined} />
+        <Stat label="Missing weight" value={unweighed.length.toString()} accent={unweighed.length ? "warning" : undefined} />
+      </div>
+      <div className="vibe-card overflow-hidden">
+        <div className="border-b border-[rgb(var(--vibe-border))] px-4 py-4 sm:px-6">
+          <SearchRow query={query} setQuery={setQuery} placeholder="Search inventory..." />
+        </div>
+        <div className="divide-y divide-[rgb(var(--vibe-border))]">
+          {filtered.map((product) => {
+            const stock = product.stock_quantity ?? 0;
+            return (
+              <div key={product.id} className="grid gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_130px_160px_130px] sm:items-center sm:px-6">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="h-14 w-12 shrink-0 overflow-hidden rounded-md border border-[rgb(var(--vibe-border))] bg-[rgb(var(--vibe-surface))]">
+                    {product.cover_image_url ? <img src={product.cover_image_url} alt={product.name} loading="lazy" decoding="async" className="h-full w-full object-contain" /> : <div className="grid h-full place-items-center"><Package className="h-4 w-4 text-[rgb(var(--vibe-muted))]" /></div>}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-[13px] font-medium">{product.name}</p>
+                    <p className="truncate text-[11px] text-[rgb(var(--vibe-muted))]">{product.sku || "No SKU"} · {product.category_id || product.category || "Uncategorized"}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={() => onStockChange(product, -1)} className="h-9 w-9 rounded-md border border-[rgb(var(--vibe-border))]">-</button>
+                  <span className={cn("w-16 text-center font-mono text-[13px]", stock === 0 ? "text-red-600" : stock <= 5 ? "text-amber-600" : "text-[rgb(var(--vibe-foreground))]")}>{stock}</span>
+                  <button type="button" onClick={() => onStockChange(product, 1)} className="h-9 w-9 rounded-md border border-[rgb(var(--vibe-border))]">+</button>
+                </div>
+                <div className="text-[12px] text-[rgb(var(--vibe-muted))]">
+                  <p>{product.weight_g != null ? `${product.weight_g}g` : "Weight missing"}</p>
+                  <p>{product.weight_confidence || "Unreviewed"}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button type="button" onClick={() => onEditProduct(product)} className="h-9 rounded-md border border-[rgb(var(--vibe-border))] text-[12px]">Edit</button>
+                  <button type="button" onClick={() => onToggleActive(product)} className="h-9 rounded-md border border-[rgb(var(--vibe-border))] text-[12px]">{product.is_active === false ? "Activate" : "Archive"}</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function CategoriesPanel({ categories, customCategories, onSave }: { categories: AdminCategory[]; customCategories: AdminCategory[]; onSave: (categories: AdminCategory[]) => Promise<void> }) {
+  const [rows, setRows] = useState<AdminCategory[]>(customCategories);
+  useEffect(() => setRows(customCategories), [customCategories]);
+  const update = (index: number, patch: Partial<AdminCategory>) => setRows((current) => current.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+  const add = () => setRows((current) => [...current, { key: "", label: "", blurb: "", parent: "" }]);
+  const remove = (index: number) => setRows((current) => current.filter((_, i) => i !== index));
+  const save = () => {
+    const cleaned = rows
+      .map((row) => ({ ...row, key: slugifyAdmin(row.key || row.label), label: row.label.trim(), blurb: row.blurb.trim(), parent: row.parent ? slugifyAdmin(row.parent) : undefined }))
+      .filter((row) => row.key && row.label);
+    void onSave(cleaned);
+  };
+  const defaults = categories.filter((category) => !customCategories.some((custom) => custom.key === category.key));
+  return (
+    <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
+      <div className="vibe-card overflow-hidden">
+        <div className="border-b border-[rgb(var(--vibe-border))] px-5 py-4">
+          <h3 className="text-[13px] font-medium">Default categories</h3>
+          <p className="mt-0.5 text-[11px] text-[rgb(var(--vibe-muted))]">Built-in storefront categories stay available.</p>
+        </div>
+        <div className="divide-y divide-[rgb(var(--vibe-border))]">
+          {defaults.map((category) => (
+            <div key={category.key} className="px-5 py-3">
+              <p className="text-[13px] font-medium">{category.label}</p>
+              <p className="text-[11px] text-[rgb(var(--vibe-muted))]">{category.key}{category.parent ? ` · parent: ${category.parent}` : ""}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="vibe-card overflow-hidden">
+        <div className="flex items-center justify-between gap-3 border-b border-[rgb(var(--vibe-border))] px-5 py-4">
+          <div>
+            <h3 className="text-[13px] font-medium">Custom categories</h3>
+            <p className="mt-0.5 text-[11px] text-[rgb(var(--vibe-muted))]">Add categories that appear in the product editor.</p>
+          </div>
+          <button type="button" onClick={add} className="h-8 rounded-md border border-[rgb(var(--vibe-border))] px-3 text-[12px]">Add</button>
+        </div>
+        <div className="space-y-3 p-4">
+          {rows.map((row, index) => (
+            <div key={index} className="rounded-md border border-[rgb(var(--vibe-border))] p-3">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <ProductInputField label="Label" value={row.label} onChange={(value) => update(index, { label: value, key: row.key || slugifyAdmin(value) })} />
+                <ProductInputField label="Slug" value={row.key} onChange={(value) => update(index, { key: slugifyAdmin(value) })} />
+                <ProductInputField label="Parent slug (optional)" value={row.parent ?? ""} onChange={(value) => update(index, { parent: value })} />
+                <ProductInputField label="Blurb" value={row.blurb} onChange={(value) => update(index, { blurb: value })} />
+              </div>
+              <button type="button" onClick={() => remove(index)} className="mt-3 h-8 rounded-md border border-red-100 px-3 text-[11px] text-red-600">Remove</button>
+            </div>
+          ))}
+          {rows.length === 0 && <p className="rounded-md border border-dashed border-[rgb(var(--vibe-border))] p-4 text-[12px] text-[rgb(var(--vibe-muted))]">No custom categories yet.</p>}
+          <button type="button" onClick={save} className="h-9 rounded-md bg-[rgb(var(--vibe-foreground))] px-4 text-[12px] text-white">Save categories</button>
+        </div>
+      </div>
+    </div>
   );
 }
 
