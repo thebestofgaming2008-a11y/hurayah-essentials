@@ -157,7 +157,6 @@ const navGroups: Array<{
       { key: "products", icon: Package, label: "Products" },
       { key: "inventory", icon: PackageOpen, label: "Inventory" },
       { key: "categories", icon: Tag, label: "Categories" },
-      { key: "shipping", icon: Truck, label: "Shipping", badgeKey: "shipping" },
     ],
   },
   {
@@ -1593,38 +1592,12 @@ function ProductEditorDialog({
               <ProductInputField label="Publisher" value={form.publisher} onChange={(value) => setField("publisher", value)} />
               <ProductInputField label="Language" value={form.language} onChange={(value) => setField("language", value)} />
             </div>
-            <div className="grid gap-3 rounded-lg border border-[rgb(var(--vibe-border))] p-3 sm:grid-cols-4">
-              <div className="sm:col-span-4">
-                <p className="text-[12px] font-medium text-[rgb(var(--vibe-foreground))]">Shipping weight</p>
-                <p className="mt-0.5 text-[11px] text-[rgb(var(--vibe-muted))]">Use researched product data first; mark confidence so low-confidence rows can be reviewed before launch.</p>
-              </div>
+            <div className="grid gap-3 sm:grid-cols-4">
+              <h3 className="sm:col-span-4 text-[12px] font-medium text-[rgb(var(--vibe-foreground))]">Weight and dimensions</h3>
               <ProductInputField label="Weight (g)" type="number" value={form.weight_g} onChange={(value) => setField("weight_g", value)} />
-              <div className="sm:col-span-3">
-                <p className="mb-1 text-[11px] font-medium text-[rgb(var(--vibe-muted))]">Quick weight presets</p>
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    { label: "Small item", value: "350" },
-                    { label: "Up to 500g", value: "500" },
-                    { label: "Around 1kg", value: "1000" },
-                  ].map((preset) => (
-                    <button
-                      key={preset.value}
-                      type="button"
-                      onClick={() => {
-                        setField("weight_g", preset.value);
-                        if (!form.weight_confidence) setField("weight_confidence", "estimated");
-                      }}
-                      className={cn("h-8 rounded-md border px-3 text-[11px] transition-colors", form.weight_g === preset.value ? "border-zinc-900 bg-zinc-900 text-white" : "border-[rgb(var(--vibe-border))] bg-white hover:bg-[rgb(var(--vibe-accent))]")}
-                    >
-                      {preset.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
               <ProductInputField label="Length (cm)" type="number" value={form.length_cm} onChange={(value) => setField("length_cm", value)} />
               <ProductInputField label="Width (cm)" type="number" value={form.width_cm} onChange={(value) => setField("width_cm", value)} />
               <ProductInputField label="Height (cm)" type="number" value={form.height_cm} onChange={(value) => setField("height_cm", value)} />
-              <ProductInputField label="Shipping class" value={form.shipping_class} onChange={(value) => setField("shipping_class", value)} placeholder="book, kufi, clothing..." />
               <label className="space-y-1 text-[11px] font-medium text-[rgb(var(--vibe-muted))]">
                 <span>Confidence</span>
                 <select value={form.weight_confidence} onChange={(event) => setField("weight_confidence", event.target.value)} className="h-9 w-full rounded-md border border-[rgb(var(--vibe-border))] bg-white px-3 text-[13px] text-[rgb(var(--vibe-foreground))] outline-none focus:ring-1 focus:ring-zinc-500">
@@ -1636,7 +1609,8 @@ function ProductEditorDialog({
               </label>
               <ProductInputField label="Weight source URL" value={form.weight_source_url} onChange={(value) => setField("weight_source_url", value)} className="sm:col-span-2" />
             </div>
-            <div className="grid gap-3 rounded-lg border border-[rgb(var(--vibe-border))] p-3 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <h3 className="sm:col-span-2 text-[12px] font-medium text-[rgb(var(--vibe-foreground))]">Variants</h3>
               <ProductInputField label="Variant group" value={form.variant_group} onChange={(value) => setField("variant_group", slugifyAdmin(value))} placeholder="kufi-prayer-cap" list="variant-groups" />
               <ProductInputField label="Variant label (optional)" value={form.variant_label} onChange={(value) => setField("variant_label", value)} placeholder="Brown, Large, Urdu..." />
               <div className="sm:col-span-2">
@@ -1742,21 +1716,16 @@ function VariantOptionsEditor({ value, onChange }: { value: Array<{ name: string
     onChange([...groups, { name: groups.length === 0 ? "Size" : groups.length === 1 ? "Color" : "Material", values: [] }]);
   };
   return (
-    <div className="rounded-md border border-[rgb(var(--vibe-border))] bg-white">
-      <div className="flex items-center justify-between gap-3 border-b border-[rgb(var(--vibe-border))] px-3 py-3">
-        <label className="flex items-center gap-2 text-[12px] font-medium text-[rgb(var(--vibe-foreground))]">
-          <input type="checkbox" checked={groups.some((group) => group.values.length)} readOnly className="h-4 w-4 rounded border-[rgb(var(--vibe-border))]" />
-          This product has multiple options, like different sizes or colors
-        </label>
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-[11px] font-medium uppercase tracking-wide text-[rgb(var(--vibe-muted))]">Options</span>
         <button type="button" onClick={addGroup} disabled={groups.length >= 3} className="h-8 rounded-md border border-[rgb(var(--vibe-border))] px-3 text-[11px] disabled:opacity-40">
           Add option
         </button>
       </div>
-      <div className="divide-y divide-[rgb(var(--vibe-border))]">
-        {groups.map((group, index) => (
-          <VariantOptionRow key={`${group.name}-${index}`} group={group} index={index} onName={(name) => updateGroup(index, { name })} onAdd={(option) => addValue(index, option)} onRemove={(option) => removeValue(index, option)} onRemoveGroup={() => removeGroup(index)} />
-        ))}
-      </div>
+      {groups.map((group, index) => (
+        <VariantOptionRow key={`${group.name}-${index}`} group={group} index={index} onName={(name) => updateGroup(index, { name })} onAdd={(option) => addValue(index, option)} onRemove={(option) => removeValue(index, option)} onRemoveGroup={() => removeGroup(index)} />
+      ))}
     </div>
   );
 }
@@ -1768,9 +1737,9 @@ function VariantOptionRow({ group, index, onName, onAdd, onRemove, onRemoveGroup
     setDraft("");
   };
   return (
-    <div className="grid gap-3 px-3 py-4 sm:grid-cols-[160px_1fr]">
+    <div className="grid gap-2 sm:grid-cols-[140px_1fr]">
       <div>
-        <div className="mb-2 flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-[rgb(var(--vibe-muted))]">
+        <div className="mb-1.5 flex items-center justify-between text-[11px] font-medium text-[rgb(var(--vibe-muted))]">
           Option {index + 1}
           <button type="button" onClick={onRemoveGroup} className="text-[11px] normal-case tracking-normal text-blue-700">Remove</button>
         </div>
@@ -2040,6 +2009,7 @@ function ProductsPanel({
   onDuplicateProduct: (product: Product) => void;
 }) {
   const [layout, setLayout] = useState<"compact" | "grid">("compact");
+  const [previewMedia, setPreviewMedia] = useState<{ url: string; name: string } | null>(null);
   const filtered = products.filter((product) => product.name.toLowerCase().includes(query.toLowerCase()));
   const active = products.filter((product) => product.is_active !== false).length;
   const low = products.filter((product) => (product.stock_quantity ?? 0) > 0 && (product.stock_quantity ?? 0) <= 5).length;
@@ -2107,13 +2077,15 @@ function ProductsPanel({
         <ul className="grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">
           {filtered.map((product) => (
             <li key={product.id} className="rounded-lg border border-[rgb(var(--vibe-border))] bg-white p-3 transition-all hover:-translate-y-0.5 hover:border-zinc-300 hover:shadow-sm">
-              <div className="aspect-[4/3] overflow-hidden rounded-md bg-[rgb(var(--vibe-surface))]">
+              <button type="button" onClick={() => product.cover_image_url && setPreviewMedia({ url: product.cover_image_url, name: product.name })} className="aspect-[3/4] w-full overflow-hidden rounded-md bg-[rgb(var(--vibe-surface))] sm:aspect-[4/3]">
                 {product.cover_image_url ? <img src={product.cover_image_url} alt={product.name} loading="lazy" decoding="async" className="h-full w-full object-contain" /> : <div className="grid h-full place-items-center"><Package className="h-7 w-7 text-[rgb(var(--vibe-muted))]" /></div>}
-              </div>
+              </button>
               {(product.images?.length ?? 0) > 0 && (
                 <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
                   {[product.cover_image_url, ...(product.images ?? [])].filter(Boolean).map((image, index) => (
-                    <img key={`${product.id}-${index}`} src={image ?? ""} alt="" loading="lazy" decoding="async" className="h-16 w-16 shrink-0 rounded border border-[rgb(var(--vibe-border))] object-contain" />
+                    <button key={`${product.id}-${index}`} type="button" onClick={() => image && setPreviewMedia({ url: image, name: product.name })} className="h-16 w-16 shrink-0 rounded border border-[rgb(var(--vibe-border))] bg-white">
+                      <img src={image ?? ""} alt="" loading="lazy" decoding="async" className="h-full w-full object-contain" />
+                    </button>
                   ))}
                 </div>
               )}
@@ -2142,6 +2114,22 @@ function ProductsPanel({
         </ul>
         )}
       </div>
+      {previewMedia && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-4" onClick={() => setPreviewMedia(null)}>
+          <div className="relative max-h-[92dvh] w-full max-w-3xl rounded-lg bg-white p-3" onClick={(event) => event.stopPropagation()}>
+            <button type="button" onClick={() => setPreviewMedia(null)} className="absolute right-3 top-3 z-10 grid h-9 w-9 place-items-center rounded-full bg-white/95 text-zinc-700 shadow" aria-label="Close media preview">
+              <X className="h-4 w-4" />
+            </button>
+            <div className="grid max-h-[82dvh] place-items-center overflow-hidden rounded-md bg-[rgb(var(--vibe-surface))]">
+              {isVideoUrl(previewMedia.url) ? (
+                <video src={previewMedia.url} className="max-h-[82dvh] w-full object-contain" controls playsInline />
+              ) : (
+                <img src={previewMedia.url} alt={previewMedia.name} className="max-h-[82dvh] w-full object-contain" />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

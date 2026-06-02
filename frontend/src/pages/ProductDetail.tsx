@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { ChevronRight, Heart, Minus, Plus, Truck } from "lucide-react";
 import { SiteLayout } from "@/components/layout/SiteLayout";
@@ -31,6 +31,8 @@ const ProductDetail = () => {
   const [selectedColor, setSelectedColor] = useState("");
   const [selectedSize, setSelectedSize] = useState("");
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
+  const primaryCtaRef = useRef<HTMLButtonElement | null>(null);
+  const [showMobileQuickAdd, setShowMobileQuickAdd] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -42,6 +44,7 @@ const ProductDetail = () => {
     setSelectedColor("");
     setSelectedSize("");
     setSelectedOptions({});
+    setShowMobileQuickAdd(false);
 
     (async () => {
       let nextProduct = await getProductBySlug(id);
@@ -66,6 +69,18 @@ const ProductDetail = () => {
       cancelled = true;
     };
   }, [id, user]);
+
+  useEffect(() => {
+    const node = primaryCtaRef.current;
+    if (!node || typeof IntersectionObserver === "undefined") return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setShowMobileQuickAdd(!entry.isIntersecting),
+      { rootMargin: "0px 0px -96px 0px", threshold: 0.05 },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [product?.id]);
 
   if (loading) {
     return (
@@ -221,6 +236,7 @@ const ProductDetail = () => {
 
               <div className="mt-6 grid max-w-[49rem] gap-3">
                 <button
+                  ref={primaryCtaRef}
                   type="button"
                   onClick={onAdd}
                   disabled={!inStock}
@@ -261,17 +277,19 @@ const ProductDetail = () => {
           </div>
           </section>
 
-          <div className="commerce-quick-add-in sticky top-[calc(100dvh-74px)] z-30 -mx-4 mt-4 border-y border-[#06133a]/15 bg-white/95 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 shadow-[0_-12px_32px_-24px_rgba(3,15,48,0.7)] backdrop-blur-md lg:hidden">
-            <div className="mx-auto flex max-w-[640px] items-center gap-3">
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-[#06133a]">{product.name}</p>
-                <p className="font-serif text-lg text-black">{format(price)}</p>
+          {showMobileQuickAdd && (
+            <div className="commerce-quick-add-in fixed inset-x-0 bottom-0 z-50 border-t border-[#06133a]/15 bg-white/95 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 shadow-[0_-18px_38px_-24px_rgba(3,15,48,0.85)] backdrop-blur-md lg:hidden">
+              <div className="mx-auto flex max-w-[640px] items-center gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-[#06133a]">{product.name}</p>
+                  <p className="font-serif text-lg text-black">{format(price)}</p>
+                </div>
+                <button type="button" onClick={onAdd} disabled={!inStock} className="pdp-press inline-flex h-12 min-w-[148px] items-center justify-center rounded-md bg-brand px-4 text-sm font-bold text-brand-foreground shadow-lg disabled:opacity-50">
+                  {inStock ? "Add to cart" : "Out of stock"}
+                </button>
               </div>
-              <button type="button" onClick={onAdd} disabled={!inStock} className="pdp-press inline-flex h-12 min-w-[148px] items-center justify-center rounded-md bg-brand px-4 text-sm font-bold text-brand-foreground shadow-lg disabled:opacity-50">
-                {inStock ? "Add to cart" : "Out of stock"}
-              </button>
             </div>
-          </div>
+          )}
 
           <ReviewsSection productId={product.id} userReady={Boolean(user)} canReview={canReview} reviews={reviews} onSubmitted={async () => setReviews(await listPublishedReviews(product.id).catch(() => reviews))} />
 
