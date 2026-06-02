@@ -109,6 +109,8 @@ const Index = () => {
           src={calligraphyLeft}
           alt=""
           aria-hidden
+          fetchPriority="low"
+          decoding="async"
           className="pointer-events-none select-none absolute opacity-90"
           style={{ top: "-10vw", left: "-11.04vw", width: "29.04vw", height: "auto" }}
         />
@@ -116,6 +118,8 @@ const Index = () => {
           src={calligraphyRight}
           alt=""
           aria-hidden
+          fetchPriority="low"
+          decoding="async"
           className="pointer-events-none select-none absolute opacity-90"
           style={{ top: "-10vw", right: "-11vw", width: "28.84vw", height: "auto" }}
         />
@@ -191,8 +195,8 @@ const Index = () => {
             </p>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-              {featuredView.map((p) => (
-                <ProductCard key={p.id} product={p} />
+              {featuredView.map((p, index) => (
+                <ProductCard key={p.id} product={p} priority={index < 4} />
               ))}
             </div>
           )}

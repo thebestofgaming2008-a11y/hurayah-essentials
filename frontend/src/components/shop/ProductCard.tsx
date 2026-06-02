@@ -53,6 +53,7 @@ export function ProductCard({ product, className, priority = false }: Props) {
             src={image as string}
             alt={product.name}
             loading={priority ? "eager" : "lazy"}
+            fetchPriority={priority ? "high" : "auto"}
             decoding="async"
             onError={() => setImgError(true)}
             className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.035]"

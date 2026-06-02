@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { nowIso, publicProduct, requireAdmin } from "./lib";
+import { nowIso, publicProduct, publicProductCard, requireAdmin } from "./lib";
 
 const productInput = {
   name: v.string(),
@@ -217,7 +217,7 @@ export const listActiveProducts = query({
       .query("products")
       .withIndex("by_active", (q) => q.eq("is_active", true))
       .collect();
-    return rows.filter(isLaunchReady).map(publicProduct).sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")));
+    return rows.filter(isLaunchReady).map(publicProductCard).sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")));
   },
 });
 
@@ -256,13 +256,13 @@ export const listByCategory = query({
   handler: async (ctx, args) => {
     if (args.category === "books") {
       const rows = await ctx.db.query("products").collect();
-      return rows.filter(isLaunchReady).map(publicProduct).filter((p: any) => p.is_active !== false && p.category === "books");
+      return rows.filter(isLaunchReady).map(publicProductCard).filter((p: any) => p.is_active !== false && p.category === "books");
     }
     const rows = await ctx.db
       .query("products")
       .withIndex("by_category", (q) => q.eq("category", args.category))
       .collect();
-    return rows.filter((p) => p.is_active !== false && isLaunchReady(p)).map(publicProduct);
+    return rows.filter((p) => p.is_active !== false && isLaunchReady(p)).map(publicProductCard);
   },
 });
 
@@ -270,7 +270,7 @@ export const listByIds = query({
   args: { ids: v.array(v.string()) },
   handler: async (ctx, args) => {
     const docs = await Promise.all(args.ids.map((id) => ctx.db.get(id as any)));
-    return docs.filter((doc) => doc && (doc as any).is_active !== false && isLaunchReady(doc)).map((doc) => publicProduct(doc as any));
+    return docs.filter((doc) => doc && (doc as any).is_active !== false && isLaunchReady(doc)).map((doc) => publicProductCard(doc as any));
   },
 });
 

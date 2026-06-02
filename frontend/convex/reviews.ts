@@ -18,6 +18,8 @@ function cleanNullable(value: string | null | undefined, max = 1000) {
 }
 
 async function recalculateProductRating(ctx: any, productId: string) {
+  const product = await ctx.db.get(productId as any);
+  if (!product) return;
   const rows = await ctx.db
     .query("reviews")
     .withIndex("by_product_id", (q: any) => q.eq("product_id", productId))

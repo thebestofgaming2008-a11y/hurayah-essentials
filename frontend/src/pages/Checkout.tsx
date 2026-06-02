@@ -2,9 +2,11 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { SiteLayout } from "@/components/layout/SiteLayout";
 import { PaymentMethods } from "@/components/shop/PaymentMethods";
+import { useAuth } from "@/contexts/AuthContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { listAddresses, type Address } from "@/services/accountService";
 import { checkoutShippingForCountry } from "@/services/shipping";
 import { createRazorpayCheckoutOrder, verifyRazorpayPaymentWithRetry, type RazorpayVerificationArgs } from "@/services/orderService";
 import { useShop } from "@/store/shop";
@@ -39,10 +41,13 @@ function loadRazorpayScript() {
 
 const Checkout = () => {
   const { cartLines, cartSubtotal, clearCart, updateQty, removeFromCart, openCart } = useShop();
+  const { user, profile } = useAuth();
   const { format } = useCurrency();
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [savedAddresses, setSavedAddresses] = useState<Address[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState("");
   const [form, setForm] = useState({
     email: "",
     phone: "",
@@ -58,6 +63,58 @@ const Checkout = () => {
   const shippingMeta = checkoutShippingForCountry(form.country);
   const total = cartSubtotal + shippingMeta.amount;
   const address = INDIA_ADDRESS;
+
+  const applySavedAddress = useCallback((saved: Address) => {
+    const nameParts = String(saved.full_name ?? "").trim().split(/\s+/).filter(Boolean);
+    setSelectedAddressId(saved.id);
+    setForm((prev) => ({
+      ...prev,
+      email: prev.email || user?.email || "",
+      phone: saved.phone || prev.phone,
+      firstName: nameParts[0] || prev.firstName,
+      lastName: nameParts.slice(1).join(" ") || prev.lastName,
+      address: saved.address_line_1 || "",
+      apartment: saved.address_line_2 || "",
+      city: saved.city || "",
+      state: saved.state || "",
+      postalCode: saved.postal_code || "",
+      country: "India",
+    }));
+    setErrors({});
+  }, [user?.email]);
+
+  useEffect(() => {
+    if (!user) {
+      setSavedAddresses([]);
+      setSelectedAddressId("");
+      return;
+    }
+    let cancelled = false;
+    void listAddresses(user.id).then((rows) => {
+      if (cancelled) return;
+      const sorted = [...rows].sort((a, b) => Number(Boolean(b.is_default)) - Number(Boolean(a.is_default)));
+      setSavedAddresses(sorted);
+    }).catch(() => {
+      if (!cancelled) setSavedAddresses([]);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    setForm((prev) => {
+      const nameParts = String(profile?.full_name ?? user.name ?? "").trim().split(/\s+/).filter(Boolean);
+      return {
+        ...prev,
+        email: prev.email || user.email || "",
+        phone: prev.phone || profile?.phone || "",
+        firstName: prev.firstName || nameParts[0] || "",
+        lastName: prev.lastName || nameParts.slice(1).join(" "),
+      };
+    });
+  }, [profile?.full_name, profile?.phone, user]);
 
   const finishPaidOrder = useCallback(async (verification: RazorpayVerificationArgs) => {
     localStorage.setItem(PENDING_RAZORPAY_ORDER_KEY, JSON.stringify(verification));
@@ -208,6 +265,28 @@ const Checkout = () => {
               </Section>
 
               <Section title="Delivery">
+                {savedAddresses.length > 0 && (
+                  <div>
+                    <span className="mb-1.5 block text-[11px] text-[rgb(var(--vibe-muted))]">Saved addresses</span>
+                    <div className="grid gap-2 sm:grid-cols-2" data-testid="checkout-saved-addresses">
+                      {savedAddresses.map((saved) => (
+                        <button
+                          key={saved.id}
+                          type="button"
+                          onClick={() => applySavedAddress(saved)}
+                          className={cn(
+                            "rounded-md border bg-white px-3 py-2.5 text-left text-[12px] transition-colors hover:border-brand",
+                            selectedAddressId === saved.id ? "border-brand ring-1 ring-brand/20" : "border-[rgb(var(--vibe-border))]",
+                          )}
+                          data-testid={`checkout-saved-address-${saved.id}`}
+                        >
+                          <span className="block font-medium">{saved.full_name || "Saved address"}{saved.is_default ? " · Default" : ""}</span>
+                          <span className="mt-0.5 block line-clamp-2 text-[11px] text-[rgb(var(--vibe-muted))]">{[saved.address_line_1, saved.city, saved.state, saved.postal_code].filter(Boolean).join(", ")}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <div>
                   <span className="mb-1.5 block text-[11px] text-[rgb(var(--vibe-muted))]">Country / region</span>
                   <div data-testid="checkout-country-input" className="flex h-10 w-full items-center rounded-md border border-[rgb(var(--vibe-border))] bg-[rgb(var(--vibe-surface))] px-3 text-[13px] text-[rgb(var(--vibe-foreground))]">

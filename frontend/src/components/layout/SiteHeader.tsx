@@ -1,4 +1,4 @@
-import { LayoutDashboard, LogOut, Menu, Package, Search, ShoppingBag, User, X } from "lucide-react";
+import { Heart, LayoutDashboard, LogOut, Menu, Package, Search, ShoppingBag, User, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import logo from "@/assets/logo-header.png";
@@ -87,6 +87,9 @@ export function SiteHeader() {
         </DropdownMenuItem>
         <DropdownMenuItem asChild className="cursor-pointer px-4 py-2.5">
           <Link to="/track" className="flex items-center gap-3"><Package className="h-4 w-4" /> Track Order</Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild className="cursor-pointer px-4 py-2.5">
+          <Link to="/wishlist" className="flex items-center gap-3"><Heart className="h-4 w-4" /> Wishlist</Link>
         </DropdownMenuItem>
         {isAdmin && (
           <>
@@ -199,10 +202,14 @@ export function SiteHeader() {
               <div className="mt-3 border-t border-foreground/10 pt-3">
                 <Link to="/track" onClick={() => setMenuOpen(false)} className="block rounded-md px-3 py-3 text-[14px] text-foreground hover:bg-white/55 hover:text-brand">Track order</Link>
                 {user ? (
-                  <button type="button" onClick={handleSignOut} className="inline-flex w-full items-center gap-2 rounded-md px-3 py-3 text-[14px] text-red-600 hover:bg-white/55">
-                    <LogOut className="h-4 w-4" />
-                    Sign out
-                  </button>
+                  <>
+                    <Link to="/account" onClick={() => setMenuOpen(false)} className="block rounded-md px-3 py-3 text-[14px] text-foreground hover:bg-white/55 hover:text-brand">My account</Link>
+                    <Link to="/wishlist" onClick={() => setMenuOpen(false)} className="block rounded-md px-3 py-3 text-[14px] text-foreground hover:bg-white/55 hover:text-brand">Wishlist</Link>
+                    <button type="button" onClick={handleSignOut} className="inline-flex w-full items-center gap-2 rounded-md px-3 py-3 text-[14px] text-red-600 hover:bg-white/55">
+                      <LogOut className="h-4 w-4" />
+                      Sign out
+                    </button>
+                  </>
                 ) : (
                   <Link to="/login?redirect=/account" onClick={() => setMenuOpen(false)} className="block rounded-md px-3 py-3 text-[14px] font-semibold text-brand hover:bg-white/55">Sign in</Link>
                 )}

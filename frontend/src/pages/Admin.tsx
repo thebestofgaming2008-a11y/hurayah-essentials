@@ -1143,7 +1143,7 @@ function OrderRow({
       <td className="hidden px-6 py-3 text-[13px] text-[rgb(var(--vibe-muted))] md:table-cell">
         <div className="flex flex-col gap-1">
           <span className="inline-flex min-w-0 items-center gap-2">
-            {item?.product_image_url && <img src={item.product_image_url} alt="" className="h-9 w-8 shrink-0 rounded border border-[rgb(var(--vibe-border))] object-cover" />}
+            {item?.product_image_url && <img src={item.product_image_url} alt="" loading="lazy" decoding="async" className="h-9 w-8 shrink-0 rounded border border-[rgb(var(--vibe-border))] object-cover" />}
             <span className="truncate">{itemLabel}</span>
           </span>
         </div>
@@ -1183,7 +1183,7 @@ function MobileOrders({ orders, onViewOrder }: { orders: AdminOrder[]; onViewOrd
                 </div>
                 <p className="truncate text-[13px] font-medium">{order.customer_name ?? order.customer_email ?? "Customer"}</p>
                 <p className="mt-1 flex items-center gap-2 truncate text-[12px] text-[rgb(var(--vibe-muted))]">
-                  {order.items?.[0]?.product_image_url && <img src={order.items[0].product_image_url} alt="" className="h-10 w-8 shrink-0 rounded border border-[rgb(var(--vibe-border))] object-cover" />}
+                  {order.items?.[0]?.product_image_url && <img src={order.items[0].product_image_url} alt="" loading="lazy" decoding="async" className="h-10 w-8 shrink-0 rounded border border-[rgb(var(--vibe-border))] object-cover" />}
                   <span className="truncate">{order.items?.[0]?.product_name ?? "Product"}</span>
                 </p>
               </div>
@@ -1811,7 +1811,7 @@ function OrderDetailsDialog({
                 <div key={item.id} className="rounded-lg border border-[rgb(var(--vibe-border))] p-3">
                   <div className="flex gap-3">
                     <div className="h-24 w-20 shrink-0 overflow-hidden rounded-md bg-[rgb(var(--vibe-surface))]">
-                      {images[0] ? <img src={images[0]} alt={item.product_name ?? "Product"} className="h-full w-full object-cover" /> : <div className="grid h-full place-items-center"><Package className="h-5 w-5 text-[rgb(var(--vibe-muted))]" /></div>}
+                      {images[0] ? <img src={images[0]} alt={item.product_name ?? "Product"} loading="lazy" decoding="async" className="h-full w-full object-cover" /> : <div className="grid h-full place-items-center"><Package className="h-5 w-5 text-[rgb(var(--vibe-muted))]" /></div>}
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[13px] font-medium">{item.product_name ?? product?.name ?? "Product"}</p>
@@ -1826,7 +1826,7 @@ function OrderDetailsDialog({
                   </div>
                   {images.length > 1 && (
                     <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-                      {images.map((image, index) => <img key={`${item.id}-${index}`} src={image ?? ""} alt="" className="h-14 w-14 shrink-0 rounded border border-[rgb(var(--vibe-border))] object-cover" />)}
+                      {images.map((image, index) => <img key={`${item.id}-${index}`} src={image ?? ""} alt="" loading="lazy" decoding="async" className="h-14 w-14 shrink-0 rounded border border-[rgb(var(--vibe-border))] object-cover" />)}
                     </div>
                   )}
                 </div>
@@ -1935,7 +1935,7 @@ function ProductsPanel({
               <div key={product.id} className="grid gap-3 px-4 py-3 transition-colors hover:bg-[rgb(var(--vibe-accent))]/50 sm:grid-cols-[minmax(0,1fr)_120px_110px_260px] sm:items-center sm:px-6">
                 <div className="flex min-w-0 items-center gap-3">
                   <div className="h-14 w-12 shrink-0 overflow-hidden rounded-md border border-[rgb(var(--vibe-border))] bg-[rgb(var(--vibe-surface))]">
-                    {product.cover_image_url ? <img src={product.cover_image_url} alt={product.name} className="h-full w-full object-cover" /> : <div className="grid h-full place-items-center"><Package className="h-4 w-4 text-[rgb(var(--vibe-muted))]" /></div>}
+                    {product.cover_image_url ? <img src={product.cover_image_url} alt={product.name} loading="lazy" decoding="async" className="h-full w-full object-cover" /> : <div className="grid h-full place-items-center"><Package className="h-4 w-4 text-[rgb(var(--vibe-muted))]" /></div>}
                   </div>
                   <div className="min-w-0">
                     <p className="truncate text-[13px] font-medium">{product.name}</p>
@@ -1974,12 +1974,12 @@ function ProductsPanel({
           {filtered.map((product) => (
             <li key={product.id} className="rounded-lg border border-[rgb(var(--vibe-border))] bg-white p-3 transition-all hover:-translate-y-0.5 hover:border-zinc-300 hover:shadow-sm">
               <div className="aspect-[4/3] overflow-hidden rounded-md bg-[rgb(var(--vibe-surface))]">
-                {product.cover_image_url ? <img src={product.cover_image_url} alt={product.name} className="h-full w-full object-cover" /> : <div className="grid h-full place-items-center"><Package className="h-7 w-7 text-[rgb(var(--vibe-muted))]" /></div>}
+                {product.cover_image_url ? <img src={product.cover_image_url} alt={product.name} loading="lazy" decoding="async" className="h-full w-full object-cover" /> : <div className="grid h-full place-items-center"><Package className="h-7 w-7 text-[rgb(var(--vibe-muted))]" /></div>}
               </div>
               {(product.images?.length ?? 0) > 0 && (
                 <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
                   {[product.cover_image_url, ...(product.images ?? [])].filter(Boolean).map((image, index) => (
-                    <img key={`${product.id}-${index}`} src={image ?? ""} alt="" className="h-14 w-14 shrink-0 rounded border border-[rgb(var(--vibe-border))] object-cover" />
+                    <img key={`${product.id}-${index}`} src={image ?? ""} alt="" loading="lazy" decoding="async" className="h-14 w-14 shrink-0 rounded border border-[rgb(var(--vibe-border))] object-cover" />
                   ))}
                 </div>
               )}

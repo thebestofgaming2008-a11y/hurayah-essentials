@@ -128,7 +128,7 @@ const ProductDetail = () => {
                   isVideoUrl(mainImage) ? (
                     <video key={mainImage} src={mainImage} className="pdp-image-swap h-full w-full object-cover" controls playsInline />
                   ) : (
-                    <img key={mainImage} src={mainImage} alt={product.name} onError={() => setMainImgError(true)} className="pdp-image-swap h-full w-full object-cover" />
+                    <img key={mainImage} src={mainImage} alt={product.name} loading="eager" fetchPriority="high" decoding="async" onError={() => setMainImgError(true)} className="pdp-image-swap h-full w-full object-cover" />
                   )
                 ) : (
                   <div className="h-full w-full bg-[#d9d9d9]" />

@@ -33,6 +33,23 @@ export function publicProduct(doc: Record<string, any>) {
   return { id: _id, ...normalizeBookCategory(rest) };
 }
 
+export function publicProductCard(doc: Record<string, any>) {
+  const product = publicProduct(doc);
+  const {
+    description,
+    images,
+    linked_product_ids,
+    edition,
+    length_cm,
+    width_cm,
+    height_cm,
+    weight_source_url,
+    weight_confidence,
+    ...card
+  } = product;
+  return card;
+}
+
 const BOOK_SUBJECTS = new Set(["aqeedah", "arabic", "fiqh", "hadith", "purification", "seerah", "tafsir", "urdu"]);
 const BOOK_SUBJECT_LABELS: Record<string, string> = {
   aqeedah: "Aqeedah",
