@@ -772,9 +772,10 @@ export default function Admin() {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-60 shrink-0 flex-col border-r border-[rgb(var(--vibe-border))] bg-[rgb(var(--vibe-page))] transition-all duration-200 md:static md:translate-x-0 ${
-          mobileOpen ? "translate-x-0" : "-translate-x-full"
-        } ${collapsed ? "md:w-16" : "md:w-56"}`}
+        style={{ transform: mobileOpen ? "translateX(0)" : "translateX(-100%)" }}
+        className={`admin-mobile-sidebar fixed inset-y-0 left-0 z-50 flex w-60 shrink-0 flex-col border-r border-[rgb(var(--vibe-border))] bg-[rgb(var(--vibe-page))] transition-all duration-200 md:static ${
+          collapsed ? "md:w-16" : "md:w-56"
+        }`}
       >
         <div className="flex h-14 items-center gap-2.5 border-b border-[rgb(var(--vibe-border))] px-4">
           <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[rgb(var(--vibe-foreground))]">

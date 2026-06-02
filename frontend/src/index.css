@@ -274,6 +274,12 @@ All colors MUST be HSL.
 
   /* Glassmorphism — replicates the soft-glass CTA from Figma.
      Uses backdrop-blur + saturated white surface + inner highlight + soft outer shadow. */
+  @media (min-width: 768px) {
+    .admin-mobile-sidebar {
+      transform: none !important;
+    }
+  }
+
   .glass-cta {
     background: linear-gradient(
       135deg,
