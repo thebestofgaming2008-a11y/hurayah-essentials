@@ -18,6 +18,7 @@ export interface User {
   id: string;
   email: string | null;
   name?: string | null;
+  isAdmin?: boolean;
 }
 
 interface AuthContextValue {
@@ -37,9 +38,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { isLoading, isAuthenticated } = useConvexAuth();
   const { signIn: convexSignIn, signOut: convexSignOut } = useAuthActions();
   const ensureCurrentProfile = useMutation(api.users.ensureCurrentProfile);
-  const user = useQuery(api.users.currentUser, isAuthenticated ? {} : "skip") ?? null;
+  const currentUser = useQuery(api.users.currentUser, isAuthenticated ? {} : "skip");
+  const user = currentUser ?? null;
   const profile = useQuery(api.users.currentProfile, isAuthenticated ? {} : "skip") ?? null;
-  const loading = isLoading || (isAuthenticated && user === undefined);
+  const loading = isLoading || (isAuthenticated && currentUser === undefined);
   const isAdmin = Boolean(user?.isAdmin);
   const ensuredUserRef = useRef<string | null>(null);
 
