@@ -1,6 +1,10 @@
 import { useState } from "react";
+import { ChevronDown, Package } from "lucide-react";
 import { SiteLayout } from "@/components/layout/SiteLayout";
 import { trackOrder } from "@/services/orderService";
+import type { Order } from "@/services/accountService";
+import { useCurrency } from "@/contexts/CurrencyContext";
+import { cn } from "@/lib/utils";
 
 const steps = ["Order placed", "Processing", "Shipped", "Delivered"];
 
@@ -27,10 +31,13 @@ function stepDone(label: string, status: string) {
 }
 
 const TrackOrder = () => {
+  const { format } = useCurrency();
   const [id, setId] = useState("");
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [status, setStatus] = useState("processing");
+  const [order, setOrder] = useState<Order | null>(null);
+  const [itemsOpen, setItemsOpen] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [lookupError, setLookupError] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -51,17 +58,21 @@ const TrackOrder = () => {
                 setLookupError(false);
                 setLoading(true);
                 try {
-                  const order = await trackOrder(id, email);
-                  if (!order) {
+                  const foundOrder = await trackOrder(id, email) as Order | null;
+                  if (!foundOrder) {
                     setNotFound(true);
                     setSubmitted(false);
+                    setOrder(null);
                     return;
                   }
-                  setStatus(normalizeOrderStatus(order.status));
+                  setOrder(foundOrder);
+                  setStatus(normalizeOrderStatus(foundOrder.status));
+                  setItemsOpen(true);
                   setSubmitted(true);
                 } catch {
                   setLookupError(true);
                   setSubmitted(false);
+                  setOrder(null);
                 } finally {
                   setLoading(false);
                 }
@@ -107,7 +118,7 @@ const TrackOrder = () => {
               <div className="p-5" data-testid="track-order-result">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <p className="font-mono text-[12px] text-[rgb(var(--vibe-muted))]">{id || "#1"}</p>
+                    <p className="font-mono text-[12px] text-[rgb(var(--vibe-muted))]">{order?.order_number ?? (id || "#1")}</p>
                     <h3 className="mt-1 text-[18px] font-semibold">{statusLabel(status)}</h3>
                   </div>
                   <span className="w-fit rounded bg-[rgb(var(--vibe-surface))] px-2 py-1 text-[11px] capitalize text-[rgb(var(--vibe-muted))]">{status}</span>
@@ -123,6 +134,18 @@ const TrackOrder = () => {
                     );
                   })}
                 </ol>
+                {order && (
+                  <div className="mt-5 rounded-md border border-[rgb(var(--vibe-border))] bg-white">
+                    <button type="button" onClick={() => setItemsOpen((value) => !value)} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left">
+                      <span className="text-[13px] font-medium">Order items</span>
+                      <span className="inline-flex items-center gap-2 text-[12px] text-[rgb(var(--vibe-muted))]">
+                        {order.items?.length ?? 0} item{(order.items?.length ?? 0) === 1 ? "" : "s"}
+                        <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", itemsOpen && "rotate-180")} />
+                      </span>
+                    </button>
+                    {itemsOpen && <TrackedOrderItems order={order} formatPrice={format} />}
+                  </div>
+                )}
               </div>
             )}
           </section>
@@ -131,5 +154,26 @@ const TrackOrder = () => {
     </SiteLayout>
   );
 };
+
+function TrackedOrderItems({ order, formatPrice }: { order: Order; formatPrice: (amount: number | null | undefined) => string }) {
+  const items = order.items ?? [];
+  if (items.length === 0) return <p className="border-t border-[rgb(var(--vibe-border))] px-4 py-3 text-[12px] text-[rgb(var(--vibe-muted))]">No item details saved for this order.</p>;
+  return (
+    <div className="space-y-2 border-t border-[rgb(var(--vibe-border))] p-3">
+      {items.map((item) => (
+        <div key={item.id} className="flex gap-3 rounded-md bg-[rgb(var(--vibe-surface))] p-2.5">
+          <div className="h-14 w-12 shrink-0 overflow-hidden rounded border border-[rgb(var(--vibe-border))] bg-white">
+            {item.product_image_url ? <img src={item.product_image_url} alt={item.product_name ?? "Product"} loading="lazy" decoding="async" className="h-full w-full object-contain" /> : <div className="grid h-full place-items-center"><Package className="h-4 w-4 text-[rgb(var(--vibe-muted))]" /></div>}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[13px] font-medium">{item.product_name ?? "Product"}</p>
+            {(item.selected_color || item.selected_size) && <p className="mt-0.5 text-[11px] text-[rgb(var(--vibe-muted))]">{[item.selected_color && `Colour: ${item.selected_color}`, item.selected_size && `Size: ${item.selected_size}`].filter(Boolean).join(" / ")}</p>}
+            <p className="mt-1 text-[12px] text-[rgb(var(--vibe-muted))]">Qty {item.quantity} · {formatPrice(item.subtotal)}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default TrackOrder;

@@ -39,6 +39,8 @@ export interface OrderItem {
   product_id: string | null;
   product_name: string | null;
   product_image_url: string | null;
+  selected_color?: string | null;
+  selected_size?: string | null;
   quantity: number;
   unit_price: number;
   subtotal: number;

@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
-import { ArrowLeft, Heart, Info, LogOut, Package, Plus, Star, Trash2, User } from "lucide-react";
+import { ArrowLeft, ChevronDown, Heart, Info, LogOut, Package, Plus, Star, Trash2, User } from "lucide-react";
 import { SiteLayout } from "@/components/layout/SiteLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useShop } from "@/store/shop";
@@ -172,10 +172,12 @@ function Card({ children, className }: { children: React.ReactNode; className?: 
 }
 
 function OrdersTable({ orders, formatPrice }: { orders: Order[]; formatPrice: (amount: number | null | undefined) => string }) {
+  const [openOrder, setOpenOrder] = useState<string | null>(orders[0]?.id ?? null);
   const labelForStatus = (status: string | null | undefined) => {
     if (status === "shipped" || status === "delivered" || status === "cancelled" || status === "returned") return status[0].toUpperCase() + status.slice(1);
     return "Processing";
   };
+  const toggle = (id: string) => setOpenOrder((current) => (current === id ? null : id));
   return (
     <>
       <div className="grid gap-3 sm:hidden">
@@ -192,6 +194,11 @@ function OrdersTable({ orders, formatPrice }: { orders: Order[]; formatPrice: (a
               <span className="text-[rgb(var(--vibe-muted))]">{o.items?.length ?? 0} item{(o.items?.length ?? 0) === 1 ? "" : "s"}</span>
               <span className="font-medium">{formatPrice(o.total_inr ?? o.total)}</span>
             </div>
+            <button type="button" onClick={() => toggle(o.id)} className="mt-3 flex h-9 w-full items-center justify-center gap-2 rounded-md border border-[rgb(var(--vibe-border))] text-[12px] font-medium">
+              {openOrder === o.id ? "Hide items" : "View items"}
+              <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", openOrder === o.id && "rotate-180")} />
+            </button>
+            {openOrder === o.id && <OrderItemsList order={o} formatPrice={formatPrice} />}
           </article>
         ))}
       </div>
@@ -208,20 +215,56 @@ function OrdersTable({ orders, formatPrice }: { orders: Order[]; formatPrice: (a
         </thead>
         <tbody>
           {orders.map((o) => (
-            <tr key={o.id} className="border-b border-[rgb(var(--vibe-border))] last:border-0">
-              <td className="py-3 pr-3 font-mono text-[12px]">{o.order_number ?? o.id.slice(0, 8)}</td>
-              <td className="py-3 pr-3 text-[rgb(var(--vibe-muted))]">{o.created_at ? new Date(o.created_at).toLocaleDateString() : "-"}</td>
-              <td className="py-3 pr-3 text-[rgb(var(--vibe-muted))]">{o.items?.length ?? 0}</td>
-              <td className="py-3 pr-3 font-medium">{formatPrice(o.total_inr ?? o.total)}</td>
-              <td className="py-3 pr-3">
-                <span className="inline-flex rounded-full bg-[rgb(var(--vibe-surface))] px-2.5 py-0.5 text-[12px] font-medium">{labelForStatus(o.status)}</span>
-              </td>
-            </tr>
+            <Fragment key={o.id}>
+              <tr key={o.id} className="border-b border-[rgb(var(--vibe-border))] last:border-0">
+                <td className="py-3 pr-3 font-mono text-[12px]">{o.order_number ?? o.id.slice(0, 8)}</td>
+                <td className="py-3 pr-3 text-[rgb(var(--vibe-muted))]">{o.created_at ? new Date(o.created_at).toLocaleDateString() : "-"}</td>
+                <td className="py-3 pr-3 text-[rgb(var(--vibe-muted))]">{o.items?.length ?? 0}</td>
+                <td className="py-3 pr-3 font-medium">{formatPrice(o.total_inr ?? o.total)}</td>
+                <td className="py-3 pr-3">
+                  <span className="inline-flex rounded-full bg-[rgb(var(--vibe-surface))] px-2.5 py-0.5 text-[12px] font-medium">{labelForStatus(o.status)}</span>
+                </td>
+                <td className="py-3 text-right">
+                  <button type="button" onClick={() => toggle(o.id)} className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[rgb(var(--vibe-border))] px-2.5 text-[12px] hover:bg-[rgb(var(--vibe-accent))]">
+                    Items
+                    <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", openOrder === o.id && "rotate-180")} />
+                  </button>
+                </td>
+              </tr>
+              {openOrder === o.id && (
+                <tr key={`${o.id}-items`}>
+                  <td colSpan={6} className="bg-[rgb(var(--vibe-surface))]/55 px-3 py-3">
+                    <OrderItemsList order={o} formatPrice={formatPrice} />
+                  </td>
+                </tr>
+              )}
+            </Fragment>
           ))}
         </tbody>
         </table>
       </div>
     </>
+  );
+}
+
+function OrderItemsList({ order, formatPrice }: { order: Order; formatPrice: (amount: number | null | undefined) => string }) {
+  const items = order.items ?? [];
+  if (items.length === 0) return <p className="mt-3 text-[12px] text-[rgb(var(--vibe-muted))]">No item details saved for this order.</p>;
+  return (
+    <div className="mt-3 space-y-2 sm:mt-0">
+      {items.map((item) => (
+        <div key={item.id} className="flex gap-3 rounded-md border border-[rgb(var(--vibe-border))] bg-white p-2.5">
+          <div className="h-14 w-12 shrink-0 overflow-hidden rounded border border-[rgb(var(--vibe-border))] bg-[rgb(var(--vibe-surface))]">
+            {item.product_image_url ? <img src={item.product_image_url} alt={item.product_name ?? "Product"} loading="lazy" decoding="async" className="h-full w-full object-contain" /> : <div className="grid h-full place-items-center"><Package className="h-4 w-4 text-[rgb(var(--vibe-muted))]" /></div>}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[13px] font-medium">{item.product_name ?? "Product"}</p>
+            {(item.selected_color || item.selected_size) && <p className="mt-0.5 text-[11px] text-[rgb(var(--vibe-muted))]">{[item.selected_color && `Colour: ${item.selected_color}`, item.selected_size && `Size: ${item.selected_size}`].filter(Boolean).join(" / ")}</p>}
+            <p className="mt-1 text-[12px] text-[rgb(var(--vibe-muted))]">Qty {item.quantity} · {formatPrice(item.subtotal)}</p>
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 

@@ -45,6 +45,7 @@ import {
 } from "recharts";
 import { useAuth } from "@/contexts/AuthContext";
 import {
+  createAdminReview,
   createProduct,
   deleteProduct,
   getStoreSettings,
@@ -738,6 +739,27 @@ export default function Admin() {
     }
   };
 
+  const handleCreateReview = async (input: {
+    productId: string;
+    rating: number;
+    customerName?: string | null;
+    customerEmail?: string | null;
+    title?: string | null;
+    body?: string | null;
+    status?: "pending" | "published" | "hidden";
+  }) => {
+    try {
+      const created = await createAdminReview(input);
+      if (!created) throw new Error("Review create failed");
+      setReviews((current) => [created, ...current]);
+      toast({ title: created.status === "published" ? "Review added" : "Review saved" });
+      void refreshNotifications();
+    } catch {
+      toast({ title: "Could not add review", variant: "destructive" });
+      throw new Error("Could not add review");
+    }
+  };
+
   const handleSaveCategories = async (categories: AdminCategory[]) => {
     try {
       const nextSettings = { ...storeSettings, customCategories: categories };
@@ -922,7 +944,7 @@ export default function Admin() {
           ) : section === "customers" ? (
             <CustomersPanel customers={customers} />
           ) : section === "reviews" ? (
-            <ReviewsPanel reviews={reviews} products={products} onStatusChange={handleReviewStatus} />
+            <ReviewsPanel reviews={reviews} products={products} onCreateReview={handleCreateReview} onStatusChange={handleReviewStatus} />
           ) : (
             <SettingsPanel settings={storeSettings} onSave={handleSaveSettings} />
           )}
@@ -1773,9 +1795,9 @@ function VariantOptionRow({ group, index, onName, onAdd, onRemove, onRemoveGroup
   );
 }
 
-function ProductTextArea({ label, value, onChange, rows, placeholder }: { label: string; value: string; onChange: (value: string) => void; rows: number; placeholder?: string }) {
+function ProductTextArea({ label, value, onChange, rows, placeholder, className }: { label: string; value: string; onChange: (value: string) => void; rows: number; placeholder?: string; className?: string }) {
   return (
-    <label className="block">
+    <label className={cn("block", className)}>
       <span className="mb-1.5 block text-[11px] text-[rgb(var(--vibe-muted))]">{label}</span>
       <textarea value={value} rows={rows} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} className="w-full resize-y rounded-md border border-[rgb(var(--vibe-border))] bg-white px-3 py-2 text-[13px] outline-none focus:ring-1 focus:ring-zinc-500" />
     </label>
@@ -2520,14 +2542,17 @@ function CustomersPanel({ customers }: { customers: AdminCustomer[] }) {
 function ReviewsPanel({
   reviews,
   products,
+  onCreateReview,
   onStatusChange,
 }: {
   reviews: AdminReview[];
   products: Product[];
+  onCreateReview: (input: { productId: string; rating: number; customerName?: string | null; customerEmail?: string | null; title?: string | null; body?: string | null; status?: "pending" | "published" | "hidden" }) => Promise<void>;
   onStatusChange: (review: AdminReview, status: "pending" | "published" | "hidden") => void;
 }) {
   return (
     <div className="space-y-3">
+      <AdminReviewForm products={products} onCreateReview={onCreateReview} />
       {reviews.length === 0 && (
         <div className="vibe-card p-6 text-[13px] text-[rgb(var(--vibe-muted))]">
           No reviews yet. New customer reviews will appear here for publishing, hiding, or moderation.
@@ -2559,6 +2584,95 @@ function ReviewsPanel({
           </div>
         </article>
       ))}
+    </div>
+  );
+}
+
+function AdminReviewForm({ products, onCreateReview }: { products: Product[]; onCreateReview: (input: { productId: string; rating: number; customerName?: string | null; customerEmail?: string | null; title?: string | null; body?: string | null; status?: "pending" | "published" | "hidden" }) => Promise<void> }) {
+  const firstProduct = products[0]?.id ?? "";
+  const [open, setOpen] = useState(false);
+  const [productId, setProductId] = useState(firstProduct);
+  const [rating, setRating] = useState("5");
+  const [customerName, setCustomerName] = useState("");
+  const [customerEmail, setCustomerEmail] = useState("");
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [status, setStatus] = useState<"pending" | "published" | "hidden">("published");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!productId && firstProduct) setProductId(firstProduct);
+  }, [firstProduct, productId]);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!productId || !body.trim()) {
+      toast({ title: "Choose a product and write the review", variant: "destructive" });
+      return;
+    }
+    setSaving(true);
+    try {
+      await onCreateReview({
+        productId,
+        rating: Number(rating) || 5,
+        customerName: customerName || null,
+        customerEmail: customerEmail || null,
+        title: title || null,
+        body,
+        status,
+      });
+      setCustomerName("");
+      setCustomerEmail("");
+      setTitle("");
+      setBody("");
+      setRating("5");
+      setStatus("published");
+      setOpen(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="vibe-card overflow-hidden">
+      <div className="flex items-center justify-between gap-3 border-b border-[rgb(var(--vibe-border))] px-4 py-4 sm:px-5">
+        <div>
+          <h3 className="text-[13px] font-medium">Add review</h3>
+          <p className="mt-0.5 text-[11px] text-[rgb(var(--vibe-muted))]">Text-only reviews can be added and published from here.</p>
+        </div>
+        <button type="button" onClick={() => setOpen((value) => !value)} className="h-9 rounded-md border border-[rgb(var(--vibe-border))] px-3 text-[12px] hover:bg-[rgb(var(--vibe-accent))]">
+          {open ? "Close" : "Add"}
+        </button>
+      </div>
+      {open && (
+        <form onSubmit={submit} className="grid gap-3 p-4 sm:grid-cols-2 sm:p-5">
+          <label className="space-y-1 text-[11px] font-medium text-[rgb(var(--vibe-muted))] sm:col-span-2">
+            <span>Product</span>
+            <select value={productId} onChange={(event) => setProductId(event.target.value)} required className="h-10 w-full rounded-md border border-[rgb(var(--vibe-border))] bg-white px-3 text-[13px] text-[rgb(var(--vibe-foreground))] outline-none focus:ring-1 focus:ring-zinc-500">
+              {products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}
+            </select>
+          </label>
+          <ProductInputField label="Customer name" value={customerName} onChange={setCustomerName} />
+          <ProductInputField label="Customer email" value={customerEmail} onChange={setCustomerEmail} type="email" />
+          <ProductInputField label="Review title" value={title} onChange={setTitle} />
+          <label className="space-y-1 text-[11px] font-medium text-[rgb(var(--vibe-muted))]">
+            <span>Rating</span>
+            <input type="number" min="1" max="5" step="0.1" value={rating} onChange={(event) => setRating(event.target.value)} className="h-9 w-full rounded-md border border-[rgb(var(--vibe-border))] bg-white px-3 text-[13px] outline-none focus:ring-1 focus:ring-zinc-500" />
+          </label>
+          <label className="space-y-1 text-[11px] font-medium text-[rgb(var(--vibe-muted))]">
+            <span>Status</span>
+            <select value={status} onChange={(event) => setStatus(event.target.value as "pending" | "published" | "hidden")} className="h-9 w-full rounded-md border border-[rgb(var(--vibe-border))] bg-white px-3 text-[13px] text-[rgb(var(--vibe-foreground))] outline-none focus:ring-1 focus:ring-zinc-500">
+              <option value="published">Published</option>
+              <option value="pending">Needs review</option>
+              <option value="hidden">Hidden</option>
+            </select>
+          </label>
+          <ProductTextArea label="Review text" value={body} onChange={setBody} rows={4} className="sm:col-span-2" />
+          <div className="sm:col-span-2 flex justify-end">
+            <button type="submit" disabled={saving} className="h-10 rounded-md bg-[rgb(var(--vibe-foreground))] px-4 text-[12px] text-white disabled:opacity-60">{saving ? "Saving..." : "Save review"}</button>
+          </div>
+        </form>
+      )}
     </div>
   );
 }

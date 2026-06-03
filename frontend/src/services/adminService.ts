@@ -235,6 +235,18 @@ export async function listAllReviews(limit = 200): Promise<AdminReview[]> {
   return (await convex.query(api.reviews.listAll, { limit })) as AdminReview[];
 }
 
+export async function createAdminReview(input: {
+  productId: string;
+  rating: number;
+  customerName?: string | null;
+  customerEmail?: string | null;
+  title?: string | null;
+  body?: string | null;
+  status?: "pending" | "published" | "hidden";
+}): Promise<AdminReview | null> {
+  return (await convex.mutation(api.reviews.createAdmin, input)) as AdminReview | null;
+}
+
 export async function updateReviewStatus(
   id: string,
   status: "pending" | "published" | "hidden",
