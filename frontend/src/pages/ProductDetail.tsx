@@ -174,25 +174,14 @@ const ProductDetail = () => {
               )}
               <p className={cn("mt-4 text-sm font-semibold", inStock ? "text-emerald-700" : "text-red-700")}>{inStock ? "In stock" : "Out of stock"}</p>
 
-              <div className="mt-5">
-                <div>
-                  {versions.length > 0 && (
-                    <>
-                      <p className="mb-2 font-serif text-lg text-black/70">Choose variant</p>
-                      <select
-                        value={product.slug ?? product.id}
-                        onChange={(event) => navigate(`/product/${event.target.value}`)}
-                        className="commerce-control h-12 w-full px-3 font-serif text-lg text-[#06133a]"
-                      >
-                        <option value={product.slug ?? product.id}>{product.variant_label || "Current variant"}</option>
-                        {versions.map((version) => (
-                          <option key={version.id} value={version.slug ?? version.id}>{version.variant_label || version.name}</option>
-                        ))}
-                      </select>
-                    </>
-                  )}
-                </div>
-              </div>
+              {versions.length > 0 && (
+                <OtherEditions
+                  current={product}
+                  editions={versions}
+                  formatPrice={format}
+                  onSelect={(edition) => navigate(`/product/${edition.slug ?? edition.id}`)}
+                />
+              )}
 
               <div className="mt-6 font-serif text-4xl leading-none text-black sm:text-5xl">
                 {format(price)}
@@ -330,6 +319,38 @@ function OptionGroup({ label, options, value, onChange }: { label: string; optio
         })}
       </div>
     </div>
+  );
+}
+
+function OtherEditions({ current, editions, formatPrice, onSelect }: { current: Product; editions: Product[]; formatPrice: (amount: number | null | undefined) => string; onSelect: (product: Product) => void }) {
+  const rows = editions.filter((edition) => edition.id !== current.id);
+  if (!rows.length) return null;
+  return (
+    <section className="mt-6 max-w-[49rem] border-y border-[#06133a]/10 py-4">
+      <h2 className="font-serif text-lg text-[#06133a]">Other Editions</h2>
+      <div className="mt-3 space-y-3">
+        {rows.map((edition) => {
+          const image = productImage(edition);
+          return (
+            <button
+              key={edition.id}
+              type="button"
+              onClick={() => onSelect(edition)}
+              className="pdp-press grid w-full grid-cols-[56px_minmax(0,1fr)_auto] items-center gap-3 rounded-md px-0 py-1 text-left transition-colors hover:bg-[#eef2fa] sm:grid-cols-[64px_minmax(0,1fr)_auto] sm:gap-4"
+            >
+              <span className="block aspect-square overflow-hidden rounded bg-[#d9d9d9]">
+                {image ? <img src={image} alt={edition.name} loading="lazy" decoding="async" className="h-full w-full object-cover" /> : null}
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate font-serif text-base leading-tight text-[#06133a] sm:text-lg">{edition.name}</span>
+                {(edition.author || edition.publisher) && <span className="mt-0.5 block truncate text-xs text-[#06133a]/65 sm:text-sm">{edition.author || edition.publisher}</span>}
+              </span>
+              <span className="pl-2 text-right font-serif text-sm text-[#06133a] sm:text-base">{formatPrice(productPrice(edition))}</span>
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
