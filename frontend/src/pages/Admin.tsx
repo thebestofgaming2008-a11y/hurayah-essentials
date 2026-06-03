@@ -1473,6 +1473,7 @@ function ProductEditorDialog({
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [draggingMedia, setDraggingMedia] = useState(false);
+  const [familyPickerOpen, setFamilyPickerOpen] = useState(false);
   const galleryImages = form.images.split("\n").map((image) => image.trim()).filter(Boolean);
   const gallery = Array.from(new Set([form.cover_image_url, ...galleryImages].map((image) => image.trim()).filter(Boolean)));
   const savedVariantGroups = (() => {
@@ -1483,8 +1484,9 @@ function ProductEditorDialog({
     }
   })();
   const variantGroups = Array.from(new Set([...savedVariantGroups, form.variant_group, ...products.map((item) => variantGroupFromTags(item.tags))].filter(Boolean))).sort();
-  const selectedVariantProducts = form.variant_group
-    ? products.filter((item) => item.id !== product?.id && variantGroupFromTags(item.tags) === slugifyAdmin(form.variant_group))
+  const normalizedVariantGroup = slugifyAdmin(form.variant_group);
+  const selectedVariantProducts = normalizedVariantGroup
+    ? products.filter((item) => item.id !== product?.id && variantGroupFromTags(item.tags) === normalizedVariantGroup)
     : [];
   const setField = <K extends keyof ProductFormState>(key: K, value: ProductFormState[K]) => {
     setForm((current) => ({ ...current, [key]: value }));
@@ -1666,18 +1668,23 @@ function ProductEditorDialog({
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <h3 className="sm:col-span-2 text-[12px] font-medium text-[rgb(var(--vibe-foreground))]">Linked product variants</h3>
-              <ProductInputField label="Product family" value={form.variant_group} onChange={(value) => setField("variant_group", slugifyAdmin(value))} placeholder="kufi-prayer-cap" list="variant-groups" />
+              <ProductInputField label="Product family" value={form.variant_group} onChange={(value) => setField("variant_group", value)} placeholder="kufi_prayer-cap or kufi-prayer-cap" />
               <ProductInputField label="This product label" value={form.variant_label} onChange={(value) => setField("variant_label", value)} placeholder="Brown, Large, Urdu..." />
-              <datalist id="variant-groups">
-                {variantGroups.map((group) => <option key={group} value={group} />)}
-              </datalist>
               {variantGroups.length > 0 && (
-                <div className="sm:col-span-2 flex flex-wrap gap-2">
-                  {variantGroups.map((group) => (
-                    <button key={group} type="button" onClick={() => setField("variant_group", group)} className={cn("rounded-full border px-3 py-1 text-[11px] transition-all duration-200 hover:border-zinc-500", form.variant_group === group ? "border-zinc-900 bg-zinc-900 text-white" : "border-[rgb(var(--vibe-border))] text-[rgb(var(--vibe-muted))]")}>
-                      {group}
-                    </button>
-                  ))}
+                <div className="sm:col-span-2">
+                  <button type="button" onClick={() => setFamilyPickerOpen((value) => !value)} className="flex h-10 w-full items-center justify-between rounded-md border border-[rgb(var(--vibe-border))] bg-white px-3 text-left text-[12px] transition-colors hover:bg-[rgb(var(--vibe-accent))]">
+                    <span>{form.variant_group ? `Family: ${form.variant_group}` : "Choose existing family"}</span>
+                    <ChevronRight className={cn("h-4 w-4 transition-transform", familyPickerOpen && "rotate-90")} />
+                  </button>
+                  {familyPickerOpen && (
+                    <div className="mt-2 grid max-h-40 gap-1 overflow-y-auto rounded-md border border-[rgb(var(--vibe-border))] bg-white p-1">
+                      {variantGroups.map((group) => (
+                        <button key={group} type="button" onClick={() => { setField("variant_group", group); setFamilyPickerOpen(false); }} className={cn("flex h-9 items-center justify-between rounded px-3 text-left text-[12px] transition-colors hover:bg-[rgb(var(--vibe-accent))]", normalizedVariantGroup === group ? "bg-zinc-900 text-white hover:bg-zinc-900" : "text-[rgb(var(--vibe-muted))]")}>
+                          {group}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
               <div className="sm:col-span-2">
