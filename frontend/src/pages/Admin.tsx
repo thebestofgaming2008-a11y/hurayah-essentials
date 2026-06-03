@@ -66,6 +66,7 @@ import {
   type AdminNotification,
   type AdminCustomer,
   type AdminOrder,
+  type AdminShippingAddress,
   type PaymentRecovery,
   type AdminReview,
   type ShippingRate,
@@ -228,6 +229,25 @@ function fmtAmount(n: number) {
 function fmtDate(iso?: string | null) {
   if (!iso) return "No date";
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function orderShippingAddress(order: AdminOrder): AdminShippingAddress | null {
+  if (order.shipping_address && typeof order.shipping_address === "object") {
+    return order.shipping_address;
+  }
+  return null;
+}
+
+function addressLines(address: AdminShippingAddress | null) {
+  if (!address) return [];
+  const cityLine = [address.city, address.state, address.postal_code].filter(Boolean).join(", ");
+  return [address.address_line_1, address.address_line_2, cityLine, address.country].filter((line): line is string => Boolean(line));
+}
+
+function addressPreview(order: AdminOrder) {
+  const address = orderShippingAddress(order);
+  const lines = addressLines(address);
+  return lines.length ? lines.join(" · ") : "No shipping address saved";
 }
 
 function whatsappPhone(phone?: string | null) {
@@ -1202,6 +1222,7 @@ function MobileOrders({ orders, onViewOrder }: { orders: AdminOrder[]; onViewOrd
                   {order.items?.[0]?.product_image_url && <img src={order.items[0].product_image_url} alt="" loading="lazy" decoding="async" className="h-10 w-8 shrink-0 rounded border border-[rgb(var(--vibe-border))] object-cover" />}
                   <span className="truncate">{order.items?.[0]?.product_name ?? "Product"}</span>
                 </p>
+                <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-[rgb(var(--vibe-muted))]">{addressPreview(order)}</p>
               </div>
               <div className="shrink-0 text-right">
                 <p className="font-mono text-[13px] font-semibold">{fmtAmount(order.total_inr ?? order.total ?? 0)}</p>
@@ -1924,6 +1945,8 @@ function OrderDetailsDialog({
 }) {
   const meta = statusMeta[normalizeStatus(order)];
   const total = order.total_inr ?? order.total ?? 0;
+  const shippingAddress = orderShippingAddress(order);
+  const shippingAddressLines = addressLines(shippingAddress);
   const [saving, setSaving] = useState(false);
   const [savingStatus, setSavingStatus] = useState(false);
   const [form, setForm] = useState<OrderFulfillmentState>({
@@ -2037,6 +2060,20 @@ function OrderDetailsDialog({
               <p className="mt-1 text-[rgb(var(--vibe-muted))]">{order.customer_name ?? "No name"}</p>
               <p className="text-[rgb(var(--vibe-muted))]">{order.customer_email ?? "No email"}</p>
               <p className="text-[rgb(var(--vibe-muted))]">{order.customer_phone ?? "No phone"}</p>
+            </div>
+            <div className="rounded-lg border border-[rgb(var(--vibe-border))] p-4 text-[12px]">
+              <p className="font-medium">Shipping address</p>
+              {shippingAddressLines.length > 0 ? (
+                <div className="mt-2 space-y-1 leading-5 text-[rgb(var(--vibe-muted))]">
+                  <p className="font-medium text-[rgb(var(--vibe-foreground))]">{shippingAddress?.name ?? order.customer_name ?? "Customer"}</p>
+                  {shippingAddress?.phone && <p>{shippingAddress.phone}</p>}
+                  {shippingAddressLines.map((line) => (
+                    <p key={line}>{line}</p>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-2 rounded-md bg-amber-50 px-2 py-1.5 text-[11px] text-amber-800">No shipping address was saved on this order.</p>
+              )}
             </div>
             <div className="rounded-lg border border-[rgb(var(--vibe-border))] p-4 text-[12px]">
               <div className="flex justify-between"><span>Payment</span><span className="capitalize">{order.payment_status ?? "unknown"}</span></div>

@@ -114,6 +114,18 @@ export interface AdminNotification {
   section: string;
 }
 
+export interface AdminShippingAddress {
+  name?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  address_line_1?: string | null;
+  address_line_2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postal_code?: string | null;
+  country?: string | null;
+}
+
 export async function listShippingRates(): Promise<ShippingRate[]> {
   let rows = (await convex.query(api.admin.listShippingRates, {})) as ShippingRate[];
   if (!rows.length) {
@@ -151,6 +163,7 @@ export interface AdminOrder {
   shipping_payment_status?: string | null;
   shipping_payment_note?: string | null;
   customer_country_type?: string | null;
+  shipping_address?: AdminShippingAddress | null;
   shipping_cost?: number | null;
   tracking_carrier?: string | null;
   tracking_number?: string | null;

@@ -721,7 +721,7 @@ export const updateTracking = mutation({
       updated_at: nowIso(),
     });
     const order = await ctx.db.get(args.id as any);
-    return order ? publicOrder(order) : null;
+    return order ? await orderWithItems(ctx, order) : null;
   },
 });
 
