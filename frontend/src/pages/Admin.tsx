@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { type ClipboardEvent, type DragEvent, type FormEvent, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   AlertCircle,
@@ -1472,6 +1472,7 @@ function ProductEditorDialog({
   const [form, setForm] = useState<ProductFormState>(() => productToForm(product));
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [draggingMedia, setDraggingMedia] = useState(false);
   const galleryImages = form.images.split("\n").map((image) => image.trim()).filter(Boolean);
   const gallery = Array.from(new Set([form.cover_image_url, ...galleryImages].map((image) => image.trim()).filter(Boolean)));
   const savedVariantGroups = (() => {
@@ -1507,11 +1508,12 @@ function ProductEditorDialog({
       setUploading(false);
     }
   };
-  const handleGalleryImages = async (files?: FileList | null) => {
-    if (!files?.length) return;
+  const handleGalleryImages = async (files?: FileList | File[] | null) => {
+    const batch = Array.from(files ?? []).filter((file) => file.type.startsWith("image/") || file.type.startsWith("video/"));
+    if (!batch.length) return;
     setUploading(true);
     try {
-      const uploaded = (await Promise.all(Array.from(files).map((file) => uploadProductImage(file)))).filter(Boolean);
+      const uploaded = (await Promise.all(batch.map((file) => uploadProductImage(file)))).filter(Boolean);
       if (uploaded.length) {
         const existing = form.images.split("\n").map((image) => image.trim()).filter(Boolean);
         const [first, ...rest] = uploaded;
@@ -1525,6 +1527,17 @@ function ProductEditorDialog({
     } finally {
       setUploading(false);
     }
+  };
+  const handlePastedMedia = (event: ClipboardEvent<HTMLFormElement>) => {
+    const files = Array.from(event.clipboardData.files).filter((file) => file.type.startsWith("image/") || file.type.startsWith("video/"));
+    if (!files.length) return;
+    event.preventDefault();
+    void handleGalleryImages(files);
+  };
+  const handleDroppedMedia = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setDraggingMedia(false);
+    void handleGalleryImages(Array.from(event.dataTransfer.files));
   };
   const makeCoverImage = (image: string) => {
     const selected = image.trim();
@@ -1546,7 +1559,7 @@ function ProductEditorDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/35 p-0 sm:items-center sm:p-6">
-      <form onSubmit={handleSubmit} className="vibe-card flex max-h-[95dvh] w-full max-w-5xl flex-col overflow-hidden rounded-b-none sm:max-h-[95vh] sm:rounded-b-lg">
+      <form onSubmit={handleSubmit} onPaste={handlePastedMedia} className="vibe-card flex max-h-[95dvh] w-full max-w-5xl flex-col overflow-hidden rounded-b-none sm:max-h-[95vh] sm:rounded-b-lg">
         <div className="flex items-center justify-between border-b border-[rgb(var(--vibe-border))] px-5 py-4">
           <div>
             <h2 className="text-[15px] font-semibold">{product ? "Edit product" : "Add product"}</h2>
@@ -1576,6 +1589,26 @@ function ProductEditorDialog({
               </label>
             </div>
             <ProductInputField label="Image URL" value={form.cover_image_url} onChange={(value) => setField("cover_image_url", value)} />
+            <div
+              onDragEnter={(event) => {
+                event.preventDefault();
+                setDraggingMedia(true);
+              }}
+              onDragOver={(event) => {
+                event.preventDefault();
+                setDraggingMedia(true);
+              }}
+              onDragLeave={() => setDraggingMedia(false)}
+              onDrop={handleDroppedMedia}
+              tabIndex={0}
+              className={cn(
+                "rounded-md border border-dashed border-[rgb(var(--vibe-border))] bg-white p-3 text-center text-[12px] text-[rgb(var(--vibe-muted))] outline-none transition-all focus:ring-1 focus:ring-zinc-500",
+                draggingMedia && "border-zinc-900 bg-[rgb(var(--vibe-accent))]",
+              )}
+            >
+              <p className="font-medium text-[rgb(var(--vibe-foreground))]">Paste or drop media</p>
+              <p className="mt-1 leading-5">Paste screenshots with Ctrl+V, or drag images/videos here in bulk.</p>
+            </div>
             {uploading && <p className="text-[11px] text-[rgb(var(--vibe-muted))]">Uploading to Convex storage...</p>}
             {gallery.length > 0 && (
               <div className="flex gap-3 overflow-x-auto pb-2">
