@@ -54,8 +54,11 @@ export function SiteHeader() {
   }, []);
 
   const openMenu = () => {
-    setMenuClosing(false);
+    setMenuClosing(true);
     setMenuOpen(true);
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => setMenuClosing(false));
+    });
   };
 
   const closeMenu = () => {
