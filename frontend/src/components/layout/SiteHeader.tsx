@@ -26,6 +26,8 @@ export function SiteHeader() {
   const [scrolled, setScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuClosing, setMenuClosing] = useState(false);
+  const [noticeIndex, setNoticeIndex] = useState(0);
   const navigate = useNavigate();
   const { cartCount, openCart } = useShop();
   const { user, isAdmin, signOut } = useAuth();
@@ -44,6 +46,26 @@ export function SiteHeader() {
     };
   }, [menuOpen]);
 
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setNoticeIndex((current) => (current + 1) % 2);
+    }, 4200);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  const openMenu = () => {
+    setMenuClosing(false);
+    setMenuOpen(true);
+  };
+
+  const closeMenu = () => {
+    setMenuClosing(true);
+    window.setTimeout(() => {
+      setMenuOpen(false);
+      setMenuClosing(false);
+    }, 220);
+  };
+
   const submitSearch = (e: React.FormEvent) => {
     e.preventDefault();
     const q = query.trim();
@@ -61,12 +83,12 @@ export function SiteHeader() {
 
   const handleSignOut = async () => {
     await signOut();
-    setMenuOpen(false);
+    closeMenu();
     navigate("/");
   };
 
   const goCategorySection = (category: string) => {
-    setMenuOpen(false);
+    closeMenu();
     navigate(`/?category=${encodeURIComponent(category)}#categories`);
   };
 
@@ -122,17 +144,29 @@ export function SiteHeader() {
               <span className="hidden sm:inline">Admin</span>
             </Link>
           )}
-          <div className="mx-auto min-w-0 flex-1 px-3 text-center sm:px-8">
-            Shipping included across India
+          <div className="mx-auto min-w-0 flex-1 px-3 text-center sm:px-28">
+            <span className="relative mx-auto block h-5 max-w-[360px] overflow-hidden whitespace-nowrap">
+              {["Shipping included across India", "International orders may incur extra fees"].map((message, index) => (
+                <span
+                  key={message}
+                  className={cn(
+                    "absolute inset-0 flex items-center justify-center transition-all duration-500 ease-out",
+                    noticeIndex === index ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0",
+                  )}
+                >
+                  {message}
+                </span>
+              ))}
+            </span>
           </div>
-          <CurrencySelector className="absolute right-3 top-1/2 hidden -translate-y-1/2 sm:block" />
+          <CurrencySelector variant="bar" className="absolute right-3 top-1/2 hidden -translate-y-1/2 sm:block" />
         </div>
       </div>
 
       <header className="border-b border-foreground/[0.1] bg-hero/95 backdrop-blur-md" data-testid="storefront-header">
         <div className="mx-auto grid max-w-[1440px] grid-cols-[1fr_auto_1fr] items-center px-3 py-1.5 sm:px-4 sm:py-2 md:px-8">
           <div className="flex justify-self-start">
-            <button type="button" onClick={() => setMenuOpen(true)} aria-label="Open menu" data-testid="site-header-open-menu-button" className={cn(ICON_BUTTON, "md:hidden")}>
+            <button type="button" onClick={openMenu} aria-label="Open menu" data-testid="site-header-open-menu-button" className={cn(ICON_BUTTON, "md:hidden")}>
               <Menu className="h-5 w-5" />
             </button>
           </div>
@@ -183,38 +217,49 @@ export function SiteHeader() {
       </header>
 
       {menuOpen && (
-        <div className="fixed inset-0 z-50 bg-foreground/40 backdrop-blur-sm md:hidden" onClick={() => setMenuOpen(false)} data-testid="site-header-mobile-menu-overlay">
-          <aside className="commerce-sheet-in absolute left-0 top-0 flex h-full w-[86%] max-w-[360px] flex-col overflow-y-auto border-r border-foreground/10 bg-hero shadow-2xl" onClick={(event) => event.stopPropagation()} data-testid="site-header-mobile-menu-panel">
+        <div
+          className={cn("fixed inset-0 z-50 bg-foreground/40 backdrop-blur-sm transition-opacity duration-200 md:hidden", menuClosing ? "opacity-0" : "opacity-100")}
+          onClick={closeMenu}
+          data-testid="site-header-mobile-menu-overlay"
+        >
+          <aside
+            className={cn(
+              "absolute left-0 top-0 flex h-full w-[86%] max-w-[360px] flex-col overflow-y-auto border-r border-foreground/10 bg-hero shadow-2xl transition-transform duration-200 ease-out",
+              menuClosing ? "-translate-x-full" : "translate-x-0",
+            )}
+            onClick={(event) => event.stopPropagation()}
+            data-testid="site-header-mobile-menu-panel"
+          >
             <div className="flex items-center justify-between border-b border-foreground/10 px-5 py-4">
-              <Link to="/" onClick={() => setMenuOpen(false)} className="inline-flex items-center gap-3">
+              <Link to="/" onClick={closeMenu} className="inline-flex items-center gap-3">
                 <img src={logo} alt="" className="h-9 w-auto object-contain" />
                 <span className="text-[13px] font-semibold text-hero-foreground">Back to store</span>
               </Link>
-              <button type="button" onClick={() => setMenuOpen(false)} aria-label="Close menu" data-testid="site-header-close-menu-button" className="grid h-9 w-9 place-items-center rounded-md hover:bg-foreground/5">
+              <button type="button" onClick={closeMenu} aria-label="Close menu" data-testid="site-header-close-menu-button" className="grid h-9 w-9 place-items-center rounded-md hover:bg-foreground/5">
                 <X className="h-5 w-5" />
               </button>
             </div>
             <nav className="flex flex-col gap-1 px-3 py-5">
-              {isAdmin && <Link to="/admin" onClick={() => setMenuOpen(false)} className="rounded-md px-3 py-3 text-[14px] font-semibold text-brand hover:bg-white/55">Admin dashboard</Link>}
-              <Link to="/shop" onClick={() => setMenuOpen(false)} className="rounded-md px-3 py-3 text-[14px] text-foreground hover:bg-white/55 hover:text-brand">Shop all</Link>
+              {isAdmin && <Link to="/admin" onClick={closeMenu} className="rounded-md px-3 py-3 text-[14px] font-semibold text-brand hover:bg-white/55">Admin dashboard</Link>}
+              <Link to="/shop" onClick={closeMenu} className="rounded-md px-3 py-3 text-[14px] text-foreground hover:bg-white/55 hover:text-brand">Shop all</Link>
               <button type="button" onClick={() => goCategorySection("books")} className="w-full rounded-md px-3 py-3 text-left text-[14px] text-foreground hover:bg-white/55 hover:text-brand">Books</button>
               <button type="button" onClick={() => goCategorySection("clothing")} className="w-full rounded-md px-3 py-3 text-left text-[14px] text-foreground hover:bg-white/55 hover:text-brand">Clothing</button>
               <button type="button" onClick={() => goCategorySection("children")} className="w-full rounded-md px-3 py-3 text-left text-[14px] text-foreground hover:bg-white/55 hover:text-brand">Essentials</button>
-              <Link to="/contact" onClick={() => setMenuOpen(false)} className="rounded-md px-3 py-3 text-[14px] text-foreground hover:bg-white/55 hover:text-brand">Contact</Link>
+              <Link to="/contact" onClick={closeMenu} className="rounded-md px-3 py-3 text-[14px] text-foreground hover:bg-white/55 hover:text-brand">Contact</Link>
               <div className="mt-3 border-t border-foreground/10 pt-3">
-                <CurrencySelector label className="mb-3 px-3" />
-                <Link to="/track" onClick={() => setMenuOpen(false)} className="block rounded-md px-3 py-3 text-[14px] text-foreground hover:bg-white/55 hover:text-brand">Track order</Link>
+                <CurrencySelector variant="menu" label className="mb-3 px-3" />
+                <Link to="/track" onClick={closeMenu} className="block rounded-md px-3 py-3 text-[14px] text-foreground hover:bg-white/55 hover:text-brand">Track order</Link>
                 {user ? (
                   <>
-                    <Link to="/account" onClick={() => setMenuOpen(false)} className="block rounded-md px-3 py-3 text-[14px] text-foreground hover:bg-white/55 hover:text-brand">My account</Link>
-                    <Link to="/wishlist" onClick={() => setMenuOpen(false)} className="block rounded-md px-3 py-3 text-[14px] text-foreground hover:bg-white/55 hover:text-brand">Wishlist</Link>
+                    <Link to="/account" onClick={closeMenu} className="block rounded-md px-3 py-3 text-[14px] text-foreground hover:bg-white/55 hover:text-brand">My account</Link>
+                    <Link to="/wishlist" onClick={closeMenu} className="block rounded-md px-3 py-3 text-[14px] text-foreground hover:bg-white/55 hover:text-brand">Wishlist</Link>
                     <button type="button" onClick={handleSignOut} className="inline-flex w-full items-center gap-2 rounded-md px-3 py-3 text-[14px] text-red-600 hover:bg-white/55">
                       <LogOut className="h-4 w-4" />
                       Sign out
                     </button>
                   </>
                 ) : (
-                  <Link to="/login?redirect=/account" onClick={() => setMenuOpen(false)} className="block rounded-md px-3 py-3 text-[14px] font-semibold text-brand hover:bg-white/55">Sign in</Link>
+                  <Link to="/login?redirect=/account" onClick={closeMenu} className="block rounded-md px-3 py-3 text-[14px] font-semibold text-brand hover:bg-white/55">Sign in</Link>
                 )}
               </div>
             </nav>

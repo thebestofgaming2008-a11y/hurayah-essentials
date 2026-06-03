@@ -53,7 +53,7 @@ export function SiteFooter({ compact = false }: { compact?: boolean }) {
               <Instagram className="h-4 w-4" />
               @hurayrah_essentials
             </a>
-            <CurrencySelector label className="mt-5 max-w-[180px]" />
+            <CurrencySelector variant="footer" label className="mt-5 max-w-[180px]" />
           </div>
           {COLS.map((col) => (
             <div key={col.title}>

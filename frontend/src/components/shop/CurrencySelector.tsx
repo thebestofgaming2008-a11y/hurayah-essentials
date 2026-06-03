@@ -18,17 +18,33 @@ const SYMBOLS: Record<string, string> = {
   ZAR: "R",
 };
 
-export function CurrencySelector({ className = "", label = false }: { className?: string; label?: boolean }) {
+export function CurrencySelector({
+  className = "",
+  label = false,
+  variant = "bar",
+}: {
+  className?: string;
+  label?: boolean;
+  variant?: "bar" | "menu" | "footer";
+}) {
   const { currency, currencies, setCurrency } = useCurrency();
+  const shellClass =
+    variant === "bar"
+      ? "bg-brand text-brand-foreground"
+      : variant === "menu"
+        ? "border border-foreground/10 bg-white/65 text-foreground"
+        : "border border-border bg-background text-foreground";
+  const selectClass = variant === "bar" ? "text-[18px]" : "text-[14px]";
+  const symbolClass = variant === "bar" ? "text-[24px]" : "text-[16px] font-semibold";
   return (
     <label className={cn("commerce-shell block text-[11px] text-[rgb(var(--vibe-muted))]", className)}>
-      {label && <span className="mb-1 block">Currency Selector</span>}
-      <span className="relative flex h-9 min-w-[112px] items-center overflow-hidden rounded-none bg-brand text-brand-foreground">
+      {label && <span className={cn("mb-1 block", variant === "menu" && "px-1 text-foreground/55", variant === "footer" && "text-foreground/55")}>Currency</span>}
+      <span className={cn("relative flex h-9 min-w-[112px] items-center overflow-hidden rounded-md", shellClass)}>
         <ChevronDown className="pointer-events-none absolute left-3 h-3.5 w-3.5" />
         <select
           value={currency}
           onChange={(event) => setCurrency(event.target.value)}
-          className="h-full w-full cursor-pointer appearance-none bg-transparent pl-9 pr-9 text-center text-[18px] font-medium outline-none"
+          className={cn("h-full w-full cursor-pointer appearance-none bg-transparent pl-9 pr-9 text-center font-medium outline-none", selectClass)}
           aria-label="Select currency"
         >
           {currencies.map((item) => (
@@ -37,7 +53,7 @@ export function CurrencySelector({ className = "", label = false }: { className?
             </option>
           ))}
         </select>
-        <span className="pointer-events-none absolute right-3 text-[24px] leading-none">{SYMBOLS[currency] ?? currency}</span>
+        <span className={cn("pointer-events-none absolute right-3 leading-none", symbolClass)}>{SYMBOLS[currency] ?? currency}</span>
       </span>
     </label>
   );
