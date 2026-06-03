@@ -1610,12 +1610,9 @@ function ProductEditorDialog({
               <ProductInputField label="Weight source URL" value={form.weight_source_url} onChange={(value) => setField("weight_source_url", value)} className="sm:col-span-2" />
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
-              <h3 className="sm:col-span-2 text-[12px] font-medium text-[rgb(var(--vibe-foreground))]">Variants</h3>
-              <ProductInputField label="Variant group" value={form.variant_group} onChange={(value) => setField("variant_group", slugifyAdmin(value))} placeholder="kufi-prayer-cap" list="variant-groups" />
-              <ProductInputField label="Variant label (optional)" value={form.variant_label} onChange={(value) => setField("variant_label", value)} placeholder="Brown, Large, Urdu..." />
-              <div className="sm:col-span-2">
-                <VariantOptionsEditor value={form.option_types} onChange={(value) => setField("option_types", value)} />
-              </div>
+              <h3 className="sm:col-span-2 text-[12px] font-medium text-[rgb(var(--vibe-foreground))]">Linked product variants</h3>
+              <ProductInputField label="Product family" value={form.variant_group} onChange={(value) => setField("variant_group", slugifyAdmin(value))} placeholder="kufi-prayer-cap" list="variant-groups" />
+              <ProductInputField label="This product label" value={form.variant_label} onChange={(value) => setField("variant_label", value)} placeholder="Brown, Large, Urdu..." />
               <datalist id="variant-groups">
                 {variantGroups.map((group) => <option key={group} value={group} />)}
               </datalist>
@@ -1631,10 +1628,10 @@ function ProductEditorDialog({
               <div className="sm:col-span-2">
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-[11px] text-[rgb(var(--vibe-muted))]">
-                    {selectedVariantProducts.length ? `${selectedVariantProducts.length} product(s) already in this group.` : "Type a new group name to create one, or clear it to remove this product from variants."}
+                    {selectedVariantProducts.length ? `${selectedVariantProducts.length} linked product(s) in this family.` : "Use this only when separate products should appear on each other's pages."}
                   </p>
                   {form.variant_group && (
-                    <button type="button" onClick={() => setField("variant_group", "")} className="h-8 rounded-md border border-[rgb(var(--vibe-border))] px-3 text-[11px]">Remove from group</button>
+                    <button type="button" onClick={() => setField("variant_group", "")} className="h-8 rounded-md border border-[rgb(var(--vibe-border))] px-3 text-[11px]">Unlink</button>
                   )}
                 </div>
                 {selectedVariantProducts.length > 0 && (
@@ -1644,6 +1641,10 @@ function ProductEditorDialog({
                     ))}
                   </div>
                 )}
+              </div>
+              <h3 className="sm:col-span-2 pt-2 text-[12px] font-medium text-[rgb(var(--vibe-foreground))]">Options on this product</h3>
+              <div className="sm:col-span-2">
+                <VariantOptionsEditor value={form.option_types} onChange={(value) => setField("option_types", value)} />
               </div>
             </div>
             <ProductInputField label="Tags" value={form.tags} onChange={(value) => setField("tags", value)} placeholder="comma separated" />
