@@ -52,6 +52,20 @@ function publicReview(doc: Record<string, any>) {
   return { id: _id, ...rest };
 }
 
+function cleanEmail(value: string | null | undefined) {
+  return cleanText(value, 180).toLowerCase();
+}
+
+function normalizeOrderNumber(value: string) {
+  const raw = cleanText(value, 40).toUpperCase();
+  return /^\d+$/.test(raw) ? `#${raw}` : raw;
+}
+
+async function hasReviewedByEmail(ctx: any, email: string, productId: string) {
+  const rows = await ctx.db.query("reviews").withIndex("by_product_id", (q: any) => q.eq("product_id", productId)).collect();
+  return rows.some((row: any) => cleanEmail(row.customer_email) === email);
+}
+
 export const listPublishedForProduct = query({
   args: { productId: v.string() },
   handler: async (ctx, args) => {
@@ -107,6 +121,47 @@ export const submit = mutation({
       media_urls: [],
       status: "pending",
       admin_note: null,
+      created_at: timestamp,
+      updated_at: timestamp,
+    });
+    const doc = await ctx.db.get(id);
+    return doc ? publicReview(doc) : null;
+  },
+});
+
+export const submitForOrder = mutation({
+  args: {
+    orderNumber: v.string(),
+    email: v.string(),
+    productId: v.string(),
+    rating: v.number(),
+    title: v.optional(v.union(v.string(), v.null())),
+    body: v.optional(v.union(v.string(), v.null())),
+  },
+  handler: async (ctx, args) => {
+    const orderNumber = normalizeOrderNumber(args.orderNumber);
+    const email = cleanEmail(args.email);
+    if (!orderNumber || !email) throw new Error("Order number and email are required.");
+    const product = await ctx.db.get(args.productId as any);
+    if (!product || product.is_active === false) throw new Error("Product not found.");
+    const order = await ctx.db.query("orders").withIndex("by_order_number", (q: any) => q.eq("order_number", orderNumber)).first();
+    if (!order || cleanEmail(order.customer_email) !== email) throw new Error("Order not found for this email.");
+    if (!(order.payment_status === "paid" || order.payment_status === "MOCKED_PAID")) throw new Error("Only paid orders can be reviewed.");
+    const items = await ctx.db.query("order_items").withIndex("by_order_id", (q: any) => q.eq("order_id", order._id)).collect();
+    if (!items.some((item: any) => String(item.product_id) === args.productId)) throw new Error("This product was not in that order.");
+    if (await hasReviewedByEmail(ctx, email, args.productId)) throw new Error("You already reviewed this product.");
+    const timestamp = nowIso();
+    const id = await ctx.db.insert("reviews", {
+      product_id: args.productId,
+      user_id: order.user_id ?? null,
+      customer_name: cleanNullable(order.customer_name, 120),
+      customer_email: email,
+      rating: Math.max(1, Math.min(5, Math.round(args.rating * 10) / 10)),
+      title: cleanNullable(args.title, 120),
+      body: cleanNullable(args.body, 1600),
+      media_urls: [],
+      status: "pending",
+      admin_note: `Submitted from order ${orderNumber}`,
       created_at: timestamp,
       updated_at: timestamp,
     });

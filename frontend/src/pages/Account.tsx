@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useState, type FormEvent } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { ArrowLeft, ChevronDown, Heart, Info, LogOut, Package, Plus, Star, Trash2, User } from "lucide-react";
 import { SiteLayout } from "@/components/layout/SiteLayout";
@@ -20,6 +20,7 @@ import {
 } from "@/services/accountService";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
+import { submitOrderReview } from "@/services/reviewService";
 
 type Tab = "orders" | "wishlist" | "profile";
 
@@ -136,7 +137,7 @@ const Account = () => {
                 {orders.length === 0 ? (
                   <p className="text-[13px] text-[rgb(var(--vibe-muted))]">No orders yet. <Link to="/shop" className="text-brand hover:underline">Browse the shop</Link>.</p>
                 ) : (
-                  <OrdersTable orders={orders} formatPrice={format} />
+                  <OrdersTable orders={orders} customerEmail={user.email ?? ""} formatPrice={format} />
                 )}
               </Card>
             </div>
@@ -171,7 +172,7 @@ function Card({ children, className }: { children: React.ReactNode; className?: 
   return <section className={cn("vibe-card p-5 shadow-[0_10px_30px_-24px_rgba(0,0,0,0.45)] md:p-6", className)}>{children}</section>;
 }
 
-function OrdersTable({ orders, formatPrice }: { orders: Order[]; formatPrice: (amount: number | null | undefined) => string }) {
+function OrdersTable({ orders, customerEmail, formatPrice }: { orders: Order[]; customerEmail: string; formatPrice: (amount: number | null | undefined) => string }) {
   const [openOrder, setOpenOrder] = useState<string | null>(orders[0]?.id ?? null);
   const labelForStatus = (status: string | null | undefined) => {
     if (status === "shipped" || status === "delivered" || status === "cancelled" || status === "returned") return status[0].toUpperCase() + status.slice(1);
@@ -198,7 +199,7 @@ function OrdersTable({ orders, formatPrice }: { orders: Order[]; formatPrice: (a
               {openOrder === o.id ? "Hide items" : "View items"}
               <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", openOrder === o.id && "rotate-180")} />
             </button>
-            {openOrder === o.id && <OrderItemsList order={o} formatPrice={formatPrice} />}
+            {openOrder === o.id && <OrderItemsList order={o} customerEmail={customerEmail} formatPrice={formatPrice} />}
           </article>
         ))}
       </div>
@@ -234,7 +235,7 @@ function OrdersTable({ orders, formatPrice }: { orders: Order[]; formatPrice: (a
               {openOrder === o.id && (
                 <tr key={`${o.id}-items`}>
                   <td colSpan={6} className="bg-[rgb(var(--vibe-surface))]/55 px-3 py-3">
-                    <OrderItemsList order={o} formatPrice={formatPrice} />
+                    <OrderItemsList order={o} customerEmail={customerEmail} formatPrice={formatPrice} />
                   </td>
                 </tr>
               )}
@@ -247,7 +248,7 @@ function OrdersTable({ orders, formatPrice }: { orders: Order[]; formatPrice: (a
   );
 }
 
-function OrderItemsList({ order, formatPrice }: { order: Order; formatPrice: (amount: number | null | undefined) => string }) {
+function OrderItemsList({ order, customerEmail, formatPrice }: { order: Order; customerEmail: string; formatPrice: (amount: number | null | undefined) => string }) {
   const items = order.items ?? [];
   if (items.length === 0) return <p className="mt-3 text-[12px] text-[rgb(var(--vibe-muted))]">No item details saved for this order.</p>;
   return (
@@ -261,9 +262,61 @@ function OrderItemsList({ order, formatPrice }: { order: Order; formatPrice: (am
             <p className="truncate text-[13px] font-medium">{item.product_name ?? "Product"}</p>
             {(item.selected_color || item.selected_size) && <p className="mt-0.5 text-[11px] text-[rgb(var(--vibe-muted))]">{[item.selected_color && `Colour: ${item.selected_color}`, item.selected_size && `Size: ${item.selected_size}`].filter(Boolean).join(" / ")}</p>}
             <p className="mt-1 text-[12px] text-[rgb(var(--vibe-muted))]">Qty {item.quantity} · {formatPrice(item.subtotal)}</p>
+            {item.product_id && order.order_number && customerEmail && (
+              <OrderReviewForm orderNumber={order.order_number} email={customerEmail} productId={item.product_id} />
+            )}
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+function OrderReviewForm({ orderNumber, email, productId }: { orderNumber: string; email: string; productId: string }) {
+  const [open, setOpen] = useState(false);
+  const [rating, setRating] = useState("5");
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!body.trim()) return toast({ title: "Write a short review first", variant: "destructive" });
+    setSaving(true);
+    try {
+      await submitOrderReview({ orderNumber, email, productId, rating: Number(rating) || 5, title: title || null, body });
+      setSubmitted(true);
+      setOpen(false);
+      toast({ title: "Review submitted", description: "It will appear after approval." });
+    } catch (error) {
+      toast({ title: "Could not submit review", description: error instanceof Error ? error.message : undefined, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (submitted) return <p className="mt-2 text-[11px] text-emerald-700">Review submitted for approval.</p>;
+  return (
+    <div className="mt-2">
+      <button type="button" onClick={() => setOpen((value) => !value)} className="h-8 rounded-md border border-[rgb(var(--vibe-border))] px-3 text-[11px] font-medium hover:bg-[rgb(var(--vibe-accent))]">
+        {open ? "Cancel review" : "Add review"}
+      </button>
+      {open && (
+        <form onSubmit={submit} className="mt-2 grid gap-2 rounded-md border border-[rgb(var(--vibe-border))] bg-[rgb(var(--vibe-surface))] p-3">
+          <div className="grid gap-2 sm:grid-cols-[100px_1fr]">
+            <Field label="Rating" type="number" min="1" max="5" step="0.1" value={rating} onChange={setRating} />
+            <Field label="Title" value={title} onChange={setTitle} placeholder="Optional" />
+          </div>
+          <label className="block text-[12px]">
+            <span className="mb-1.5 block text-[rgb(var(--vibe-muted))]">Review</span>
+            <textarea value={body} onChange={(event) => setBody(event.target.value)} rows={3} className="w-full resize-y rounded-md border border-[rgb(var(--vibe-border))] bg-white px-3 py-2 text-[13px] outline-none focus:ring-1 focus:ring-zinc-500" />
+          </label>
+          <button type="submit" disabled={saving} className="h-8 rounded-md bg-[rgb(var(--vibe-foreground))] px-3 text-[11px] font-medium text-white disabled:opacity-60">
+            {saving ? "Submitting..." : "Submit review"}
+          </button>
+        </form>
+      )}
     </div>
   );
 }

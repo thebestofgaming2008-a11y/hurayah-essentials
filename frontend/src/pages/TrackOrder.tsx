@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { ChevronDown, Package } from "lucide-react";
 import { SiteLayout } from "@/components/layout/SiteLayout";
 import { trackOrder } from "@/services/orderService";
 import type { Order } from "@/services/accountService";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { cn } from "@/lib/utils";
+import { toast } from "@/hooks/use-toast";
+import { submitOrderReview } from "@/services/reviewService";
 
 const steps = ["Order placed", "Processing", "Shipped", "Delivered"];
 
@@ -143,7 +145,7 @@ const TrackOrder = () => {
                         <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", itemsOpen && "rotate-180")} />
                       </span>
                     </button>
-                    {itemsOpen && <TrackedOrderItems order={order} formatPrice={format} />}
+                    {itemsOpen && <TrackedOrderItems order={order} email={email} formatPrice={format} />}
                   </div>
                 )}
               </div>
@@ -155,7 +157,7 @@ const TrackOrder = () => {
   );
 };
 
-function TrackedOrderItems({ order, formatPrice }: { order: Order; formatPrice: (amount: number | null | undefined) => string }) {
+function TrackedOrderItems({ order, email, formatPrice }: { order: Order; email: string; formatPrice: (amount: number | null | undefined) => string }) {
   const items = order.items ?? [];
   if (items.length === 0) return <p className="border-t border-[rgb(var(--vibe-border))] px-4 py-3 text-[12px] text-[rgb(var(--vibe-muted))]">No item details saved for this order.</p>;
   return (
@@ -169,9 +171,67 @@ function TrackedOrderItems({ order, formatPrice }: { order: Order; formatPrice: 
             <p className="truncate text-[13px] font-medium">{item.product_name ?? "Product"}</p>
             {(item.selected_color || item.selected_size) && <p className="mt-0.5 text-[11px] text-[rgb(var(--vibe-muted))]">{[item.selected_color && `Colour: ${item.selected_color}`, item.selected_size && `Size: ${item.selected_size}`].filter(Boolean).join(" / ")}</p>}
             <p className="mt-1 text-[12px] text-[rgb(var(--vibe-muted))]">Qty {item.quantity} · {formatPrice(item.subtotal)}</p>
+            {item.product_id && order.order_number && email && (
+              <TrackedReviewForm orderNumber={order.order_number} email={email} productId={item.product_id} />
+            )}
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+function TrackedReviewForm({ orderNumber, email, productId }: { orderNumber: string; email: string; productId: string }) {
+  const [open, setOpen] = useState(false);
+  const [rating, setRating] = useState("5");
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!body.trim()) return toast({ title: "Write a short review first", variant: "destructive" });
+    setSaving(true);
+    try {
+      await submitOrderReview({ orderNumber, email, productId, rating: Number(rating) || 5, title: title || null, body });
+      setSubmitted(true);
+      setOpen(false);
+      toast({ title: "Review submitted", description: "It will appear after approval." });
+    } catch (error) {
+      toast({ title: "Could not submit review", description: error instanceof Error ? error.message : undefined, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (submitted) return <p className="mt-2 text-[11px] text-emerald-700">Review submitted for approval.</p>;
+  return (
+    <div className="mt-2">
+      <button type="button" onClick={() => setOpen((value) => !value)} className="h-8 rounded-md border border-[rgb(var(--vibe-border))] bg-white px-3 text-[11px] font-medium hover:bg-[rgb(var(--vibe-accent))]">
+        {open ? "Cancel review" : "Add review"}
+      </button>
+      {open && (
+        <form onSubmit={submit} className="mt-2 grid gap-2 rounded-md border border-[rgb(var(--vibe-border))] bg-white p-3">
+          <div className="grid gap-2 sm:grid-cols-[100px_1fr]">
+            <label className="block text-[12px]">
+              <span className="mb-1.5 block text-[rgb(var(--vibe-muted))]">Rating</span>
+              <input type="number" min="1" max="5" step="0.1" value={rating} onChange={(event) => setRating(event.target.value)} className="h-9 w-full rounded-md border border-[rgb(var(--vibe-border))] bg-white px-3 text-[13px] outline-none focus:ring-1 focus:ring-zinc-500" />
+            </label>
+            <label className="block text-[12px]">
+              <span className="mb-1.5 block text-[rgb(var(--vibe-muted))]">Title</span>
+              <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Optional" className="h-9 w-full rounded-md border border-[rgb(var(--vibe-border))] bg-white px-3 text-[13px] outline-none focus:ring-1 focus:ring-zinc-500" />
+            </label>
+          </div>
+          <label className="block text-[12px]">
+            <span className="mb-1.5 block text-[rgb(var(--vibe-muted))]">Review</span>
+            <textarea value={body} onChange={(event) => setBody(event.target.value)} rows={3} className="w-full resize-y rounded-md border border-[rgb(var(--vibe-border))] bg-white px-3 py-2 text-[13px] outline-none focus:ring-1 focus:ring-zinc-500" />
+          </label>
+          <button type="submit" disabled={saving} className="h-8 rounded-md bg-[rgb(var(--vibe-foreground))] px-3 text-[11px] font-medium text-white disabled:opacity-60">
+            {saving ? "Submitting..." : "Submit review"}
+          </button>
+        </form>
+      )}
     </div>
   );
 }
