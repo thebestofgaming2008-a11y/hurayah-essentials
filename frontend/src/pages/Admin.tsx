@@ -598,8 +598,10 @@ export default function Admin() {
       }
       void refreshNotifications();
       setProductEditor(null);
-    } catch {
-      toast({ title: "Could not save product", variant: "destructive" });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Please check the product fields and try again.";
+      console.error("product save failed", error);
+      toast({ title: "Could not save product", description: message, variant: "destructive" });
     }
   };
 

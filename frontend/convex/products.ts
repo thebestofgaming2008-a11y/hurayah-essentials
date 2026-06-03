@@ -114,7 +114,15 @@ function cleanNullable(value: string | null | undefined, max = 500) {
 function cleanUrl(value: string | null | undefined) {
   const url = cleanText(value, 1000);
   if (!url) return null;
-  if (/^https?:\/\//i.test(url) || /^\/api\/storage\//i.test(url) || /^\/photoroom\//i.test(url)) return url;
+  if (
+    /^https?:\/\//i.test(url) ||
+    /^\/api\/storage\//i.test(url) ||
+    /^\/images\//i.test(url) ||
+    /^\/assets\//i.test(url) ||
+    /^\/photoroom\//i.test(url)
+  ) {
+    return url;
+  }
   throw new Error("Image URL must be http(s), a Convex storage URL, or an approved public asset URL.");
 }
 
