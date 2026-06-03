@@ -20,6 +20,54 @@ declare global {
 
 const INDIA_ADDRESS = { stateLabel: "State / union territory", postalLabel: "PIN code", cityLabel: "City", stateRequired: true };
 const PENDING_RAZORPAY_ORDER_KEY = "hurayah_pending_razorpay_order";
+const WHATSAPP_NUMBER = "918491943437";
+
+const COUNTRIES = [
+  { code: "IN", name: "India" },
+  { code: "US", name: "United States" },
+  { code: "GB", name: "United Kingdom" },
+  { code: "CA", name: "Canada" },
+  { code: "AU", name: "Australia" },
+  { code: "AE", name: "United Arab Emirates" },
+  { code: "SA", name: "Saudi Arabia" },
+  { code: "QA", name: "Qatar" },
+  { code: "KW", name: "Kuwait" },
+  { code: "MY", name: "Malaysia" },
+  { code: "SG", name: "Singapore" },
+  { code: "ZA", name: "South Africa" },
+  { code: "BE", name: "Belgium" },
+  { code: "NL", name: "Netherlands" },
+  { code: "DE", name: "Germany" },
+  { code: "FR", name: "France" },
+  { code: "IE", name: "Ireland" },
+  { code: "IT", name: "Italy" },
+  { code: "ES", name: "Spain" },
+];
+
+const COUNTRY_BY_CODE = Object.fromEntries(COUNTRIES.map((country) => [country.code, country.name]));
+const ADDRESS_BY_COUNTRY: Record<string, typeof INDIA_ADDRESS> = {
+  India: INDIA_ADDRESS,
+  "United States": { stateLabel: "State", postalLabel: "ZIP code", cityLabel: "City", stateRequired: true },
+  Canada: { stateLabel: "Province", postalLabel: "Postal code", cityLabel: "City", stateRequired: true },
+  Australia: { stateLabel: "State / territory", postalLabel: "Postcode", cityLabel: "Suburb", stateRequired: true },
+  "United Kingdom": { stateLabel: "County (optional)", postalLabel: "Postcode", cityLabel: "Town / city", stateRequired: false },
+  "United Arab Emirates": { stateLabel: "Emirate", postalLabel: "Postal code (optional)", cityLabel: "City", stateRequired: true },
+  "Saudi Arabia": { stateLabel: "Province / region", postalLabel: "Postal code", cityLabel: "City", stateRequired: false },
+};
+
+function countryNameFromCode(code: string | null | undefined) {
+  return COUNTRY_BY_CODE[String(code ?? "").toUpperCase()] ?? "India";
+}
+
+function openWhatsappMessage(message: string) {
+  const link = document.createElement("a");
+  link.href = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+}
 
 function loadRazorpayScript() {
   return new Promise<boolean>((resolve) => {
@@ -42,7 +90,7 @@ function loadRazorpayScript() {
 const Checkout = () => {
   const { cartLines, cartSubtotal, clearCart, updateQty, removeFromCart, openCart } = useShop();
   const { user, profile } = useAuth();
-  const { format } = useCurrency();
+  const { currency, detectedCountry, format } = useCurrency();
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -62,7 +110,16 @@ const Checkout = () => {
   });
   const shippingMeta = checkoutShippingForCountry(form.country);
   const total = cartSubtotal + shippingMeta.amount;
-  const address = INDIA_ADDRESS;
+  const address = ADDRESS_BY_COUNTRY[form.country] ?? { stateLabel: "State / province / region", postalLabel: "Postal code", cityLabel: "City", stateRequired: false };
+  const isIndiaCheckout = shippingMeta.countryType === "india";
+
+  useEffect(() => {
+    if (!detectedCountry) return;
+    setForm((prev) => {
+      if (prev.country && prev.country !== "India") return prev;
+      return { ...prev, country: countryNameFromCode(detectedCountry) };
+    });
+  }, [detectedCountry]);
 
   const applySavedAddress = useCallback((saved: Address) => {
     const nameParts = String(saved.full_name ?? "").trim().split(/\s+/).filter(Boolean);
@@ -186,6 +243,34 @@ const Checkout = () => {
         country: form.country.trim(),
       };
       const payload = { cart: cartLines, customer, subtotal: cartSubtotal, shipping: shippingMeta.amount, total };
+      if (!isIndiaCheckout) {
+        const itemLines = cartLines.map((line) => {
+          const options = [line.selectedColor, line.selectedSize].filter(Boolean).join(" / ");
+          return `- ${line.name}${options ? ` (${options})` : ""} x ${line.qty}: ${format(line.price * line.qty)}`;
+        });
+        const message = [
+          "Assalamu alaikum, I would like to order internationally from Hurayrah Essentials.",
+          "",
+          "Customer details:",
+          `Name: ${customer.name}`,
+          `Email: ${customer.email}`,
+          `WhatsApp: ${customer.phone}`,
+          `Country: ${customer.country}`,
+          `Address: ${customer.address_line_1}${customer.address_line_2 ? `, ${customer.address_line_2}` : ""}`,
+          `City: ${customer.city}`,
+          customer.state ? `${address.stateLabel}: ${customer.state}` : "",
+          `${address.postalLabel}: ${customer.postal_code}`,
+          "",
+          "Cart:",
+          ...itemLines,
+          `Product subtotal: ${format(cartSubtotal)} (${currency})`,
+          "",
+          "Please confirm availability and international shipping/payment details.",
+        ].filter(Boolean).join("\n");
+        openWhatsappMessage(message);
+        toast({ title: "WhatsApp order request opened", description: "Your cart was not charged. The store will confirm international shipping and payment on WhatsApp." });
+        return;
+      }
       const ready = await loadRazorpayScript();
       if (!ready || !window.Razorpay) throw new Error("Razorpay checkout could not be loaded. Check your connection and try again.");
       const RazorpayCheckout = window.Razorpay;
@@ -257,7 +342,9 @@ const Checkout = () => {
             <div className="space-y-4">
               <div>
                 <h1 className="text-[24px] font-semibold text-[rgb(var(--vibe-foreground))] md:text-[30px]">Checkout</h1>
-                <p className="mt-1 text-[12px] text-[rgb(var(--vibe-muted))]">Complete your delivery details and continue to payment.</p>
+                <p className="mt-1 text-[12px] text-[rgb(var(--vibe-muted))]">
+                  {isIndiaCheckout ? "Complete your delivery details and continue to payment." : "Complete your details and send the cart to WhatsApp for international shipping/payment confirmation."}
+                </p>
               </div>
               <Section title="Contact">
                 <Field label="Email" type="email" value={form.email} onChange={setField("email")} error={errors.email} required testId="checkout-email-input" autoComplete="email" />
@@ -265,7 +352,7 @@ const Checkout = () => {
               </Section>
 
               <Section title="Delivery">
-                {savedAddresses.length > 0 && (
+                {isIndiaCheckout && savedAddresses.length > 0 && (
                   <div>
                     <span className="mb-1.5 block text-[11px] text-[rgb(var(--vibe-muted))]">Saved addresses</span>
                     <div className="grid gap-2 sm:grid-cols-2" data-testid="checkout-saved-addresses">
@@ -289,9 +376,19 @@ const Checkout = () => {
                 )}
                 <div>
                   <span className="mb-1.5 block text-[11px] text-[rgb(var(--vibe-muted))]">Country / region</span>
-                  <div data-testid="checkout-country-input" className="flex h-10 w-full items-center rounded-md border border-[rgb(var(--vibe-border))] bg-[rgb(var(--vibe-surface))] px-3 text-[13px] text-[rgb(var(--vibe-foreground))]">
-                    India
-                  </div>
+                  <select
+                    value={form.country}
+                    onChange={(event) => setField("country")(event.target.value)}
+                    data-testid="checkout-country-input"
+                    className="h-10 w-full rounded-md border border-[rgb(var(--vibe-border))] bg-white px-3 text-[13px] text-[rgb(var(--vibe-foreground))] outline-none focus:ring-1 focus:ring-zinc-500"
+                    autoComplete="country-name"
+                  >
+                    {COUNTRIES.map((country) => (
+                      <option key={country.code} value={country.name}>
+                        {country.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field label="First name" value={form.firstName} onChange={setField("firstName")} error={errors.firstName} required testId="checkout-first-name-input" autoComplete="given-name" />
@@ -305,13 +402,13 @@ const Checkout = () => {
                   <Field label={address.postalLabel} value={form.postalCode} onChange={setField("postalCode")} error={errors.postalCode} required={!address.postalLabel.includes("optional")} testId="checkout-postal-code-input" autoComplete="postal-code" />
                 </div>
                 <p className="text-[11px] text-[rgb(var(--vibe-muted))]">
-                  Shipping is included across India.
+                  {isIndiaCheckout ? "Shipping is included across India." : "International shipping is confirmed on WhatsApp before payment. No online payment is taken here."}
                 </p>
               </Section>
 
               <Section title="Payment">
                 <div className="rounded-md border border-[rgb(var(--vibe-border))] bg-white px-3 py-3 text-[12px] text-[rgb(var(--vibe-muted))]">
-                  You will pay securely through Razorpay.
+                  {isIndiaCheckout ? "You will pay securely through Razorpay." : "Razorpay is available for India only. International customers complete the next step on WhatsApp."}
                 </div>
               </Section>
             </div>
@@ -340,12 +437,12 @@ const Checkout = () => {
               </ul>
               <dl className="mt-4 space-y-2 border-t border-[rgb(var(--vibe-border))] pt-4 text-[12px]">
                 <div className="flex justify-between"><dt className="text-[rgb(var(--vibe-muted))]">Subtotal</dt><dd className="font-mono font-medium">{format(cartSubtotal)}</dd></div>
-                <div className="flex justify-between"><dt className="text-[rgb(var(--vibe-muted))]">Shipping</dt><dd className="font-mono font-medium">Included</dd></div>
+                <div className="flex justify-between"><dt className="text-[rgb(var(--vibe-muted))]">Shipping</dt><dd className="text-right font-mono font-medium">{isIndiaCheckout ? "Included" : "Confirmed on WhatsApp"}</dd></div>
                 <div className="flex justify-between border-t border-[rgb(var(--vibe-border))] pt-3 text-[13px]"><dt className="font-medium">Total</dt><dd className="font-mono font-semibold" data-testid="checkout-total-amount">{format(total)}</dd></div>
               </dl>
-              <PaymentMethods compact className="mt-4" />
+              {isIndiaCheckout && <PaymentMethods compact className="mt-4" />}
               <button type="submit" disabled={submitting} data-testid="checkout-submit-button" className="mt-5 inline-flex h-10 w-full items-center justify-center rounded-md bg-[rgb(var(--vibe-foreground))] px-3 text-[12px] font-medium text-white hover:opacity-90 disabled:opacity-50">
-                {submitting ? "Opening checkout..." : `Pay ${format(total)}`}
+                {submitting ? (isIndiaCheckout ? "Opening checkout..." : "Opening WhatsApp...") : isIndiaCheckout ? `Pay ${format(total)}` : "Send request on WhatsApp"}
               </button>
             </aside>
           </form>

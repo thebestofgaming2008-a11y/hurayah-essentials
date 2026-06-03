@@ -2,6 +2,8 @@ const COUNTRY_TO_CURRENCY: Record<string, string> = {
   IN: "INR",
   US: "USD",
   GB: "GBP",
+  CA: "CAD",
+  AU: "AUD",
   IE: "EUR",
   FR: "EUR",
   DE: "EUR",
@@ -11,6 +13,11 @@ const COUNTRY_TO_CURRENCY: Record<string, string> = {
   IT: "EUR",
   AE: "AED",
   SA: "SAR",
+  QA: "QAR",
+  KW: "KWD",
+  MY: "MYR",
+  SG: "SGD",
+  ZA: "ZAR",
 };
 
 export const onRequestGet: PagesFunction = async ({ request }) => {

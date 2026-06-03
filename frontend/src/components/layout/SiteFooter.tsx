@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Instagram } from "lucide-react";
 import logo from "@/assets/logo-header.png";
 import { PaymentMethods } from "@/components/shop/PaymentMethods";
+import { CurrencySelector } from "@/components/shop/CurrencySelector";
 
 const COLS = [
   {
@@ -52,6 +53,7 @@ export function SiteFooter({ compact = false }: { compact?: boolean }) {
               <Instagram className="h-4 w-4" />
               @hurayrah_essentials
             </a>
+            <CurrencySelector label className="mt-5 max-w-[180px]" />
           </div>
           {COLS.map((col) => (
             <div key={col.title}>

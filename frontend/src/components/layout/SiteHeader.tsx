@@ -5,6 +5,7 @@ import logo from "@/assets/logo-header.png";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { useShop } from "@/store/shop";
+import { CurrencySelector } from "@/components/shop/CurrencySelector";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -124,6 +125,7 @@ export function SiteHeader() {
           <div className="mx-auto min-w-0 flex-1 px-3 text-center sm:px-8">
             Shipping included across India
           </div>
+          <CurrencySelector className="absolute right-3 top-1/2 hidden -translate-y-1/2 sm:block" />
         </div>
       </div>
 
@@ -200,6 +202,7 @@ export function SiteHeader() {
               <button type="button" onClick={() => goCategorySection("children")} className="w-full rounded-md px-3 py-3 text-left text-[14px] text-foreground hover:bg-white/55 hover:text-brand">Essentials</button>
               <Link to="/contact" onClick={() => setMenuOpen(false)} className="rounded-md px-3 py-3 text-[14px] text-foreground hover:bg-white/55 hover:text-brand">Contact</Link>
               <div className="mt-3 border-t border-foreground/10 pt-3">
+                <CurrencySelector label className="mb-3 px-3" />
                 <Link to="/track" onClick={() => setMenuOpen(false)} className="block rounded-md px-3 py-3 text-[14px] text-foreground hover:bg-white/55 hover:text-brand">Track order</Link>
                 {user ? (
                   <>
