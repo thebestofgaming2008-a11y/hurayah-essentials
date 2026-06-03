@@ -1,4 +1,4 @@
-import { type ClipboardEvent, type DragEvent, type FormEvent, useEffect, useMemo, useState } from "react";
+import { type ClipboardEvent, type DragEvent, type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   AlertCircle,
@@ -21,6 +21,7 @@ import {
   Pencil,
   Plus,
   Repeat,
+  RefreshCw,
   Search,
   Settings,
   ShoppingCart,
@@ -351,6 +352,7 @@ export default function Admin() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [range, setRange] = useState<RangeKey>("7d");
   const [orders, setOrders] = useState<AdminOrder[]>([]);
+  const ordersRef = useRef<AdminOrder[]>([]);
   const [paymentRecoveries, setPaymentRecoveries] = useState<PaymentRecovery[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<AdminCustomer[]>([]);
@@ -359,6 +361,9 @@ export default function Admin() {
   const [storeSettings, setStoreSettings] = useState<Record<string, unknown>>({});
   const [adminNotifications, setAdminNotifications] = useState<AdminNotification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [ordersRefreshing, setOrdersRefreshing] = useState(false);
+  const [pendingOrderCount, setPendingOrderCount] = useState(0);
+  const pendingOrderCountRef = useRef(0);
   const [query, setQuery] = useState("");
   const [orderFilter, setOrderFilter] = useState<OrderStatus>("unshipped");
   const [productEditor, setProductEditor] = useState<Product | "new" | null>(null);
@@ -370,6 +375,44 @@ export default function Admin() {
       setAdminNotifications(await listAdminNotifications());
     } catch {
       // Notifications should not block admin work.
+    }
+  };
+
+  useEffect(() => {
+    ordersRef.current = orders;
+  }, [orders]);
+
+  useEffect(() => {
+    pendingOrderCountRef.current = pendingOrderCount;
+  }, [pendingOrderCount]);
+
+  const refreshOrders = async ({ apply = true, notify = false } = {}) => {
+    setOrdersRefreshing(true);
+    try {
+      const [nextOrders, nextRecoveries] = await Promise.all([listAllOrders(200), listPaymentRecoveries()]);
+      const currentIds = new Set(ordersRef.current.map((order) => order.id));
+      const newCount = nextOrders.filter((order) => !currentIds.has(order.id)).length;
+      if (apply) {
+        setOrders(nextOrders);
+        setPaymentRecoveries(nextRecoveries);
+        setPendingOrderCount(0);
+      } else if (newCount > 0) {
+        const shouldNotify = notify && pendingOrderCountRef.current !== newCount;
+        setPendingOrderCount(newCount);
+        if (shouldNotify) {
+          toast({
+            title: newCount === 1 ? "New order received" : `${newCount} new orders received`,
+            description: "Use Refresh orders to load the latest order list.",
+          });
+        }
+      } else if (pendingOrderCountRef.current === 0) {
+        setOrders(nextOrders);
+        setPaymentRecoveries(nextRecoveries);
+      }
+    } catch {
+      if (apply) toast({ title: "Could not refresh orders", variant: "destructive" });
+    } finally {
+      setOrdersRefreshing(false);
     }
   };
 
@@ -394,6 +437,15 @@ export default function Admin() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (section !== "orders") return;
+    void refreshOrders({ apply: true });
+    const interval = window.setInterval(() => {
+      void refreshOrders({ apply: false, notify: true });
+    }, 25000);
+    return () => window.clearInterval(interval);
+  }, [section]);
 
   const counts = useMemo(() => {
     const statusCounts = orders.reduce(
@@ -942,7 +994,20 @@ export default function Admin() {
           ) : section === "dashboard" ? (
             <Dashboard orders={orders} counts={counts} range={range} setRange={setRange} summary={summary} chartData={chartData} top={top} onGoOrders={() => setSection("orders")} />
           ) : section === "orders" ? (
-            <OrdersPanel orders={orders} paymentRecoveries={paymentRecoveries} products={products} counts={counts} query={query} setQuery={setQuery} active={orderFilter} setActive={setOrderFilter} onViewOrder={setSelectedOrder} />
+            <OrdersPanel
+              orders={orders}
+              paymentRecoveries={paymentRecoveries}
+              products={products}
+              counts={counts}
+              query={query}
+              setQuery={setQuery}
+              active={orderFilter}
+              setActive={setOrderFilter}
+              pendingOrderCount={pendingOrderCount}
+              refreshing={ordersRefreshing}
+              onRefreshOrders={() => refreshOrders({ apply: true })}
+              onViewOrder={setSelectedOrder}
+            />
           ) : section === "products" ? (
             <ProductsPanel
               products={products}
@@ -1274,6 +1339,9 @@ function OrdersPanel({
   setQuery,
   active,
   setActive,
+  pendingOrderCount,
+  refreshing,
+  onRefreshOrders,
   onViewOrder,
 }: {
   orders: AdminOrder[];
@@ -1284,6 +1352,9 @@ function OrdersPanel({
   setQuery: (value: string) => void;
   active: OrderStatus;
   setActive: (value: OrderStatus) => void;
+  pendingOrderCount: number;
+  refreshing: boolean;
+  onRefreshOrders: () => void;
   onViewOrder: (order: AdminOrder) => void;
 }) {
   const visible = orders.filter((order) => {
@@ -1317,6 +1388,18 @@ function OrdersPanel({
           </div>
         </section>
       )}
+      {pendingOrderCount > 0 && (
+        <section className="flex flex-col gap-3 rounded-md border border-emerald-200 bg-emerald-50 p-4 text-emerald-900 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-[13px] font-semibold">{pendingOrderCount === 1 ? "1 new order is waiting" : `${pendingOrderCount} new orders are waiting`}</h3>
+            <p className="mt-1 text-[12px] text-emerald-800">The list is paused so it does not jump while you are working.</p>
+          </div>
+          <button type="button" onClick={onRefreshOrders} disabled={refreshing} className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-emerald-900 px-3 text-[12px] font-medium text-white transition-all hover:opacity-90 disabled:opacity-60">
+            <RefreshCw className={cn("h-3.5 w-3.5", refreshing && "animate-spin")} />
+            Refresh orders
+          </button>
+        </section>
+      )}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
         {filters.map((filter) => {
           const Icon = filter.icon;
@@ -1335,7 +1418,13 @@ function OrdersPanel({
           );
         })}
       </div>
-      <SearchRow query={query} setQuery={setQuery} placeholder="Search by order, customer, product, tracking..." />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <SearchRow query={query} setQuery={setQuery} placeholder="Search by order, customer, product, tracking..." />
+        <button type="button" onClick={onRefreshOrders} disabled={refreshing} className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-[rgb(var(--vibe-border))] bg-white px-3 text-[12px] font-medium transition-colors hover:bg-[rgb(var(--vibe-accent))] disabled:opacity-60">
+          <RefreshCw className={cn("h-3.5 w-3.5", refreshing && "animate-spin")} />
+          Refresh orders
+        </button>
+      </div>
       <div className="vibe-card overflow-hidden">
         <div className="flex items-center justify-between border-b border-[rgb(var(--vibe-border))] px-4 py-4 sm:px-6">
           <h3 className="text-[13px] font-medium">{filters.find((filter) => filter.key === active)?.label}</h3>
