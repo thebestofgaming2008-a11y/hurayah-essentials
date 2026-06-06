@@ -52,9 +52,18 @@ const TAB_KEYS: CategoryKey[] = ["books", "clothing", "children"];
 
 function productBelongsToLandingCategory(product: Product, categoryKey: CategoryKey) {
   if (product.show_in_category_section === false) return false;
-  if (product.category === categoryKey || product.category_id === categoryKey) return true;
+  const matchingKeys = categoryKey === "children" ? ["children", "essentials"] : [categoryKey];
+  if (matchingKeys.includes(String(product.category)) || matchingKeys.includes(String(product.category_id))) return true;
   const categoryMeta = CATEGORIES.find((category) => category.key === product.category_id);
-  return categoryMeta?.parent === categoryKey;
+  return categoryMeta ? matchingKeys.includes(String(categoryMeta.parent)) : false;
+}
+
+function categorySectionRank(product: Product) {
+  return [
+    product.show_in_category_section === true ? 1 : 0,
+    product.updated_at ? Date.parse(product.updated_at) || 0 : 0,
+    product.created_at ? Date.parse(product.created_at) || 0 : 0,
+  ];
 }
 
 const Index = () => {
@@ -97,7 +106,14 @@ const Index = () => {
     [allProducts],
   );
   const activeProducts = useMemo(
-    () => allProducts.filter((p) => productBelongsToLandingCategory(p, activeCat)).slice(0, 12),
+    () => allProducts
+      .filter((p) => productBelongsToLandingCategory(p, activeCat))
+      .sort((a, b) => {
+        const rankA = categorySectionRank(a);
+        const rankB = categorySectionRank(b);
+        return rankB[0] - rankA[0] || rankB[1] - rankA[1] || rankB[2] - rankA[2];
+      })
+      .slice(0, 12),
     [allProducts, activeCat],
   );
 
