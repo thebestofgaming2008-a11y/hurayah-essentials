@@ -13,7 +13,7 @@ const PAGES: Record<string, { title: string; body: string[] }> = {
   returns: {
     title: "Returns",
     body: [
-      "Return unused items within 7 days of delivery after contacting support.",
+      "Return unused items within 3 to 4 days of delivery after contacting support.",
       "Original packaging is required. Custom or final-sale items are excluded.",
     ],
   },

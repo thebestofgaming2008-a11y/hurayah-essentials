@@ -36,6 +36,15 @@ const FALLBACK_COUNTRIES = [
   "Switzerland", "Thailand", "Turkey", "United Arab Emirates", "United Kingdom", "United States", "Yemen",
 ];
 
+const FALLBACK_COUNTRY_CODES: Record<string, string> = {
+  Afghanistan: "AF", Albania: "AL", Algeria: "DZ", Andorra: "AD", Angola: "AO", Argentina: "AR", Armenia: "AM", Australia: "AU", Austria: "AT", Azerbaijan: "AZ",
+  Bahrain: "BH", Bangladesh: "BD", Belgium: "BE", Brazil: "BR", Brunei: "BN", Bulgaria: "BG", Canada: "CA", China: "CN", Denmark: "DK", Egypt: "EG", Finland: "FI",
+  France: "FR", Germany: "DE", Ghana: "GH", Greece: "GR", "Hong Kong": "HK", India: "IN", Indonesia: "ID", Ireland: "IE", Italy: "IT", Japan: "JP", Jordan: "JO",
+  Kenya: "KE", Kuwait: "KW", Malaysia: "MY", Maldives: "MV", Morocco: "MA", Netherlands: "NL", "New Zealand": "NZ", Nigeria: "NG", Norway: "NO", Oman: "OM",
+  Pakistan: "PK", Philippines: "PH", Qatar: "QA", "Saudi Arabia": "SA", Singapore: "SG", "South Africa": "ZA", Spain: "ES", "Sri Lanka": "LK", Sweden: "SE",
+  Switzerland: "CH", Thailand: "TH", Turkey: "TR", "United Arab Emirates": "AE", "United Kingdom": "GB", "United States": "US", Yemen: "YE",
+};
+
 function getCountryOptions(): CountryOption[] {
   try {
     const intlWithRegions = Intl as typeof Intl & { supportedValuesOf?: (key: string) => string[] };
@@ -44,9 +53,9 @@ function getCountryOptions(): CountryOption[] {
       .map((code) => ({ code, name: displayNames.of(code) ?? code }))
       .filter((country) => Boolean(country.name && !/^\d+$/.test(country.name)))
       .sort((a, b) => a.name.localeCompare(b.name));
-    return options.length ? options : FALLBACK_COUNTRIES.map((name) => ({ code: name, name }));
+    return options.length ? options : FALLBACK_COUNTRIES.map((name) => ({ code: FALLBACK_COUNTRY_CODES[name] ?? name, name }));
   } catch {
-    return FALLBACK_COUNTRIES.map((name) => ({ code: name, name }));
+    return FALLBACK_COUNTRIES.map((name) => ({ code: FALLBACK_COUNTRY_CODES[name] ?? name, name }));
   }
 }
 

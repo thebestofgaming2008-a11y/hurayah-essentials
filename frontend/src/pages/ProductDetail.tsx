@@ -386,7 +386,6 @@ function ReviewsSection({ productId, userReady, canReview, reviews, onSubmitted 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!userReady) return toast({ title: "Please sign in to review this product", variant: "destructive" });
-    if (!canReview) return toast({ title: "Only verified customers can review this product", variant: "destructive" });
     setSubmitting(true);
     try {
       await submitReview({ productId, rating, title: title || null, body: body || null });
@@ -436,10 +435,10 @@ function ReviewsSection({ productId, userReady, canReview, reviews, onSubmitted 
         <textarea value={body} onChange={(event) => setBody(event.target.value)} placeholder="Write your review" rows={4} className="resize-none border border-[#06133a]/40 bg-white/60 px-3 py-2 font-serif text-xl outline-none" />
         {!canReview && (
           <p className="rounded-md border border-[#06133a]/20 bg-white/45 px-3 py-2 font-serif text-lg text-[#06133a]/75">
-            Reviews are text-only at launch and open after a verified purchase on this account email.
+            Reviews are text-only and appear after approval.
           </p>
         )}
-        <button disabled={submitting || !canReview} className="pdp-press h-12 rounded-md bg-brand font-bold text-brand-foreground shadow-2xl disabled:opacity-50">{submitting ? "Submitting..." : "Add review"}</button>
+        <button disabled={submitting} className="pdp-press h-12 rounded-md bg-brand font-bold text-brand-foreground shadow-2xl disabled:opacity-50">{submitting ? "Submitting..." : "Add review"}</button>
       </form>
       <div className="mt-8 space-y-5">
         {reviews.map((review) => (

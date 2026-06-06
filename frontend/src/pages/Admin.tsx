@@ -2268,9 +2268,9 @@ function ProductsPanel({
             ))}
           </div>
         ) : (
-        <ul className="grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">
+        <ul className="grid min-w-0 grid-cols-1 gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">
           {filtered.map((product) => (
-            <li key={product.id} className="rounded-lg border border-[rgb(var(--vibe-border))] bg-white p-3 transition-all hover:-translate-y-0.5 hover:border-zinc-300 hover:shadow-sm">
+            <li key={product.id} className="min-w-0 overflow-hidden rounded-lg border border-[rgb(var(--vibe-border))] bg-white p-3 transition-all hover:-translate-y-0.5 hover:border-zinc-300 hover:shadow-sm">
               <button type="button" onClick={() => product.cover_image_url && setPreviewMedia({ url: product.cover_image_url, name: product.name })} className="aspect-[3/4] w-full overflow-hidden rounded-md bg-[rgb(var(--vibe-surface))] sm:aspect-[4/3]">
                 {product.cover_image_url ? <img src={product.cover_image_url} alt={product.name} loading="lazy" decoding="async" className="h-full w-full object-contain" /> : <div className="grid h-full place-items-center"><Package className="h-7 w-7 text-[rgb(var(--vibe-muted))]" /></div>}
               </button>

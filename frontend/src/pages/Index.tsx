@@ -38,7 +38,6 @@ const SUBJECTS = [
 const VALUE_PROPS = [
   { Icon: Truck, title: "India-wide delivery", desc: "Shipping included across India." },
   { Icon: Shield, title: "Secure checkout", desc: "Encrypted payments, every time." },
-  { Icon: RotateCcw, title: "Easy returns", desc: "Hassle-free returns on every order." },
   { Icon: Headphones, title: "Real support", desc: "Friendly humans, here to help." },
 ];
 

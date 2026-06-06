@@ -102,8 +102,6 @@ export const submit = mutation({
     if (!product || product.is_active === false) throw new Error("Product not found.");
     const rating = Math.max(1, Math.min(5, Math.round(args.rating * 10) / 10));
     const user = auth.user as any;
-    const verified = await hasVerifiedPurchase(ctx, auth.userId, user.email, args.productId);
-    if (!verified) throw new Error("Only verified customers can review this product.");
     const existing = await ctx.db
       .query("reviews")
       .withIndex("by_user_product", (q) => q.eq("user_id", auth.userId).eq("product_id", args.productId))
