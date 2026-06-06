@@ -54,6 +54,11 @@ function productBelongsToTopCategory(product: Product, categoryKey: CategoryKey)
   return topCategoryForProduct(product) === categoryKey;
 }
 
+function categoryDisplayRank(product: Product, categoryKey: CategoryKey) {
+  if (categoryKey === "clothing" && product.slug === "khadija-niqab") return 0;
+  return 1;
+}
+
 const Index = () => {
   const location = useLocation();
   const [allProducts, setAllProducts] = useState<Product[]>([]);
@@ -94,7 +99,11 @@ const Index = () => {
     [allProducts],
   );
   const activeProducts = useMemo(
-    () => allProducts.filter((p) => productBelongsToTopCategory(p, activeCat)).slice(0, 12),
+    () =>
+      allProducts
+        .filter((p) => productBelongsToTopCategory(p, activeCat))
+        .sort((a, b) => categoryDisplayRank(a, activeCat) - categoryDisplayRank(b, activeCat))
+        .slice(0, 12),
     [allProducts, activeCat],
   );
 
