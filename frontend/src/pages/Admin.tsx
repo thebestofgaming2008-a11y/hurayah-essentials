@@ -625,7 +625,7 @@ export default function Admin() {
       badge: form.badge.trim() || null,
       is_active: form.is_active,
       is_featured: form.is_featured,
-      show_in_category_section: form.show_in_category_section,
+      show_in_category_section: false,
       is_bestseller: form.is_bestseller,
       is_new_arrival: form.is_new_arrival,
       is_on_sale: Number(form.sale_price_inr) > 0,
@@ -1834,7 +1834,6 @@ function ProductEditorDialog({
             <div className="grid gap-2 sm:grid-cols-2">
               <ProductToggle label="Active in storefront" checked={form.is_active} onChange={(value) => setField("is_active", value)} />
               <ProductToggle label="Featured" checked={form.is_featured} onChange={(value) => setField("is_featured", value)} />
-              <ProductToggle label="Add to Shop by category" checked={form.show_in_category_section} onChange={(value) => setField("show_in_category_section", value)} />
               <ProductToggle label="Bestseller" checked={form.is_bestseller} onChange={(value) => setField("is_bestseller", value)} />
               <ProductToggle label="New arrival" checked={form.is_new_arrival} onChange={(value) => setField("is_new_arrival", value)} />
             </div>

@@ -50,21 +50,8 @@ const TESTIMONIALS = [
 
 const TAB_KEYS: CategoryKey[] = ["books", "clothing", "children"];
 
-function productBelongsToLandingCategory(product: Product, categoryKey: CategoryKey) {
-  if (product.show_in_category_section !== true) return false;
-  return topCategoryForProduct(product) === categoryKey;
-}
-
 function productBelongsToTopCategory(product: Product, categoryKey: CategoryKey) {
   return topCategoryForProduct(product) === categoryKey;
-}
-
-function categorySectionRank(product: Product) {
-  return [
-    product.show_in_category_section === true ? 1 : 0,
-    product.updated_at ? Date.parse(product.updated_at) || 0 : 0,
-    product.created_at ? Date.parse(product.created_at) || 0 : 0,
-  ];
 }
 
 const Index = () => {
@@ -107,15 +94,7 @@ const Index = () => {
     [allProducts],
   );
   const activeProducts = useMemo(
-    () => {
-      const explicit = allProducts.filter((p) => productBelongsToLandingCategory(p, activeCat));
-      const fallback = explicit.length ? explicit : allProducts.filter((p) => productBelongsToTopCategory(p, activeCat));
-      return fallback.sort((a, b) => {
-        const rankA = categorySectionRank(a);
-        const rankB = categorySectionRank(b);
-        return rankB[0] - rankA[0] || rankB[1] - rankA[1] || rankB[2] - rankA[2];
-      }).slice(0, 12);
-    },
+    () => allProducts.filter((p) => productBelongsToTopCategory(p, activeCat)).slice(0, 12),
     [allProducts, activeCat],
   );
 
