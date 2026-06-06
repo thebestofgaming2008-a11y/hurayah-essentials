@@ -78,17 +78,11 @@ function flagFromCountryCode(code: string) {
 
 function CountryFlag({ country }: { country?: CountryOption }) {
   if (!country) return <span className="h-4 w-5 shrink-0" />;
-  const isIsoCode = /^[A-Z]{2}$/i.test(country.code);
-  if (!isIsoCode) return <span className="h-4 w-5 shrink-0 text-[15px] leading-none">{flagFromCountryCode(country.code)}</span>;
 
   return (
-    <img
-      src={`https://flagcdn.com/w40/${country.code.toLowerCase()}.png`}
-      alt=""
-      loading="lazy"
-      decoding="async"
-      className="h-3.5 w-5 shrink-0 rounded-[2px] object-cover shadow-[0_0_0_1px_rgba(0,0,0,0.08)]"
-    />
+    <span className="flex h-4 w-5 shrink-0 items-center justify-center overflow-hidden text-[15px] leading-none">
+      {flagFromCountryCode(country.code)}
+    </span>
   );
 }
 
