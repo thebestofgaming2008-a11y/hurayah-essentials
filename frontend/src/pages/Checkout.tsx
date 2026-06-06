@@ -281,7 +281,7 @@ const Checkout = () => {
             productUrl ? `   Product page: ${productUrl}` : "",
           ].filter(Boolean).join("\n");
         });
-        const message = [
+        const addressLines = [
           `Assalamu alaikum. I would like to order to ${customer.country}.`,
           "",
           `Name: ${customer.name}`,
@@ -291,14 +291,14 @@ const Checkout = () => {
           "",
           `Country: ${customer.country}`,
           `Address: ${customer.address_line_1}`,
-          customer.address_line_2 ? `Apartment / extra: ${customer.address_line_2}` : "",
+          ...(customer.address_line_2 ? [`Apartment / extra: ${customer.address_line_2}`] : []),
           `City: ${customer.city}`,
-          customer.state ? `${address.stateLabel}: ${customer.state}` : "",
+          ...(customer.state ? [`${address.stateLabel}: ${customer.state}`] : []),
           `${address.postalLabel}: ${customer.postal_code}`,
           "",
           "",
-          ...itemLines,
-        ].filter(Boolean).join("\n");
+        ];
+        const message = [...addressLines, ...itemLines].join("\n");
         openWhatsappMessage(message);
         toast({ title: "WhatsApp order request opened", description: "Your cart was not charged. The store will confirm international shipping and payment on WhatsApp." });
         return;
