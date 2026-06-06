@@ -50,6 +50,13 @@ const TESTIMONIALS = [
 
 const TAB_KEYS: CategoryKey[] = ["books", "clothing", "children"];
 
+function productBelongsToLandingCategory(product: Product, categoryKey: CategoryKey) {
+  if (product.show_in_category_section === false) return false;
+  if (product.category === categoryKey || product.category_id === categoryKey) return true;
+  const categoryMeta = CATEGORIES.find((category) => category.key === product.category_id);
+  return categoryMeta?.parent === categoryKey;
+}
+
 const Index = () => {
   const location = useLocation();
   const [allProducts, setAllProducts] = useState<Product[]>([]);
@@ -90,7 +97,7 @@ const Index = () => {
     [allProducts],
   );
   const activeProducts = useMemo(
-    () => allProducts.filter((p) => p.category === activeCat && p.show_in_category_section !== false).slice(0, 12),
+    () => allProducts.filter((p) => productBelongsToLandingCategory(p, activeCat)).slice(0, 12),
     [allProducts, activeCat],
   );
 
