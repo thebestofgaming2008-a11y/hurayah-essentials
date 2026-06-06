@@ -1834,7 +1834,7 @@ function ProductEditorDialog({
             <div className="grid gap-2 sm:grid-cols-2">
               <ProductToggle label="Active in storefront" checked={form.is_active} onChange={(value) => setField("is_active", value)} />
               <ProductToggle label="Featured" checked={form.is_featured} onChange={(value) => setField("is_featured", value)} />
-              <ProductToggle label="Shop by category" checked={form.show_in_category_section} onChange={(value) => setField("show_in_category_section", value)} />
+              <ProductToggle label="Add to Shop by category" checked={form.show_in_category_section} onChange={(value) => setField("show_in_category_section", value)} />
               <ProductToggle label="Bestseller" checked={form.is_bestseller} onChange={(value) => setField("is_bestseller", value)} />
               <ProductToggle label="New arrival" checked={form.is_new_arrival} onChange={(value) => setField("is_new_arrival", value)} />
             </div>

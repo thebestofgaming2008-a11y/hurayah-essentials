@@ -69,12 +69,14 @@ export function OfferOptIn({ className = "" }: { className?: string }) {
               <button type="button" onClick={joinCommunity} disabled={saving} className="h-11 rounded-md bg-green-600 px-4 text-[13px] font-semibold text-white transition-colors hover:bg-green-700 disabled:opacity-60">
                 {saving ? "Saving..." : "Join WhatsApp community"}
               </button>
-              <button type="button" onClick={() => setOpen(false)} className="h-10 rounded-md border border-border px-4 text-[12px] font-medium text-foreground/70 hover:bg-hero/50">
-                Maybe later
-              </button>
-              <button type="button" onClick={ignoreForever} className="mx-auto h-9 px-2 text-[12px] font-medium text-foreground/55 underline decoration-foreground/35 underline-offset-4 transition-colors hover:text-foreground">
-                Ignore
-              </button>
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => setOpen(false)} className="h-10 rounded-md border border-border px-4 text-[12px] font-medium text-foreground/70 hover:bg-hero/50">
+                  Maybe later
+                </button>
+                <button type="button" onClick={ignoreForever} className="h-10 rounded-md px-4 text-[12px] font-medium text-foreground/60 underline decoration-foreground/35 underline-offset-4 transition-colors hover:bg-hero/40 hover:text-foreground">
+                  Ignore
+                </button>
+              </div>
             </div>
           </div>
         </div>
