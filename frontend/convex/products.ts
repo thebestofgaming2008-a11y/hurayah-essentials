@@ -237,10 +237,13 @@ function isLaunchReady(product: any) {
 }
 
 const BOOK_SUBJECTS = new Set(["aqeedah", "arabic", "fiqh", "hadith", "purification", "seerah", "tafsir", "urdu"]);
+const TOP_LEVEL_CATEGORIES = new Set(["books", "clothing", "women", "children"]);
 
 function topCategoryForProduct(product: any) {
   const category = String(product.category ?? "").toLowerCase();
   const categoryId = String(product.category_id ?? "").toLowerCase();
+  if (categoryId === "essentials") return "children";
+  if (TOP_LEVEL_CATEGORIES.has(categoryId) && categoryId !== "books") return categoryId;
   if (category === "books" || categoryId === "books" || BOOK_SUBJECTS.has(category) || BOOK_SUBJECTS.has(categoryId)) return "books";
   if (category === "essentials" || categoryId === "essentials" || category === "children" || categoryId === "children") return "children";
   return category || categoryId || null;

@@ -3,7 +3,7 @@ import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { ChevronRight, Heart, Minus, Plus, Truck } from "lucide-react";
 import { SiteLayout } from "@/components/layout/SiteLayout";
 import { ProductCard } from "@/components/shop/ProductCard";
-import { CATEGORIES, productCompareAt, productImage, productPrice, type CategoryKey } from "@/data/products";
+import { CATEGORIES, productCompareAt, productImage, productPrice, topCategoryForProduct, type CategoryKey } from "@/data/products";
 import { getProductById, getProductBySlug, listByCategory, listByIds, type Product } from "@/services/productService";
 import { canReviewProduct, listPublishedReviews, submitReview, type ProductReview } from "@/services/reviewService";
 import { useShop } from "@/store/shop";
@@ -56,8 +56,9 @@ const ProductDetail = () => {
       setCanReview(nextProduct && user ? await canReviewProduct(nextProduct.id).catch(() => false) : false);
       setVersions(nextProduct?.linked_product_ids?.length ? await listByIds(nextProduct.linked_product_ids).catch(() => []) : []);
 
-      if (nextProduct?.category) {
-        const categoryProducts = await listByCategory(nextProduct.category);
+      const relatedCategory = nextProduct ? topCategoryForProduct(nextProduct) : null;
+      if (relatedCategory) {
+        const categoryProducts = await listByCategory(relatedCategory);
         if (!cancelled) setRelated(categoryProducts.filter((item) => item.id !== nextProduct!.id).slice(0, 8));
       } else {
         setRelated([]);
@@ -107,7 +108,8 @@ const ProductDetail = () => {
   const cover = productImage(product);
   const gallery = Array.from(new Set([cover, ...(Array.isArray(product.images) ? product.images : [])].filter(Boolean) as string[]));
   const mainImage = gallery[activeImage] ?? cover;
-  const categoryMeta = CATEGORIES.find((category) => category.key === (product.category as CategoryKey | null));
+  const productTopCategory = topCategoryForProduct(product) as CategoryKey | null;
+  const categoryMeta = CATEGORIES.find((category) => category.key === productTopCategory);
   const stock = product.stock_quantity ?? 0;
   const inStock = product.in_stock !== false && stock > 0;
   const colorOptions = product.color_options ?? [];

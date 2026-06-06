@@ -51,6 +51,7 @@ export function publicProductCard(doc: Record<string, any>) {
 }
 
 const BOOK_SUBJECTS = new Set(["aqeedah", "arabic", "fiqh", "hadith", "purification", "seerah", "tafsir", "urdu"]);
+const NON_BOOK_TOP_LEVEL_CATEGORIES = new Set(["clothing", "women", "children", "essentials"]);
 const BOOK_SUBJECT_LABELS: Record<string, string> = {
   aqeedah: "Aqeedah",
   arabic: "Arabic",
@@ -65,6 +66,12 @@ const BOOK_SUBJECT_LABELS: Record<string, string> = {
 function normalizeBookCategory(product: Record<string, any>) {
   const category = String(product.category ?? "").toLowerCase();
   const categoryId = String(product.category_id ?? "").toLowerCase();
+  if (NON_BOOK_TOP_LEVEL_CATEGORIES.has(categoryId)) {
+    return {
+      ...product,
+      category: categoryId === "essentials" ? "children" : categoryId,
+    };
+  }
   const subject = BOOK_SUBJECTS.has(category) ? category : BOOK_SUBJECTS.has(categoryId) ? categoryId : "";
   const looksLikeBook = Boolean(product.author || product.publisher || product.isbn || product.pages || product.binding);
   if (!subject && !(category === "books" || looksLikeBook)) return product;

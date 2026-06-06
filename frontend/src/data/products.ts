@@ -87,6 +87,7 @@ export const topCategoryForProduct = (p: Pick<ServiceProduct, "category" | "cate
   const categoryId = String(p.category_id ?? "").trim();
   const meta = CATEGORIES.find((entry) => entry.key === categoryId) ?? CATEGORIES.find((entry) => entry.key === category);
   if (meta?.parent) return meta.parent;
+  if (meta) return meta.key === "essentials" ? "children" : meta.key;
   if (category === "essentials" || categoryId === "essentials") return "children";
   return category || categoryId || null;
 };
