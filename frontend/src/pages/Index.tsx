@@ -255,9 +255,10 @@ const Index = () => {
           </div>
 
           {activeProducts.length === 0 ? (
-            <p className="text-sm text-foreground/55 py-8 text-center">
-              No {activeMeta.label.toLowerCase()} listed yet.
-            </p>
+            <div className="py-12 text-center">
+              <p className="font-serif text-2xl text-foreground md:text-3xl">Coming soon</p>
+              <p className="mt-2 text-sm text-foreground/55">Essentials will be added after launch.</p>
+            </div>
           ) : (
             <div className="-mx-4 md:-mx-8 px-4 md:px-8 overflow-x-auto pb-3 [scrollbar-width:thin]">
               <div className="flex gap-4 md:gap-6 min-w-max">
@@ -272,15 +273,17 @@ const Index = () => {
             </div>
           )}
 
-          <div className="mt-8 flex justify-center">
-            <Link
-              to={`/shop?category=${activeCat}`}
-              className="group inline-flex items-center gap-2 rounded-md bg-brand text-brand-foreground font-semibold text-sm md:text-base px-6 md:px-8 py-3 hover:opacity-95 transition-opacity"
-            >
-              Shop all {activeMeta.label.toLowerCase()}
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-            </Link>
-          </div>
+          {activeProducts.length > 0 && (
+            <div className="mt-8 flex justify-center">
+              <Link
+                to={`/shop?category=${activeCat}`}
+                className="group inline-flex items-center gap-2 rounded-md bg-brand text-brand-foreground font-semibold text-sm md:text-base px-6 md:px-8 py-3 hover:opacity-95 transition-opacity"
+              >
+                Shop all {activeMeta.label.toLowerCase()}
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              </Link>
+            </div>
+          )}
         </div>
       </section>
 
