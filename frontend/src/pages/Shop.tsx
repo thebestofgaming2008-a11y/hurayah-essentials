@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { SlidersHorizontal, X } from "lucide-react";
 import { SiteLayout } from "@/components/layout/SiteLayout";
 import { ProductCard } from "@/components/shop/ProductCard";
-import { CATEGORIES, TOP_LEVEL_CATEGORIES, productPrice, type CategoryKey } from "@/data/products";
+import { CATEGORIES, TOP_LEVEL_CATEGORIES, productPrice, topCategoryForProduct, type CategoryKey } from "@/data/products";
 import { listActiveProducts, type Product } from "@/services/productService";
 import { cn } from "@/lib/utils";
 
@@ -68,7 +68,7 @@ const Shop = () => {
 
   const filtered = useMemo(() => {
     let list = [...allProducts];
-    if (cat) list = list.filter((p) => p.category === cat);
+    if (cat) list = list.filter((p) => topCategoryForProduct(p) === cat);
     if (subject)
       list = list.filter(
         (p) =>
@@ -122,7 +122,7 @@ const Shop = () => {
             <span className="text-xs opacity-70">{allProducts.length}</span>
           </button>
           {TOP_LEVEL_CATEGORIES.map((c) => {
-            const count = allProducts.filter((p) => p.category === c.key).length;
+            const count = allProducts.filter((p) => topCategoryForProduct(p) === c.key).length;
             return (
               <button
                 key={c.key}

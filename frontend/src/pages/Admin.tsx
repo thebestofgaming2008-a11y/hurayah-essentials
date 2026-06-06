@@ -1565,7 +1565,7 @@ function productToForm(product: Product | null): ProductFormState {
     tags: (product?.tags ?? []).join(", "),
     is_active: product?.is_active ?? true,
     is_featured: product?.is_featured ?? false,
-    show_in_category_section: product?.show_in_category_section ?? true,
+    show_in_category_section: product?.show_in_category_section ?? false,
     is_bestseller: product?.is_bestseller ?? false,
     is_new_arrival: product?.is_new_arrival ?? false,
   };

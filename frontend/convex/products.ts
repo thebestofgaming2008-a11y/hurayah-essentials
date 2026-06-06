@@ -225,7 +225,7 @@ function normalize(input: any, isPatch = false, existingPrice?: number) {
   }
   output.is_active = input.is_active ?? (isPatch ? undefined : true);
   output.is_featured = input.is_featured ?? (isPatch ? undefined : false);
-  output.show_in_category_section = input.show_in_category_section ?? (isPatch ? undefined : true);
+  output.show_in_category_section = input.show_in_category_section ?? (isPatch ? undefined : false);
   output.is_new_arrival = input.is_new_arrival ?? (isPatch ? undefined : false);
   output.is_bestseller = input.is_bestseller ?? (isPatch ? undefined : false);
   for (const key of Object.keys(output)) if (output[key] === undefined) delete output[key];
@@ -234,6 +234,16 @@ function normalize(input: any, isPatch = false, existingPrice?: number) {
 
 function isLaunchReady(product: any) {
   return Boolean(product.cover_image_url && (product.description || product.short_description));
+}
+
+const BOOK_SUBJECTS = new Set(["aqeedah", "arabic", "fiqh", "hadith", "purification", "seerah", "tafsir", "urdu"]);
+
+function topCategoryForProduct(product: any) {
+  const category = String(product.category ?? "").toLowerCase();
+  const categoryId = String(product.category_id ?? "").toLowerCase();
+  if (category === "books" || categoryId === "books" || BOOK_SUBJECTS.has(category) || BOOK_SUBJECTS.has(categoryId)) return "books";
+  if (category === "essentials" || categoryId === "essentials" || category === "children" || categoryId === "children") return "children";
+  return category || categoryId || null;
 }
 
 export const listActiveProducts = query({
@@ -280,15 +290,11 @@ export const getProductBySlug = query({
 export const listByCategory = query({
   args: { category: v.string() },
   handler: async (ctx, args) => {
-    if (args.category === "books") {
-      const rows = await ctx.db.query("products").collect();
-      return rows.filter(isLaunchReady).map(publicProductCard).filter((p: any) => p.is_active !== false && p.category === "books");
-    }
-    const rows = await ctx.db
-      .query("products")
-      .withIndex("by_category", (q) => q.eq("category", args.category))
-      .collect();
-    return rows.filter((p) => p.is_active !== false && isLaunchReady(p)).map(publicProductCard);
+    const requested = args.category === "essentials" ? "children" : args.category;
+    const rows = await ctx.db.query("products").collect();
+    return rows
+      .filter((p) => p.is_active !== false && isLaunchReady(p) && topCategoryForProduct(p) === requested)
+      .map(publicProductCard);
   },
 });
 

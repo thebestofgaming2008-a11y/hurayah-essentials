@@ -82,6 +82,15 @@ export const productCompareAt = (p: ServiceProduct): number | null => {
   return null;
 };
 
+export const topCategoryForProduct = (p: Pick<ServiceProduct, "category" | "category_id">): string | null => {
+  const category = String(p.category ?? "").trim();
+  const categoryId = String(p.category_id ?? "").trim();
+  const meta = CATEGORIES.find((entry) => entry.key === categoryId) ?? CATEGORIES.find((entry) => entry.key === category);
+  if (meta?.parent) return meta.parent;
+  if (category === "essentials" || categoryId === "essentials") return "children";
+  return category || categoryId || null;
+};
+
 // Legacy stubs — kept so older imports compile while the migration finishes.
 export const PRODUCTS: Product[] = [];
 export const getProduct = (_id: string): Product | undefined => undefined;

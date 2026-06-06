@@ -19,7 +19,7 @@ import calligraphyLeft from "@/assets/calligraphy-left.png";
 import calligraphyRight from "@/assets/calligraphy-right.png";
 import { SiteLayout } from "@/components/layout/SiteLayout";
 import { ProductCard } from "@/components/shop/ProductCard";
-import { CATEGORIES, type CategoryKey } from "@/data/products";
+import { CATEGORIES, topCategoryForProduct, type CategoryKey } from "@/data/products";
 import { listActiveProducts, type Product } from "@/services/productService";
 
 const GUARANTEES = ["Authentic titles", "India-wide delivery", "Secure checkout"];
@@ -51,11 +51,12 @@ const TESTIMONIALS = [
 const TAB_KEYS: CategoryKey[] = ["books", "clothing", "children"];
 
 function productBelongsToLandingCategory(product: Product, categoryKey: CategoryKey) {
-  if (product.show_in_category_section === false) return false;
-  const matchingKeys = categoryKey === "children" ? ["children", "essentials"] : [categoryKey];
-  if (matchingKeys.includes(String(product.category)) || matchingKeys.includes(String(product.category_id))) return true;
-  const categoryMeta = CATEGORIES.find((category) => category.key === product.category_id);
-  return categoryMeta ? matchingKeys.includes(String(categoryMeta.parent)) : false;
+  if (product.show_in_category_section !== true) return false;
+  return topCategoryForProduct(product) === categoryKey;
+}
+
+function productBelongsToTopCategory(product: Product, categoryKey: CategoryKey) {
+  return topCategoryForProduct(product) === categoryKey;
 }
 
 function categorySectionRank(product: Product) {
@@ -106,14 +107,15 @@ const Index = () => {
     [allProducts],
   );
   const activeProducts = useMemo(
-    () => allProducts
-      .filter((p) => productBelongsToLandingCategory(p, activeCat))
-      .sort((a, b) => {
+    () => {
+      const explicit = allProducts.filter((p) => productBelongsToLandingCategory(p, activeCat));
+      const fallback = explicit.length ? explicit : allProducts.filter((p) => productBelongsToTopCategory(p, activeCat));
+      return fallback.sort((a, b) => {
         const rankA = categorySectionRank(a);
         const rankB = categorySectionRank(b);
         return rankB[0] - rankA[0] || rankB[1] - rankA[1] || rankB[2] - rankA[2];
-      })
-      .slice(0, 12),
+      }).slice(0, 12);
+    },
     [allProducts, activeCat],
   );
 

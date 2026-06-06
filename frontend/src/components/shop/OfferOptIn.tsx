@@ -6,6 +6,7 @@ import { upsertProfile } from "@/services/accountService";
 
 const WHATSAPP_COMMUNITY_URL =
   "https://chat.whatsapp.com/GDkQ2LfA392LaVhXxkqxux?mode=wwt&utm_source=igios&utm_campaign=wa_communities_url_xma&source_surface=25&utm_medium=social&utm_content=link_in_bio";
+const OFFER_OPT_IN_IGNORED_KEY = "hurayah_offer_opt_in_ignored";
 
 export function OfferOptIn({ className = "" }: { className?: string }) {
   const { user, profile } = useAuth();
@@ -13,9 +14,15 @@ export function OfferOptIn({ className = "" }: { className?: string }) {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    if (window.localStorage.getItem(OFFER_OPT_IN_IGNORED_KEY) === "true") return;
     const timer = window.setTimeout(() => setOpen(true), 500);
     return () => window.clearTimeout(timer);
   }, []);
+
+  const ignoreForever = () => {
+    window.localStorage.setItem(OFFER_OPT_IN_IGNORED_KEY, "true");
+    setOpen(false);
+  };
 
   const joinCommunity = async () => {
     if (user && !profile?.marketing_consent && !saving) {
@@ -64,6 +71,9 @@ export function OfferOptIn({ className = "" }: { className?: string }) {
               </button>
               <button type="button" onClick={() => setOpen(false)} className="h-10 rounded-md border border-border px-4 text-[12px] font-medium text-foreground/70 hover:bg-hero/50">
                 Maybe later
+              </button>
+              <button type="button" onClick={ignoreForever} className="mx-auto h-9 px-2 text-[12px] font-medium text-foreground/55 underline decoration-foreground/35 underline-offset-4 transition-colors hover:text-foreground">
+                Ignore
               </button>
             </div>
           </div>
