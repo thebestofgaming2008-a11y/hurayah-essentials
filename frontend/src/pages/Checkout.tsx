@@ -275,27 +275,20 @@ const Checkout = () => {
           const options = [line.selectedColor, line.selectedSize].filter(Boolean).join(" / ");
           const productUrl = line.slug ? `${window.location.origin}/product/${line.slug}` : "";
           return [
-            `*${index + 1}. ${line.name}*`,
+            `${index + 1}. ${line.name}`,
             options ? `   Options: ${options}` : "",
             `   Quantity: ${line.qty}`,
-            `   Unit price: ${format(line.price)}`,
-            `   Item total: ${format(line.price * line.qty)}`,
             productUrl ? `   Product page: ${productUrl}` : "",
-            line.image ? `   Product image: ${line.image}` : "",
           ].filter(Boolean).join("\n");
         });
         const message = [
-          "*NEW INTERNATIONAL ORDER REQUEST*",
-          "Hurayrah Essentials",
+          `Assalamu alaikum. I would like to order to ${customer.country}.`,
           "",
-          "Assalamu alaikum. I would like to order internationally.",
-          "",
-          "*CUSTOMER DETAILS*",
           `Name: ${customer.name}`,
           `Email: ${customer.email}`,
           `WhatsApp number: ${customer.phone}`,
           "",
-          "*DELIVERY ADDRESS*",
+          "",
           `Country: ${customer.country}`,
           `Address: ${customer.address_line_1}`,
           customer.address_line_2 ? `Apartment / extra: ${customer.address_line_2}` : "",
@@ -303,15 +296,8 @@ const Checkout = () => {
           customer.state ? `${address.stateLabel}: ${customer.state}` : "",
           `${address.postalLabel}: ${customer.postal_code}`,
           "",
-          "*CART ITEMS*",
+          "",
           ...itemLines,
-          "",
-          "*ORDER TOTAL*",
-          `Product subtotal: ${format(cartSubtotal)} (${currency})`,
-          "Shipping: To be confirmed",
-          "Final total: To be confirmed after international shipping quote.",
-          "",
-          "Please confirm product availability, international shipping fees, and payment details.",
         ].filter(Boolean).join("\n");
         openWhatsappMessage(message);
         toast({ title: "WhatsApp order request opened", description: "Your cart was not charged. The store will confirm international shipping and payment on WhatsApp." });
