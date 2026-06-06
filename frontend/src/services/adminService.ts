@@ -41,6 +41,7 @@ export interface ProductInput {
   badge?: string | null;
   is_active?: boolean;
   is_featured?: boolean;
+  show_in_category_section?: boolean;
   is_bestseller?: boolean;
   is_new_arrival?: boolean;
   is_on_sale?: boolean;

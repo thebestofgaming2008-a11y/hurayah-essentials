@@ -38,6 +38,7 @@ const SUBJECTS = [
 const VALUE_PROPS = [
   { Icon: Truck, title: "India-wide delivery", desc: "Shipping included across India." },
   { Icon: Shield, title: "Secure checkout", desc: "Encrypted payments, every time." },
+  { Icon: RotateCcw, title: "Easy returns", desc: "Returns on every order." },
   { Icon: Headphones, title: "Real support", desc: "Friendly humans, here to help." },
 ];
 
@@ -89,7 +90,7 @@ const Index = () => {
     [allProducts],
   );
   const activeProducts = useMemo(
-    () => allProducts.filter((p) => p.category === activeCat).slice(0, 12),
+    () => allProducts.filter((p) => p.category === activeCat && p.show_in_category_section !== false).slice(0, 12),
     [allProducts, activeCat],
   );
 

@@ -42,6 +42,7 @@ export interface Product {
   reviews_count: number | null;
   is_active: boolean | null;
   is_featured: boolean | null;
+  show_in_category_section?: boolean | null;
   is_new_arrival: boolean | null;
   is_bestseller: boolean | null;
   is_on_sale: boolean | null;

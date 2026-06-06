@@ -42,6 +42,7 @@ const productInput = {
   reviews_count: v.optional(v.union(v.number(), v.null())),
   is_active: v.optional(v.union(v.boolean(), v.null())),
   is_featured: v.optional(v.union(v.boolean(), v.null())),
+  show_in_category_section: v.optional(v.union(v.boolean(), v.null())),
   is_new_arrival: v.optional(v.union(v.boolean(), v.null())),
   is_bestseller: v.optional(v.union(v.boolean(), v.null())),
   is_on_sale: v.optional(v.union(v.boolean(), v.null())),
@@ -88,6 +89,7 @@ const productPatch = {
   reviews_count: v.optional(v.union(v.number(), v.null())),
   is_active: v.optional(v.union(v.boolean(), v.null())),
   is_featured: v.optional(v.union(v.boolean(), v.null())),
+  show_in_category_section: v.optional(v.union(v.boolean(), v.null())),
   is_new_arrival: v.optional(v.union(v.boolean(), v.null())),
   is_bestseller: v.optional(v.union(v.boolean(), v.null())),
   is_on_sale: v.optional(v.union(v.boolean(), v.null())),
@@ -223,6 +225,7 @@ function normalize(input: any, isPatch = false, existingPrice?: number) {
   }
   output.is_active = input.is_active ?? (isPatch ? undefined : true);
   output.is_featured = input.is_featured ?? (isPatch ? undefined : false);
+  output.show_in_category_section = input.show_in_category_section ?? (isPatch ? undefined : true);
   output.is_new_arrival = input.is_new_arrival ?? (isPatch ? undefined : false);
   output.is_bestseller = input.is_bestseller ?? (isPatch ? undefined : false);
   for (const key of Object.keys(output)) if (output[key] === undefined) delete output[key];

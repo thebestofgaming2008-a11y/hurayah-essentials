@@ -90,6 +90,7 @@ export default defineSchema({
     reviews_count: optionalNumber,
     is_active: optionalBoolean,
     is_featured: optionalBoolean,
+    show_in_category_section: optionalBoolean,
     is_new_arrival: optionalBoolean,
     is_bestseller: optionalBoolean,
     is_on_sale: optionalBoolean,
