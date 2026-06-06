@@ -1,0 +1,24 @@
+{
+  "name": "Hurayrah Essentials",
+  "short_name": "Hurayrah",
+  "description": "Authentic Islamic books, clothing and essentials with shipping included across India.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f5f7fb",
+  "theme_color": "#030f30",
+  "icons": [
+    {
+      "src": "/hurayrah-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/hurayrah-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

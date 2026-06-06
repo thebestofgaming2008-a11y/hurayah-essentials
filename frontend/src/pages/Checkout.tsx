@@ -22,29 +22,30 @@ const INDIA_ADDRESS = { stateLabel: "State / union territory", postalLabel: "PIN
 const PENDING_RAZORPAY_ORDER_KEY = "hurayah_pending_razorpay_order";
 const WHATSAPP_NUMBER = "918491943437";
 
-const COUNTRIES = [
-  { code: "IN", name: "India" },
-  { code: "US", name: "United States" },
-  { code: "GB", name: "United Kingdom" },
-  { code: "CA", name: "Canada" },
-  { code: "AU", name: "Australia" },
-  { code: "AE", name: "United Arab Emirates" },
-  { code: "SA", name: "Saudi Arabia" },
-  { code: "QA", name: "Qatar" },
-  { code: "KW", name: "Kuwait" },
-  { code: "MY", name: "Malaysia" },
-  { code: "SG", name: "Singapore" },
-  { code: "ZA", name: "South Africa" },
-  { code: "BE", name: "Belgium" },
-  { code: "NL", name: "Netherlands" },
-  { code: "DE", name: "Germany" },
-  { code: "FR", name: "France" },
-  { code: "IE", name: "Ireland" },
-  { code: "IT", name: "Italy" },
-  { code: "ES", name: "Spain" },
+const FALLBACK_COUNTRIES = [
+  "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Argentina", "Armenia", "Australia", "Austria", "Azerbaijan",
+  "Bahrain", "Bangladesh", "Belgium", "Brazil", "Brunei", "Bulgaria", "Canada", "China", "Denmark", "Egypt", "Finland",
+  "France", "Germany", "Ghana", "Greece", "Hong Kong", "India", "Indonesia", "Ireland", "Italy", "Japan", "Jordan",
+  "Kenya", "Kuwait", "Malaysia", "Maldives", "Morocco", "Netherlands", "New Zealand", "Nigeria", "Norway", "Oman",
+  "Pakistan", "Philippines", "Qatar", "Saudi Arabia", "Singapore", "South Africa", "Spain", "Sri Lanka", "Sweden",
+  "Switzerland", "Thailand", "Turkey", "United Arab Emirates", "United Kingdom", "United States", "Yemen",
 ];
 
-const COUNTRY_BY_CODE = Object.fromEntries(COUNTRIES.map((country) => [country.code, country.name]));
+function getCountryNames() {
+  try {
+    const intlWithRegions = Intl as typeof Intl & { supportedValuesOf?: (key: string) => string[] };
+    const displayNames = new Intl.DisplayNames(["en"], { type: "region" });
+    const names = (intlWithRegions.supportedValuesOf?.("region") ?? [])
+      .map((code) => displayNames.of(code))
+      .filter((name): name is string => Boolean(name && !/^\d+$/.test(name)))
+      .sort((a, b) => a.localeCompare(b));
+    return names.length ? Array.from(new Set(names)) : FALLBACK_COUNTRIES;
+  } catch {
+    return FALLBACK_COUNTRIES;
+  }
+}
+
+const COUNTRIES = getCountryNames();
 const ADDRESS_BY_COUNTRY: Record<string, typeof INDIA_ADDRESS> = {
   India: INDIA_ADDRESS,
   "United States": { stateLabel: "State", postalLabel: "ZIP code", cityLabel: "City", stateRequired: true },
@@ -56,7 +57,12 @@ const ADDRESS_BY_COUNTRY: Record<string, typeof INDIA_ADDRESS> = {
 };
 
 function countryNameFromCode(code: string | null | undefined) {
-  return COUNTRY_BY_CODE[String(code ?? "").toUpperCase()] ?? "India";
+  try {
+    return new Intl.DisplayNames(["en"], { type: "region" }).of(String(code ?? "").toUpperCase()) ?? "India";
+  } catch {
+    const fallback: Record<string, string> = { IN: "India", US: "United States", GB: "United Kingdom", AE: "United Arab Emirates", SA: "Saudi Arabia", BE: "Belgium" };
+    return fallback[String(code ?? "").toUpperCase()] ?? "India";
+  }
 }
 
 function openWhatsappMessage(message: string) {
@@ -244,28 +250,44 @@ const Checkout = () => {
       };
       const payload = { cart: cartLines, customer, subtotal: cartSubtotal, shipping: shippingMeta.amount, total };
       if (!isIndiaCheckout) {
-        const itemLines = cartLines.map((line) => {
+        const itemLines = cartLines.map((line, index) => {
           const options = [line.selectedColor, line.selectedSize].filter(Boolean).join(" / ");
-          return `- ${line.name}${options ? ` (${options})` : ""} x ${line.qty}: ${format(line.price * line.qty)}`;
+          return [
+            `${index + 1}. ${line.name}`,
+            options ? `   Options: ${options}` : "",
+            `   Quantity: ${line.qty}`,
+            `   Item total: ${format(line.price * line.qty)}`,
+          ].filter(Boolean).join("\n");
         });
         const message = [
-          "Assalamu alaikum, I would like to order internationally from Hurayrah Essentials.",
+          "Assalamu alaikum.",
+          "I would like to place an international order from Hurayrah Essentials.",
           "",
-          "Customer details:",
+          "ORDER TYPE",
+          "International WhatsApp checkout",
+          "",
+          "CUSTOMER",
           `Name: ${customer.name}`,
           `Email: ${customer.email}`,
           `WhatsApp: ${customer.phone}`,
+          "",
+          "DELIVERY ADDRESS",
           `Country: ${customer.country}`,
-          `Address: ${customer.address_line_1}${customer.address_line_2 ? `, ${customer.address_line_2}` : ""}`,
+          `Address line 1: ${customer.address_line_1}`,
+          customer.address_line_2 ? `Address line 2: ${customer.address_line_2}` : "",
           `City: ${customer.city}`,
           customer.state ? `${address.stateLabel}: ${customer.state}` : "",
           `${address.postalLabel}: ${customer.postal_code}`,
           "",
-          "Cart:",
+          "CART ITEMS",
           ...itemLines,
-          `Product subtotal: ${format(cartSubtotal)} (${currency})`,
           "",
-          "Please confirm availability and international shipping/payment details.",
+          "TOTALS",
+          `Product subtotal: ${format(cartSubtotal)} (${currency})`,
+          "Shipping: To be confirmed",
+          "Final total: To be confirmed after international shipping quote",
+          "",
+          "Please confirm product availability, international shipping fees, and payment details.",
         ].filter(Boolean).join("\n");
         openWhatsappMessage(message);
         toast({ title: "WhatsApp order request opened", description: "Your cart was not charged. The store will confirm international shipping and payment on WhatsApp." });
@@ -376,19 +398,20 @@ const Checkout = () => {
                 )}
                 <div>
                   <span className="mb-1.5 block text-[11px] text-[rgb(var(--vibe-muted))]">Country / region</span>
-                  <select
+                  <input
+                    list="checkout-country-options"
                     value={form.country}
                     onChange={(event) => setField("country")(event.target.value)}
                     data-testid="checkout-country-input"
                     className="h-10 w-full rounded-md border border-[rgb(var(--vibe-border))] bg-white px-3 text-[13px] text-[rgb(var(--vibe-foreground))] outline-none focus:ring-1 focus:ring-zinc-500"
                     autoComplete="country-name"
-                  >
+                    placeholder="Start typing your country..."
+                  />
+                  <datalist id="checkout-country-options">
                     {COUNTRIES.map((country) => (
-                      <option key={country.code} value={country.name}>
-                        {country.name}
-                      </option>
+                      <option key={country} value={country} />
                     ))}
-                  </select>
+                  </datalist>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field label="First name" value={form.firstName} onChange={setField("firstName")} error={errors.firstName} required testId="checkout-first-name-input" autoComplete="given-name" />

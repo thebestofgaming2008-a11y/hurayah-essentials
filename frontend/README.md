@@ -1,3 +1,16 @@
-# Welcome to your Lovable project
+# Hurayrah Essentials Storefront
 
-TODO: Document your project here
+React, Vite, Convex, Cloudflare Pages, and Razorpay storefront for Hurayrah Essentials.
+
+## Development
+
+```bash
+npm install
+npm run dev
+```
+
+## Build
+
+```bash
+npm run build
+```
