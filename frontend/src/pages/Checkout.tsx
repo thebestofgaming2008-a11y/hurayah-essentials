@@ -76,6 +76,22 @@ function flagFromCountryCode(code: string) {
   return String.fromCodePoint(...[...normalized].map((letter) => 127397 + letter.charCodeAt(0)));
 }
 
+function CountryFlag({ country }: { country?: CountryOption }) {
+  if (!country) return <span className="h-4 w-5 shrink-0" />;
+  const isIsoCode = /^[A-Z]{2}$/i.test(country.code);
+  if (!isIsoCode) return <span className="h-4 w-5 shrink-0 text-[15px] leading-none">{flagFromCountryCode(country.code)}</span>;
+
+  return (
+    <img
+      src={`https://flagcdn.com/w40/${country.code.toLowerCase()}.png`}
+      alt=""
+      loading="lazy"
+      decoding="async"
+      className="h-3.5 w-5 shrink-0 rounded-[2px] object-cover shadow-[0_0_0_1px_rgba(0,0,0,0.08)]"
+    />
+  );
+}
+
 function openWhatsappMessage(message: string) {
   const link = document.createElement("a");
   link.href = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
@@ -535,7 +551,7 @@ function CountrySelect({ value, onChange, error }: { value: string; onChange: (v
         aria-expanded={open}
       >
         <span className="flex min-w-0 items-center gap-2">
-          <span className="w-5 shrink-0 text-[15px] leading-none">{selected ? flagFromCountryCode(selected.code) : ""}</span>
+          <CountryFlag country={selected} />
           <span className="truncate">{value || "Choose your country"}</span>
         </span>
         <span
@@ -583,7 +599,7 @@ function CountrySelect({ value, onChange, error }: { value: string; onChange: (v
                     role="option"
                     aria-selected={isSelected}
                   >
-                    <span className="w-5 shrink-0 text-[15px] leading-none">{flagFromCountryCode(country.code)}</span>
+                    <CountryFlag country={country} />
                     <span className="min-w-0 flex-1 truncate">{country.name}</span>
                     {isSelected && <span aria-hidden="true" className="shrink-0 text-[12px]">✓</span>}
                   </button>
