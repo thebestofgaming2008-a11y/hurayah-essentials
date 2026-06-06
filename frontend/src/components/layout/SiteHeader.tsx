@@ -180,10 +180,10 @@ export function SiteHeader() {
             <Link to="/track" aria-label="Track order" data-testid="site-header-desktop-track-link" className={cn(ICON_BUTTON, "hidden md:inline-flex")}>
               <Package className="h-5 w-5" />
             </Link>
-            {accountControl}
             <button type="button" onClick={() => setSearchOpen((open) => !open)} aria-label="Search products" data-testid="site-header-search-toggle" className={ICON_BUTTON}>
               {searchOpen ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}
             </button>
+            {accountControl}
             <button type="button" onClick={openCart} aria-label={`Cart (${cartCount} items)`} data-testid="site-header-cart-link" className={ICON_BUTTON}>
               <ShoppingBag className="h-5 w-5" />
               {cartCount > 0 && <span className={BADGE}>{cartCount}</span>}
