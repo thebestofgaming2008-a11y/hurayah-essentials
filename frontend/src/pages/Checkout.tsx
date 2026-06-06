@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { SiteLayout } from "@/components/layout/SiteLayout";
 import { PaymentMethods } from "@/components/shop/PaymentMethods";
@@ -22,6 +22,11 @@ const INDIA_ADDRESS = { stateLabel: "State / union territory", postalLabel: "PIN
 const PENDING_RAZORPAY_ORDER_KEY = "hurayah_pending_razorpay_order";
 const WHATSAPP_NUMBER = "918491943437";
 
+type CountryOption = {
+  code: string;
+  name: string;
+};
+
 const FALLBACK_COUNTRIES = [
   "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Argentina", "Armenia", "Australia", "Austria", "Azerbaijan",
   "Bahrain", "Bangladesh", "Belgium", "Brazil", "Brunei", "Bulgaria", "Canada", "China", "Denmark", "Egypt", "Finland",
@@ -31,21 +36,21 @@ const FALLBACK_COUNTRIES = [
   "Switzerland", "Thailand", "Turkey", "United Arab Emirates", "United Kingdom", "United States", "Yemen",
 ];
 
-function getCountryNames() {
+function getCountryOptions(): CountryOption[] {
   try {
     const intlWithRegions = Intl as typeof Intl & { supportedValuesOf?: (key: string) => string[] };
     const displayNames = new Intl.DisplayNames(["en"], { type: "region" });
-    const names = (intlWithRegions.supportedValuesOf?.("region") ?? [])
-      .map((code) => displayNames.of(code))
-      .filter((name): name is string => Boolean(name && !/^\d+$/.test(name)))
-      .sort((a, b) => a.localeCompare(b));
-    return names.length ? Array.from(new Set(names)) : FALLBACK_COUNTRIES;
+    const options = (intlWithRegions.supportedValuesOf?.("region") ?? [])
+      .map((code) => ({ code, name: displayNames.of(code) ?? code }))
+      .filter((country) => Boolean(country.name && !/^\d+$/.test(country.name)))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    return options.length ? options : FALLBACK_COUNTRIES.map((name) => ({ code: name, name }));
   } catch {
-    return FALLBACK_COUNTRIES;
+    return FALLBACK_COUNTRIES.map((name) => ({ code: name, name }));
   }
 }
 
-const COUNTRIES = getCountryNames();
+const COUNTRIES = getCountryOptions();
 const ADDRESS_BY_COUNTRY: Record<string, typeof INDIA_ADDRESS> = {
   India: INDIA_ADDRESS,
   "United States": { stateLabel: "State", postalLabel: "ZIP code", cityLabel: "City", stateRequired: true },
@@ -63,6 +68,12 @@ function countryNameFromCode(code: string | null | undefined) {
     const fallback: Record<string, string> = { IN: "India", US: "United States", GB: "United Kingdom", AE: "United Arab Emirates", SA: "Saudi Arabia", BE: "Belgium" };
     return fallback[String(code ?? "").toUpperCase()] ?? "India";
   }
+}
+
+function flagFromCountryCode(code: string) {
+  if (!/^[A-Z]{2}$/i.test(code)) return "";
+  const normalized = code.toUpperCase();
+  return String.fromCodePoint(...[...normalized].map((letter) => 127397 + letter.charCodeAt(0)));
 }
 
 function openWhatsappMessage(message: string) {
@@ -397,21 +408,11 @@ const Checkout = () => {
                   </div>
                 )}
                 <div>
-                  <span className="mb-1.5 block text-[11px] text-[rgb(var(--vibe-muted))]">Country / region</span>
-                  <input
-                    list="checkout-country-options"
+                  <CountrySelect
                     value={form.country}
-                    onChange={(event) => setField("country")(event.target.value)}
-                    data-testid="checkout-country-input"
-                    className="h-10 w-full rounded-md border border-[rgb(var(--vibe-border))] bg-white px-3 text-[13px] text-[rgb(var(--vibe-foreground))] outline-none focus:ring-1 focus:ring-zinc-500"
-                    autoComplete="country-name"
-                    placeholder="Start typing your country..."
+                    onChange={setField("country")}
+                    error={errors.country}
                   />
-                  <datalist id="checkout-country-options">
-                    {COUNTRIES.map((country) => (
-                      <option key={country} value={country} />
-                    ))}
-                  </datalist>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field label="First name" value={form.firstName} onChange={setField("firstName")} error={errors.firstName} required testId="checkout-first-name-input" autoComplete="given-name" />
@@ -481,6 +482,121 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       <h2 className="text-[13px] font-medium">{title}</h2>
       {children}
     </section>
+  );
+}
+
+function CountrySelect({ value, onChange, error }: { value: string; onChange: (value: string) => void; error?: string }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const selected = useMemo(() => COUNTRIES.find((country) => country.name === value), [value]);
+  const filteredCountries = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return COUNTRIES;
+    return COUNTRIES.filter((country) => {
+      const haystack = `${country.name} ${country.code}`.toLowerCase();
+      return haystack.includes(needle);
+    });
+  }, [query]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [open]);
+
+  const selectCountry = (country: CountryOption) => {
+    onChange(country.name);
+    setQuery("");
+    setOpen(false);
+  };
+
+  const handleSearchChange = (nextQuery: string) => {
+    setQuery(nextQuery);
+    const exactMatch = COUNTRIES.find((country) => country.name.toLowerCase() === nextQuery.trim().toLowerCase());
+    if (exactMatch) onChange(exactMatch.name);
+    if (!open) setOpen(true);
+  };
+
+  return (
+    <div ref={rootRef} className="relative">
+      <span className="mb-1.5 block text-[11px] text-[rgb(var(--vibe-muted))]">Country / region</span>
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        className={cn(
+          "flex h-10 w-full items-center justify-between rounded-md border bg-white px-3 text-left text-[13px] text-[rgb(var(--vibe-foreground))] outline-none transition-colors hover:border-zinc-400 focus:ring-1 focus:ring-zinc-500",
+          error ? "border-red-400" : "border-[rgb(var(--vibe-border))]",
+        )}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+      >
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="w-5 shrink-0 text-[15px] leading-none">{selected ? flagFromCountryCode(selected.code) : ""}</span>
+          <span className="truncate">{value || "Choose your country"}</span>
+        </span>
+        <span
+          aria-hidden="true"
+          className={cn(
+            "ml-2 h-2 w-2 shrink-0 rotate-45 border-b border-r border-[rgb(var(--vibe-muted))] transition-transform",
+            open && "rotate-[225deg]",
+          )}
+        />
+      </button>
+
+      {open && (
+        <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-40 overflow-hidden rounded-md border border-[rgb(var(--vibe-border))] bg-white shadow-xl">
+          <div className="border-b border-[rgb(var(--vibe-border))] p-2">
+            <input
+              value={query}
+              onChange={(event) => handleSearchChange(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && filteredCountries[0]) {
+                  event.preventDefault();
+                  selectCountry(filteredCountries[0]);
+                }
+                if (event.key === "Escape") setOpen(false);
+              }}
+              data-testid="checkout-country-input"
+              className="h-9 w-full rounded-md border border-[rgb(var(--vibe-border))] bg-[rgb(var(--vibe-surface))] px-3 text-[12px] text-[rgb(var(--vibe-foreground))] outline-none focus:border-zinc-500 focus:bg-white"
+              autoComplete="off"
+              placeholder="Find your country..."
+              autoFocus
+            />
+          </div>
+          <div className="max-h-64 overflow-y-auto py-1" role="listbox">
+            {filteredCountries.length > 0 ? (
+              filteredCountries.map((country) => {
+                const isSelected = country.name === value;
+                return (
+                  <button
+                    key={country.code}
+                    type="button"
+                    onClick={() => selectCountry(country)}
+                    className={cn(
+                      "flex min-h-10 w-full items-center gap-2 px-3 text-left text-[12px] transition-colors hover:bg-[rgb(var(--vibe-surface))] focus:bg-[rgb(var(--vibe-surface))] focus:outline-none",
+                      isSelected && "bg-[rgb(var(--vibe-surface))] text-brand",
+                    )}
+                    role="option"
+                    aria-selected={isSelected}
+                  >
+                    <span className="w-5 shrink-0 text-[15px] leading-none">{flagFromCountryCode(country.code)}</span>
+                    <span className="min-w-0 flex-1 truncate">{country.name}</span>
+                    {isSelected && <span aria-hidden="true" className="shrink-0 text-[12px]">✓</span>}
+                  </button>
+                );
+              })
+            ) : (
+              <div className="px-3 py-3 text-[12px] text-[rgb(var(--vibe-muted))]">No country found.</div>
+            )}
+          </div>
+        </div>
+      )}
+      {error && <span className="mt-1 block text-[11px] text-red-600" data-testid="checkout-country-input-error">{error}</span>}
+    </div>
   );
 }
 
