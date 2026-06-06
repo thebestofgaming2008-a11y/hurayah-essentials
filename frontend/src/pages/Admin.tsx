@@ -1752,6 +1752,9 @@ function ProductEditorDialog({
                     <option key={category.key} value={category.key}>{category.parent ? `${category.label} (${category.parent})` : category.label}</option>
                   ))}
                 </select>
+                <span className="block text-[10px] font-normal text-[rgb(var(--vibe-muted))]">
+                  This places the product in the landing page “Shop by category” section.
+                </span>
               </label>
               <ProductInputField label="Price" type="number" value={form.price_inr} onChange={(value) => setField("price_inr", value)} required />
               <ProductInputField label="Sale price (optional)" type="number" value={form.sale_price_inr} onChange={(value) => setField("sale_price_inr", value)} />
