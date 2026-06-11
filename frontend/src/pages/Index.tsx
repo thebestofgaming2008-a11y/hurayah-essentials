@@ -102,6 +102,10 @@ const Index = () => {
     }
     return counts;
   }, [allProducts]);
+  const bookCount = useMemo(
+    () => allProducts.filter((product) => topCategoryForProduct(product) === "books").length,
+    [allProducts],
+  );
 
   // Fallbacks: if no flagged products yet, show the latest items so sections never look empty
   const featuredView = featured.length ? featured : allProducts.slice(0, 4);
@@ -355,6 +359,24 @@ const Index = () => {
               </Link>
               );
             })}
+            <Link
+              to="/shop?category=books"
+              className="group relative bg-background p-6 md:p-8 flex flex-col gap-4 hover:bg-hero/60 transition-colors"
+            >
+              <span className="h-10 w-10 grid place-items-center rounded-lg border border-border text-brand group-hover:bg-brand group-hover:text-brand-foreground group-hover:border-brand transition-colors">
+                <BookOpen className="h-5 w-5" />
+              </span>
+              <div>
+                <h3 className="font-semibold text-foreground text-base md:text-lg tracking-tight">
+                  All books
+                </h3>
+                <p className="mt-1 text-xs md:text-sm text-foreground/55">Browse every title in the library.</p>
+              </div>
+              <span className="mt-auto text-[11px] font-medium uppercase tracking-[0.16em] text-foreground/40">
+                {loading ? "Loading" : `${bookCount} ${bookCount === 1 ? "item" : "items"}`}
+              </span>
+              <ArrowRight className="absolute top-6 right-6 h-4 w-4 text-foreground/30 group-hover:text-brand group-hover:translate-x-0.5 transition-all" />
+            </Link>
           </div>
         </div>
         </Reveal>
