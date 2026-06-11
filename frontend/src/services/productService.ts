@@ -52,11 +52,25 @@ export interface Product {
   search_text?: string | null;
 }
 
-const ACTIVE_PRODUCTS_CACHE_KEY = "he_active_products_v6";
-const OLD_ACTIVE_PRODUCTS_CACHE_KEYS = ["he_active_products_v3", "he_active_products_v4", "he_active_products_v5"];
+const ACTIVE_PRODUCTS_CACHE_KEY = "he_active_products_v7";
+const OLD_ACTIVE_PRODUCTS_CACHE_KEYS = ["he_active_products_v3", "he_active_products_v4", "he_active_products_v5", "he_active_products_v6"];
 const ACTIVE_PRODUCTS_TTL_MS = 5 * 60 * 1000;
 const TOP_LEVEL_CATEGORY_KEYS = new Set(["books", "clothing", "children", "women", "essentials"]);
-const BOOK_SUBJECT_KEYS = new Set(["aqeedah", "arabic", "fiqh", "hadith", "purification", "seerah", "tafsir", "urdu"]);
+const BOOK_SUBJECT_KEYS = new Set([
+  "aqeedah",
+  "arabic",
+  "fiqh",
+  "hadith",
+  "purification",
+  "seerah",
+  "tafsir",
+  "urdu",
+  "character-development",
+  "dua-adhkar",
+  "womens-issues",
+  "islamic-history",
+  "family-marriage",
+]);
 
 let activeProductsMemoryCache: { expiresAt: number; products: Product[] } | null = null;
 let activeProductsInFlight: Promise<Product[]> | null = null;
@@ -98,7 +112,7 @@ function readActiveProductsCache(): Product[] | null {
 }
 
 async function fetchEdgeCatalog(cacheBust = false): Promise<unknown> {
-  const version = cacheBust ? `r2-compact-v2-20260610-${Date.now()}` : "r2-compact-v2-20260610";
+  const version = cacheBust ? `r2-compact-v3-subjects-20260611-${Date.now()}` : "r2-compact-v3-subjects-20260611";
   const response = await fetch(`/api/catalog/products?v=${encodeURIComponent(version)}`, {
     headers: { accept: "application/json" },
     cache: cacheBust ? "no-store" : "default",

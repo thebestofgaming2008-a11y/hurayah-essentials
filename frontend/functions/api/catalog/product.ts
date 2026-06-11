@@ -90,7 +90,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
 
   const kind = slug ? "slug" : "id";
   const value = slug || id || "";
-  const key = `catalog/product-${kind}/${safeKeyPart(value)}.json`;
+  const key = `catalog/product-v2-subjects-${kind}/${safeKeyPart(value)}.json`;
   const cache = caches.default;
   const cacheKey = new Request(`${url.origin}${url.pathname}${url.search}`, request);
   const cached = await cache.match(cacheKey);

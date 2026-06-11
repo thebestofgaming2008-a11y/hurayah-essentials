@@ -3,7 +3,7 @@ type Env = {
   VITE_CONVEX_URL?: string;
 };
 
-const CATALOG_KEY = "catalog/products-compact-v3.json";
+const CATALOG_KEY = "catalog/products-compact-v4-subjects.json";
 const SNAPSHOT_TTL_MS = 5 * 60 * 1000;
 const CATALOG_CACHE_CONTROL = "public, max-age=60, s-maxage=600, stale-while-revalidate=86400";
 const STALE_CATALOG_CACHE_CONTROL = "public, max-age=30, s-maxage=60, stale-while-revalidate=86400";

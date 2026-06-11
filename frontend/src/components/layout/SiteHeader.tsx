@@ -1,4 +1,4 @@
-import { Heart, LayoutDashboard, LogOut, Menu, Package, Search, ShoppingBag, User, X } from "lucide-react";
+import { ChevronDown, Heart, LayoutDashboard, LogOut, Menu, Package, Search, ShoppingBag, User, X } from "lucide-react";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import logo from "@/assets/logo-header.png";
@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { useShop } from "@/store/shop";
 import { CurrencySelector } from "@/components/shop/CurrencySelector";
+import { BOOK_SUBJECTS } from "@/data/products";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -107,6 +108,8 @@ export function SiteHeader() {
     closeMenu();
     navigate(`/?category=${encodeURIComponent(category)}#categories`);
   };
+
+  const subjectHref = (subjectKey: string) => `/shop?category=books&subject=${encodeURIComponent(subjectKey)}`;
 
   const accountControl = user ? (
     <DropdownMenu>
@@ -225,7 +228,31 @@ export function SiteHeader() {
         <nav className="mx-auto hidden max-w-[1440px] px-3 sm:px-4 md:block md:px-8">
           <ul className="-mx-1 flex items-center justify-center gap-4 overflow-x-auto px-1 text-center sm:gap-7 md:gap-10" data-testid="site-header-primary-nav">
             <li className="shrink-0"><NavLink to="/shop" className={navLinkClass} data-testid="site-header-shop-link" end>Shop all</NavLink></li>
-            <li className="shrink-0"><button type="button" onClick={() => goCategorySection("books")} data-testid="site-header-books-link" className="inline-block whitespace-nowrap py-2.5 text-sm text-foreground/75 hover:text-brand md:text-[15px]">Books</button></li>
+            <li className="shrink-0">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    data-testid="site-header-books-link"
+                    className="inline-flex items-center gap-1 whitespace-nowrap py-2.5 text-sm text-foreground/75 transition-colors hover:text-brand md:text-[15px]"
+                  >
+                    Books
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="center" className="w-[252px] rounded-md border border-border bg-background p-1 shadow-lg">
+                  <DropdownMenuItem asChild className="cursor-pointer rounded px-3 py-2.5">
+                    <Link to="/shop?category=books" className="text-sm">All books</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="my-1" />
+                  {BOOK_SUBJECTS.map((subject) => (
+                    <DropdownMenuItem key={subject.key} asChild className="cursor-pointer rounded px-3 py-2.5">
+                      <Link to={subjectHref(subject.key)} className="text-sm">{subject.label}</Link>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </li>
             <li className="shrink-0"><button type="button" onClick={() => goCategorySection("clothing")} data-testid="site-header-clothing-link" className="inline-block whitespace-nowrap py-2.5 text-sm text-foreground/75 hover:text-brand md:text-[15px]">Clothing</button></li>
             <li className="shrink-0"><button type="button" onClick={() => goCategorySection("children")} data-testid="site-header-essentials-link" className="inline-block whitespace-nowrap py-2.5 text-sm text-foreground/75 hover:text-brand md:text-[15px]">Essentials</button></li>
             <li className="shrink-0"><NavLink to="/contact" className={navLinkClass} data-testid="site-header-contact-link">Contact</NavLink></li>
@@ -259,7 +286,20 @@ export function SiteHeader() {
             <nav className="flex flex-col gap-1 px-3 py-5">
               {isAdmin && <Link to="/admin" onClick={closeMenu} className="rounded-md px-3 py-3 text-[14px] font-semibold text-brand hover:bg-white/55">Admin dashboard</Link>}
               <Link to="/shop" onClick={closeMenu} className="rounded-md px-3 py-3 text-[14px] text-foreground hover:bg-white/55 hover:text-brand">Shop all</Link>
-              <button type="button" onClick={() => goCategorySection("books")} className="w-full rounded-md px-3 py-3 text-left text-[14px] text-foreground hover:bg-white/55 hover:text-brand">Books</button>
+              <details className="group rounded-md">
+                <summary className="flex cursor-pointer list-none items-center justify-between rounded-md px-3 py-3 text-[14px] text-foreground transition-colors hover:bg-white/55 hover:text-brand">
+                  Books
+                  <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="mb-2 ml-3 grid gap-1 border-l border-foreground/10 pl-3">
+                  <Link to="/shop?category=books" onClick={closeMenu} className="rounded-md px-3 py-2 text-[13px] font-semibold text-brand hover:bg-white/55">All books</Link>
+                  {BOOK_SUBJECTS.map((subject) => (
+                    <Link key={subject.key} to={subjectHref(subject.key)} onClick={closeMenu} className="rounded-md px-3 py-2 text-[13px] text-foreground/75 hover:bg-white/55 hover:text-brand">
+                      {subject.label}
+                    </Link>
+                  ))}
+                </div>
+              </details>
               <button type="button" onClick={() => goCategorySection("clothing")} className="w-full rounded-md px-3 py-3 text-left text-[14px] text-foreground hover:bg-white/55 hover:text-brand">Clothing</button>
               <button type="button" onClick={() => goCategorySection("children")} className="w-full rounded-md px-3 py-3 text-left text-[14px] text-foreground hover:bg-white/55 hover:text-brand">Essentials</button>
               <Link to="/contact" onClick={closeMenu} className="rounded-md px-3 py-3 text-[14px] text-foreground hover:bg-white/55 hover:text-brand">Contact</Link>

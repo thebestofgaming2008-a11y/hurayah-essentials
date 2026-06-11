@@ -4,7 +4,7 @@ import { ChevronRight, Heart, Minus, Plus, Truck } from "lucide-react";
 import { SiteLayout } from "@/components/layout/SiteLayout";
 import { ProductCard } from "@/components/shop/ProductCard";
 import { RatingStars, StarRatingInput } from "@/components/shop/ReviewStars";
-import { CATEGORIES, productCardThumbnailUrl, productCompareAt, productImage, productPrice, topCategoryForProduct, type CategoryKey } from "@/data/products";
+import { BOOK_SUBJECT_LABELS, CATEGORIES, productCardThumbnailUrl, productCompareAt, productImage, productPrice, productSubjectKeys, topCategoryForProduct, type CategoryKey } from "@/data/products";
 import { getProductById, getProductBySlug, listByCategory, listByIds, type Product } from "@/services/productService";
 import { canReviewProduct, listPublishedReviews, submitReview, type ProductReview } from "@/services/reviewService";
 import { useShop } from "@/store/shop";
@@ -136,6 +136,12 @@ const ProductDetail = () => {
   const mainImage = gallery[activeImage] ?? cover;
   const productTopCategory = topCategoryForProduct(product) as CategoryKey | null;
   const categoryMeta = CATEGORIES.find((category) => category.key === productTopCategory);
+  const subjectEntries = productTopCategory === "books"
+    ? productSubjectKeys(product)
+        .map((key) => ({ key, label: BOOK_SUBJECT_LABELS.get(key) }))
+        .filter((entry): entry is { key: string; label: string } => Boolean(entry.label))
+    : [];
+  const subjectLabels = subjectEntries.map((entry) => entry.label);
   const stock = product.stock_quantity ?? 0;
   const inStock = product.in_stock !== false && stock > 0;
   const colorOptions = product.color_options ?? [];
@@ -291,10 +297,27 @@ const ProductDetail = () => {
                   <button type="button" onClick={() => setTab("details")} className={cn("pdp-press pb-2", tab === "details" ? "border-b border-[#06133a] font-semibold text-[#06133a]" : "text-black/60")}>Product Details</button>
                 </div>
                 {tab === "description" ? (
-                  <p className="mt-5 whitespace-pre-line font-serif text-lg leading-relaxed text-black/80 sm:text-xl">{product.description || product.short_description || "Product details coming soon."}</p>
+                  <div className="mt-5 space-y-5">
+                    {subjectLabels.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-serif text-base text-black/55 sm:text-lg">Subject:</span>
+                        {subjectEntries.map((subject) => (
+                          <Link
+                            key={subject.key}
+                            to={`/shop?category=books&subject=${encodeURIComponent(subject.key)}`}
+                            className="rounded-full border border-[#06133a]/15 bg-white px-3 py-1 text-xs font-semibold text-[#06133a] transition-colors hover:border-[#06133a]/35 hover:bg-[#eef2fa] sm:text-sm"
+                          >
+                            {subject.label}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                    <p className="whitespace-pre-line font-serif text-lg leading-relaxed text-black/80 sm:text-xl">{product.description || product.short_description || "Product details coming soon."}</p>
+                  </div>
                 ) : (
                   <dl className="mt-5 grid gap-3 font-serif text-lg text-black sm:grid-cols-2">
                     <Fact label="Category" value={categoryMeta?.label || product.category || "Product"} />
+                    {subjectLabels.length > 0 && <Fact label={subjectLabels.length > 1 ? "Subjects" : "Subject"} value={subjectLabels.join(", ")} />}
                     {product.language && <Fact label="Language" value={product.language} />}
                     {product.isbn && <Fact label="ISBN" value={product.isbn} />}
                     {product.sku && <Fact label="SKU" value={product.sku} />}

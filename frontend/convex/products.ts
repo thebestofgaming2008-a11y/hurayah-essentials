@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { nowIso, publicProduct, publicProductCard, requireAdmin, writeAuditLog } from "./lib";
+import { BOOK_SUBJECT_KEYS, BOOK_SUBJECT_LABELS, nowIso, publicProduct, publicProductCard, requireAdmin, writeAuditLog } from "./lib";
 
 const productInput = {
   name: v.string(),
@@ -236,8 +236,296 @@ function isLaunchReady(product: any) {
   return Boolean(product.cover_image_url && (product.description || product.short_description));
 }
 
-const BOOK_SUBJECTS = new Set(["aqeedah", "arabic", "fiqh", "hadith", "purification", "seerah", "tafsir", "urdu"]);
+const BOOK_SUBJECTS = new Set<string>(BOOK_SUBJECT_KEYS);
 const TOP_LEVEL_CATEGORIES = new Set(["books", "clothing", "women", "children"]);
+const NON_BOOK_CATEGORY_IDS = new Set(["clothing", "children", "essentials"]);
+
+const SUBJECT_PRIORITY = [
+  "aqeedah",
+  "tafsir",
+  "hadith",
+  "fiqh",
+  "seerah",
+  "islamic-history",
+  "purification",
+  "dua-adhkar",
+  "character-development",
+  "womens-issues",
+  "family-marriage",
+  "arabic",
+  "urdu",
+];
+
+const SUBJECT_ALIASES: Record<string, string> = {
+  aqidah: "aqeedah",
+  aqeedah: "aqeedah",
+  creed: "aqeedah",
+  tawheed: "aqeedah",
+  tawhid: "aqeedah",
+  tazkiyah: "purification",
+  spirituality: "purification",
+  purification: "purification",
+  adab: "character-development",
+  manners: "character-development",
+  character: "character-development",
+  "character development": "character-development",
+  dua: "dua-adhkar",
+  duaa: "dua-adhkar",
+  "du'a": "dua-adhkar",
+  "du'a & adhkar": "dua-adhkar",
+  "dua & adhkar": "dua-adhkar",
+  adhkar: "dua-adhkar",
+  azkar: "dua-adhkar",
+  dhikr: "dua-adhkar",
+  remembrance: "dua-adhkar",
+  womens: "womens-issues",
+  women: "womens-issues",
+  "women's issues": "womens-issues",
+  "women issues": "womens-issues",
+  "womens issues": "womens-issues",
+  sisters: "womens-issues",
+  history: "islamic-history",
+  "islamic history": "islamic-history",
+  marriage: "family-marriage",
+  family: "family-marriage",
+  "family marriage": "family-marriage",
+  "family & marriage": "family-marriage",
+  nikah: "family-marriage",
+};
+
+const SUBJECT_PATTERNS: Record<string, RegExp[]> = {
+  aqeedah: [
+    /\baq[ie]e?dah\b/i,
+    /\bcreed\b/i,
+    /\btawh[ei]ed\b/i,
+    /\btawhid\b/i,
+    /\bnullifiers?\b/i,
+    /\bnawaqid\b/i,
+    /\bfaith\b/i,
+    /\biman\b/i,
+    /\busool\b/i,
+    /\bwasitiyyah\b/i,
+    /\bhai'?yah\b/i,
+    /\bnames?\s+of\s+allah\b/i,
+    /\basma/i,
+  ],
+  arabic: [
+    /\barabic\s+(course|language|grammar|reader|reading)\b/i,
+    /\bnahw\b/i,
+    /\bsarf\b/i,
+    /\bajrumiyyah\b/i,
+    /\bajroomiyyah\b/i,
+    /\bbalagah\b/i,
+    /\bnuraniyyah\b/i,
+    /\bnooraniyyah\b/i,
+    /\bqa'?idah\b/i,
+  ],
+  fiqh: [
+    /\bfiqh\b/i,
+    /\brulings?\b/i,
+    /\bwudu\b/i,
+    /\bwudhu\b/i,
+    /\bsalah\b/i,
+    /\bprayer\b/i,
+    /\bmarriage\b/i,
+    /\bnikah\b/i,
+    /\bwomen\b/i,
+    /\bobligatory\s+duties\b/i,
+    /\bbulugh\b/i,
+  ],
+  hadith: [
+    /\bhadith\b/i,
+    /\bahadith\b/i,
+    /\bsunnah\b/i,
+    /\bbukhari\b/i,
+    /\bmuslim\b/i,
+    /\briyad\b/i,
+    /\bsunan\b/i,
+    /\badab\b/i,
+  ],
+  purification: [
+    /\btazkiyah\b/i,
+    /\bpurification\b/i,
+    /\bheart\b/i,
+    /\bsoul\b/i,
+    /\bsins?\b/i,
+    /\btawbah\b/i,
+    /\brepentance\b/i,
+    /\bdistress\b/i,
+    /\bmadarij\b/i,
+    /\bdivine\s+seekers\b/i,
+  ],
+  seerah: [
+    /\bseerah\b/i,
+    /\bprophet'?s?\s+(life|biograph|story|stories|wives|companions|description|depiction)\b/i,
+    /\bdepiction\s+of\s+the\s+prophet\b/i,
+    /\bsealed\s+nectar\b/i,
+    /\bmoon\s+split\b/i,
+    /\bbiograph/i,
+    /\bwives\s+of\s+the\s+prophet\b/i,
+    /\bshama/i,
+  ],
+  tafsir: [
+    /\btafsir\b/i,
+    /\bexegesis\b/i,
+    /\bahsanul\s+bayan\b/i,
+    /\bqur'?anic\s+commentary\b/i,
+  ],
+  urdu: [/\burdu\b/i],
+  "character-development": [
+    /\badab\b/i,
+    /\bakhlaq\b/i,
+    /\bcharacter\b/i,
+    /\bmanners?\b/i,
+    /\bmorals?\b/i,
+    /\betiquette\b/i,
+    /\bsins?\b/i,
+    /\btazkiyah\b/i,
+  ],
+  "dua-adhkar": [
+    /\bdu['a]*a\b/i,
+    /\bdua\b/i,
+    /\badhkar\b/i,
+    /\bazkar\b/i,
+    /\bdhikr\b/i,
+    /\bsupplications?\b/i,
+    /\bremembrance\b/i,
+    /\bdistress\b/i,
+    /\byunus\b/i,
+  ],
+  "womens-issues": [
+    /\bwomen'?s?\b/i,
+    /\bwoman'?s?\b/i,
+    /\bsister\b/i,
+    /\bsisters\b/i,
+    /\bmuslim women\b/i,
+    /\bwives\b/i,
+    /\bmother\b/i,
+  ],
+  "islamic-history": [
+    /\bhistory\b/i,
+    /\bbiograph/i,
+    /\bseerah\b/i,
+    /\bprophet'?s?\s+(life|story|stories|wives|companions|description|depiction)\b/i,
+    /\bcompanions\b/i,
+    /\bsahabah\b/i,
+    /\bsealed\s+nectar\b/i,
+    /\bmoon\s+split\b/i,
+    /\bnations?\b/i,
+  ],
+  "family-marriage": [
+    /\bfamily\b/i,
+    /\bmarriage\b/i,
+    /\bnikah\b/i,
+    /\bparenting\b/i,
+    /\braising\b/i,
+    /\bchildren\b/i,
+    /\bchild\b/i,
+    /\bhome\b/i,
+    /\bwives\b/i,
+  ],
+};
+
+function normalizeSubject(value: unknown): string | null {
+  const normalized = String(value ?? "").trim().toLowerCase().replace(/[\s_]+/g, "-");
+  if (!normalized || normalized === "books") return null;
+  if (BOOK_SUBJECTS.has(normalized)) return normalized;
+  const compact = normalized.replace(/-/g, " ");
+  const byLabel = Object.entries(BOOK_SUBJECT_LABELS).find(([, label]) => label.toLowerCase() === compact)?.[0];
+  if (byLabel) return byLabel;
+  return SUBJECT_ALIASES[compact] ?? SUBJECT_ALIASES[normalized] ?? null;
+}
+
+function looksLikeBook(product: any) {
+  return Boolean(product.author || product.publisher || product.isbn || product.pages || product.binding);
+}
+
+function collectBookSubjects(product: any) {
+  const keys = new Set<string>();
+  for (const value of [product.category_id, product.category]) {
+    const subject = normalizeSubject(value);
+    if (subject) keys.add(subject);
+  }
+  const tags = Array.isArray(product.tags) ? product.tags : [];
+  for (const tag of tags) {
+    const subject = normalizeSubject(tag);
+    if (subject) keys.add(subject);
+  }
+  const signalText = [
+    product.name,
+    product.slug,
+    product.author,
+    product.publisher,
+    product.short_description,
+    product.description,
+    product.language,
+    product.category,
+    product.category_id,
+    ...tags,
+  ]
+    .filter(Boolean)
+    .join(" ");
+  for (const [key, patterns] of Object.entries(SUBJECT_PATTERNS)) {
+    if (patterns.some((pattern) => pattern.test(signalText))) keys.add(key);
+  }
+  if (String(product.language ?? "").toLowerCase().includes("urdu")) keys.add("urdu");
+  return SUBJECT_PRIORITY.filter((key) => keys.has(key));
+}
+
+function primarySubjectForProduct(product: any, subjects: string[]) {
+  const existingSubject = normalizeSubject(product.category_id) ?? normalizeSubject(product.category);
+  if (existingSubject) return existingSubject;
+
+  const titleText = [
+    product.name,
+    product.slug,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const preferred: Array<[string, RegExp[]]> = [
+    ["family-marriage", [/\bmarriage\b/i, /\bnikah\b/i, /\bspouses?\b/i, /\bfamily\b/i, /\braising\b/i, /\bparenting\b/i]],
+    ["womens-issues", [/\bwomen'?s?\b/i, /\bwoman'?s?\b/i, /\bsisters?\b/i, /\bmuslim women\b/i]],
+    ["dua-adhkar", [/\bdu['a]*a\b/i, /\bdua\b/i, /\badhkar\b/i, /\bazkar\b/i, /\bdhikr\b/i, /\bsupplications?\b/i, /\bremembrance\b/i, /\bdistress\b/i, /\byunus\b/i]],
+    ["purification", [/\btazkiyah\b/i, /\bpurification\b/i, /\bheart\b/i, /\bsoul\b/i, /\bsins?\b/i, /\bdisease\b/i, /\bcure\b/i, /\bdeceptions?\b/i, /\bdisciplining\b/i, /\bdivine\s+seekers\b/i]],
+    ["seerah", [/\bseerah\b/i, /\bsealed\s+nectar\b/i, /\bmoon\s+split\b/i, /\bprophet'?s?\s+(life|biograph|story|stories|description|depiction)\b/i]],
+  ];
+
+  for (const [subject, patterns] of preferred) {
+    if (subjects.includes(subject) && patterns.some((pattern) => pattern.test(titleText))) return subject;
+  }
+
+  return SUBJECT_PRIORITY.find((key) => subjects.includes(key)) ?? subjects[0] ?? "aqeedah";
+}
+
+function subjectPatchForProduct(product: any) {
+  const currentCategory = String(product.category ?? "").trim().toLowerCase();
+  const currentCategoryId = String(product.category_id ?? "").trim().toLowerCase();
+  if (NON_BOOK_CATEGORY_IDS.has(currentCategory) || NON_BOOK_CATEGORY_IDS.has(currentCategoryId)) return null;
+  const isBook =
+    currentCategory === "books" ||
+    currentCategoryId === "books" ||
+    BOOK_SUBJECTS.has(currentCategory) ||
+    BOOK_SUBJECTS.has(currentCategoryId) ||
+    looksLikeBook(product);
+  if (!isBook) return null;
+
+  const subjects = collectBookSubjects(product);
+  const primary = primarySubjectForProduct(product, subjects);
+  const orderedSubjects = SUBJECT_PRIORITY.filter((key) => key === primary || subjects.includes(key));
+  const subjectLabels = orderedSubjects.map((key) => BOOK_SUBJECT_LABELS[key]).filter(Boolean);
+  const rawTags = Array.isArray(product.tags) ? product.tags : [];
+  const subjectLabelSet = new Set(Object.values(BOOK_SUBJECT_LABELS));
+  const nonSubjectTags = rawTags.filter((tag: string) => !subjectLabelSet.has(tag) && !normalizeSubject(tag));
+  const tags = Array.from(new Set([...subjectLabels, ...nonSubjectTags])).slice(0, 30);
+
+  return {
+    category: "books",
+    category_id: primary,
+    tags,
+    subjects: orderedSubjects,
+  };
+}
 
 function topCategoryForProduct(product: any) {
   const category = String(product.category ?? "").toLowerCase();
@@ -351,6 +639,78 @@ export const updateProduct = mutation({
     });
     const doc = await ctx.db.get(args.id as any) as any;
     return doc ? publicProduct(doc) : null;
+  },
+});
+
+export const assignBookSubjects = mutation({
+  args: { dryRun: v.optional(v.boolean()) },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const rows = await ctx.db.query("products").collect();
+    const updates = rows
+      .map((product: any) => {
+        const patch = subjectPatchForProduct(product);
+        if (!patch) return null;
+        const currentTags = Array.isArray(product.tags) ? product.tags : [];
+        const changed =
+          product.category !== patch.category ||
+          product.category_id !== patch.category_id ||
+          JSON.stringify(currentTags) !== JSON.stringify(patch.tags);
+        return {
+          id: String(product._id),
+          name: product.name,
+          slug: product.slug,
+          category: product.category,
+          category_id: product.category_id,
+          next_category_id: patch.category_id,
+          subjects: patch.subjects,
+          tags: patch.tags,
+          changed,
+        };
+      })
+      .filter(Boolean) as Array<{
+        id: string;
+        name: string;
+        slug: string | null;
+        category: string | null;
+        category_id: string | null;
+        next_category_id: string;
+        subjects: string[];
+        tags: string[];
+        changed: boolean;
+      }>;
+
+    if (!args.dryRun) {
+      const timestamp = nowIso();
+      for (const update of updates.filter((item) => item.changed)) {
+        await ctx.db.patch(update.id as any, {
+          category: "books",
+          category_id: update.next_category_id,
+          tags: update.tags,
+          updated_at: timestamp,
+        });
+      }
+      await writeAuditLog(ctx, {
+        action: "product.assign_book_subjects",
+        entityType: "product",
+        summary: "Assigned book subjects",
+        metadata: { updated: updates.filter((item) => item.changed).length, inspected: updates.length },
+      });
+    }
+
+    return {
+      dryRun: Boolean(args.dryRun),
+      inspected: updates.length,
+      changed: updates.filter((item) => item.changed).length,
+      samples: updates.slice(0, 80).map((item) => ({
+        name: item.name,
+        slug: item.slug,
+        from: item.category_id ?? item.category,
+        to: item.next_category_id,
+        subjects: item.subjects,
+        changed: item.changed,
+      })),
+    };
   },
 });
 

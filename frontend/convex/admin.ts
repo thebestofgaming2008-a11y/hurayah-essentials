@@ -282,6 +282,11 @@ export const seedDefaultCategories = mutation({
       { slug: "seerah", name: "Seerah", type: "subject", parent_slug: "books", sort_order: 60 },
       { slug: "tafsir", name: "Tafsir", type: "subject", parent_slug: "books", sort_order: 70 },
       { slug: "urdu", name: "Urdu", type: "subject", parent_slug: "books", sort_order: 80 },
+      { slug: "character-development", name: "Character Development", type: "subject", parent_slug: "books", sort_order: 90 },
+      { slug: "dua-adhkar", name: "Du'a & Adhkar", type: "subject", parent_slug: "books", sort_order: 100 },
+      { slug: "womens-issues", name: "Women's Issues", type: "subject", parent_slug: "books", sort_order: 110 },
+      { slug: "islamic-history", name: "Islamic History", type: "subject", parent_slug: "books", sort_order: 120 },
+      { slug: "family-marriage", name: "Family & Marriage", type: "subject", parent_slug: "books", sort_order: 130 },
     ];
     for (const item of defaults) {
       const existing = await ctx.db.query("categories").withIndex("by_slug", (q) => q.eq("slug", item.slug)).first();

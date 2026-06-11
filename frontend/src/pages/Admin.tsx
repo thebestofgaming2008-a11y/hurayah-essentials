@@ -609,7 +609,7 @@ export default function Admin() {
     const topCategory = selectedMeta?.parent || selectedCategory;
     const selectedSubjectKey = normalizeBookSubject(selectedCategory);
     if (topCategory === "books" && !selectedSubjectKey) {
-      toast({ title: "Choose a book subject", description: "Books must be placed in Aqeedah, Arabic, Fiqh, Hadith, Purification, Seerah, Tafsir, or Urdu.", variant: "destructive" });
+      toast({ title: "Choose a book subject", description: "Books must be placed in one of the book subjects before saving.", variant: "destructive" });
       return;
     }
     const subjectTag = selectedSubjectKey ? BOOK_SUBJECTS.find((subject) => subject.key === selectedSubjectKey)?.label ?? selectedMeta?.label ?? null : null;

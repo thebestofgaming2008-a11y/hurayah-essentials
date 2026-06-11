@@ -76,7 +76,12 @@ export function publicProduct(doc: Record<string, any>): Record<string, any> {
 
 export function publicProductCard(doc: Record<string, any>): Record<string, any> {
   const product = publicProduct(doc);
-  const tags = Array.isArray(product.tags) ? product.tags.slice(0, 16) : [];
+  const rawTags = Array.isArray(product.tags) ? product.tags : [];
+  const subjectLabelSet = new Set(Object.values(BOOK_SUBJECT_LABELS));
+  const tags = [
+    ...rawTags.filter((tag) => subjectLabelSet.has(tag)),
+    ...rawTags.filter((tag) => !subjectLabelSet.has(tag)),
+  ].slice(0, 16);
 
   return {
     id: product.id,
@@ -106,9 +111,25 @@ export function publicProductCard(doc: Record<string, any>): Record<string, any>
   };
 }
 
-const BOOK_SUBJECTS = new Set(["aqeedah", "arabic", "fiqh", "hadith", "purification", "seerah", "tafsir", "urdu"]);
+export const BOOK_SUBJECT_KEYS = [
+  "aqeedah",
+  "arabic",
+  "fiqh",
+  "hadith",
+  "purification",
+  "seerah",
+  "tafsir",
+  "urdu",
+  "character-development",
+  "dua-adhkar",
+  "womens-issues",
+  "islamic-history",
+  "family-marriage",
+] as const;
+
+const BOOK_SUBJECTS = new Set<string>(BOOK_SUBJECT_KEYS);
 const NON_BOOK_TOP_LEVEL_CATEGORIES = new Set(["clothing", "women", "children", "essentials"]);
-const BOOK_SUBJECT_LABELS: Record<string, string> = {
+export const BOOK_SUBJECT_LABELS: Record<string, string> = {
   aqeedah: "Aqeedah",
   arabic: "Arabic",
   fiqh: "Fiqh",
@@ -117,6 +138,11 @@ const BOOK_SUBJECT_LABELS: Record<string, string> = {
   seerah: "Seerah",
   tafsir: "Tafsir",
   urdu: "Urdu",
+  "character-development": "Character Development",
+  "dua-adhkar": "Du'a & Adhkar",
+  "womens-issues": "Women's Issues",
+  "islamic-history": "Islamic History",
+  "family-marriage": "Family & Marriage",
 };
 
 function normalizeBookCategory(product: Record<string, any>) {

@@ -39,12 +39,17 @@ export const CATEGORIES: CategoryEntry[] = [
   { key: "seerah", label: "Seerah", blurb: "The Prophet's life ﷺ.", parent: "books", Icon: BookText },
   { key: "tafsir", label: "Tafsir", blurb: "Qur'anic exegesis.", parent: "books", Icon: BookText },
   { key: "urdu", label: "Urdu", blurb: "Selected Urdu titles.", parent: "books", Icon: BookText },
+  { key: "character-development", label: "Character Development", blurb: "Adab, manners and refinement.", parent: "books", Icon: Heart },
+  { key: "dua-adhkar", label: "Du'a & Adhkar", blurb: "Supplications and remembrance.", parent: "books", Icon: Sparkles },
+  { key: "womens-issues", label: "Women's Issues", blurb: "Guidance for Muslim women.", parent: "books", Icon: Heart },
+  { key: "islamic-history", label: "Islamic History", blurb: "History, biographies and nations.", parent: "books", Icon: BookText },
+  { key: "family-marriage", label: "Family & Marriage", blurb: "Marriage, parenting and home life.", parent: "books", Icon: Heart },
 ];
 
 export const TOP_LEVEL_CATEGORIES = CATEGORIES.filter((c) => !c.parent);
 export const BOOK_SUBJECTS = CATEGORIES.filter((c) => c.parent === "books");
 
-export const SUBJECTS = ["Aqeedah", "Arabic", "Fiqh", "Hadith", "Purification", "Seerah", "Tafsir", "Urdu"] as const;
+export const SUBJECTS = BOOK_SUBJECTS.map((subject) => subject.label);
 export const BOOK_SUBJECT_KEYS = new Set(BOOK_SUBJECTS.map((subject) => subject.key));
 export const BOOK_SUBJECT_LABELS = new Map(BOOK_SUBJECTS.map((subject) => [subject.key, subject.label]));
 
@@ -57,6 +62,32 @@ const subjectAliases: Record<string, string> = {
   creed: "aqeedah",
   tawheed: "aqeedah",
   tawhid: "aqeedah",
+  "character development": "character-development",
+  character: "character-development",
+  manners: "character-development",
+  adab: "character-development",
+  "du'a": "dua-adhkar",
+  "du'a & adhkar": "dua-adhkar",
+  dua: "dua-adhkar",
+  "dua & adhkar": "dua-adhkar",
+  duaa: "dua-adhkar",
+  adhkar: "dua-adhkar",
+  azkar: "dua-adhkar",
+  dhikr: "dua-adhkar",
+  remembrance: "dua-adhkar",
+  "women's issues": "womens-issues",
+  "women issues": "womens-issues",
+  "womens issues": "womens-issues",
+  womens: "womens-issues",
+  women: "womens-issues",
+  sisters: "womens-issues",
+  "islamic history": "islamic-history",
+  history: "islamic-history",
+  "family marriage": "family-marriage",
+  "family & marriage": "family-marriage",
+  family: "family-marriage",
+  marriage: "family-marriage",
+  nikah: "family-marriage",
 };
 
 const subjectSignals: Record<string, RegExp[]> = {
@@ -141,6 +172,59 @@ const subjectSignals: Record<string, RegExp[]> = {
     /\bqur'?anic\s+commentary\b/i,
   ],
   urdu: [/\burdu\b/i],
+  "character-development": [
+    /\badab\b/i,
+    /\bakhlaq\b/i,
+    /\bcharacter\b/i,
+    /\bmanners?\b/i,
+    /\bmorals?\b/i,
+    /\betiquette\b/i,
+    /\bheart\b/i,
+    /\bsins?\b/i,
+    /\btazkiyah\b/i,
+  ],
+  "dua-adhkar": [
+    /\bdu['a]*a\b/i,
+    /\bdua\b/i,
+    /\badhkar\b/i,
+    /\bazkar\b/i,
+    /\bdhikr\b/i,
+    /\bsupplications?\b/i,
+    /\bremembrance\b/i,
+    /\bdistress\b/i,
+    /\byunus\b/i,
+  ],
+  "womens-issues": [
+    /\bwomen'?s?\b/i,
+    /\bwoman'?s?\b/i,
+    /\bsister\b/i,
+    /\bsisters\b/i,
+    /\bmuslim women\b/i,
+    /\bwives\b/i,
+    /\bmother\b/i,
+  ],
+  "islamic-history": [
+    /\bhistory\b/i,
+    /\bbiograph/i,
+    /\bseerah\b/i,
+    /\bprophet'?s?\s+(life|story|stories|wives|companions|description|depiction)\b/i,
+    /\bcompanions\b/i,
+    /\bsahabah\b/i,
+    /\bsealed\s+nectar\b/i,
+    /\bmoon\s+split\b/i,
+    /\bnations?\b/i,
+  ],
+  "family-marriage": [
+    /\bfamily\b/i,
+    /\bmarriage\b/i,
+    /\bnikah\b/i,
+    /\bparenting\b/i,
+    /\braising\b/i,
+    /\bchildren\b/i,
+    /\bchild\b/i,
+    /\bhome\b/i,
+    /\bwives\b/i,
+  ],
 };
 
 export function normalizeBookSubject(value: string | null | undefined): string | null {
