@@ -31,6 +31,7 @@ export function SiteHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
   const [menuClosing, setMenuClosing] = useState(false);
+  const [mobileSubjectsOpen, setMobileSubjectsOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [noticeIndex, setNoticeIndex] = useState(0);
   const navigate = useNavigate();
@@ -75,6 +76,7 @@ export function SiteHeader() {
 
   const closeMenu = () => {
     setMenuVisible(false);
+    setMobileSubjectsOpen(false);
     setMenuClosing(true);
     window.setTimeout(() => {
       setMenuOpen(false);
@@ -84,6 +86,7 @@ export function SiteHeader() {
 
   const openAuthDialog = () => {
     setMenuVisible(false);
+    setMobileSubjectsOpen(false);
     setMenuOpen(false);
     setMenuClosing(false);
     setAuthOpen(true);
@@ -246,14 +249,24 @@ export function SiteHeader() {
                     <ChevronDown className="h-3.5 w-3.5" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="center" className="w-[252px] rounded-md border border-border bg-background p-1 shadow-lg">
-                  <DropdownMenuItem asChild className="cursor-pointer rounded px-3 py-2.5">
-                    <Link to="/shop?category=books" className="text-sm">All books</Link>
+                <DropdownMenuContent
+                  align="center"
+                  sideOffset={8}
+                  className="w-[292px] rounded-md border border-[#06133a]/12 bg-background/95 p-2 shadow-[0_18px_45px_-32px_rgba(3,15,48,0.65)] backdrop-blur-md data-[side=bottom]:slide-in-from-top-1 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
+                >
+                  <DropdownMenuItem asChild className="cursor-pointer rounded-md p-0">
+                    <Link to="/shop?category=books" className="flex items-center justify-between rounded-md bg-brand px-3 py-2.5 text-[13px] font-semibold text-brand-foreground transition-opacity hover:opacity-90">
+                      <span>All books</span>
+                      <span className="text-[11px] font-normal opacity-75">Library</span>
+                    </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator className="my-1" />
+                  <DropdownMenuSeparator className="my-2 bg-[#06133a]/10" />
                   {BOOK_SUBJECTS.map((subject) => (
-                    <DropdownMenuItem key={subject.key} asChild className="cursor-pointer rounded px-3 py-2.5">
-                      <Link to={subjectHref(subject.key)} className="text-sm">{subject.label}</Link>
+                    <DropdownMenuItem key={subject.key} asChild className="cursor-pointer rounded-md p-0">
+                      <Link to={subjectHref(subject.key)} className="group flex items-center justify-between rounded-md px-3 py-2.5 text-[13px] text-foreground/75 transition-colors hover:bg-hero hover:text-brand focus:bg-hero focus:text-brand">
+                        <span>{subject.label}</span>
+                        <span className="h-1.5 w-1.5 rounded-full bg-[#06133a]/18 transition-colors group-hover:bg-brand" />
+                      </Link>
                     </DropdownMenuItem>
                   ))}
                 </DropdownMenuContent>
@@ -292,20 +305,31 @@ export function SiteHeader() {
             <nav className="flex flex-col gap-1 px-3 py-5">
               {isAdmin && <Link to="/admin" onClick={closeMenu} className="rounded-md px-3 py-3 text-[15px] font-semibold leading-5 text-brand transition-colors hover:bg-white/55">Admin dashboard</Link>}
               <Link to="/shop" onClick={closeMenu} className="rounded-md px-3 py-3 text-[15px] leading-5 text-foreground transition-colors hover:bg-white/55 hover:text-brand">Shop all</Link>
-              <details className="group rounded-md">
-                <summary className="flex cursor-pointer list-none items-center justify-between rounded-md px-3 py-3 text-[15px] leading-5 text-foreground transition-colors hover:bg-white/55 hover:text-brand">
+              <div className="rounded-md">
+                <button
+                  type="button"
+                  aria-expanded={mobileSubjectsOpen}
+                  onClick={() => setMobileSubjectsOpen((open) => !open)}
+                  className={cn(
+                    "flex w-full cursor-pointer items-center justify-between rounded-md px-3 py-3 text-left text-[15px] leading-5 text-foreground transition-colors hover:bg-white/55 hover:text-brand",
+                    mobileSubjectsOpen && "bg-white/55 text-brand",
+                  )}
+                >
                   Books
-                  <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
-                </summary>
-                <div className="mb-2 ml-3 grid gap-1 border-l border-foreground/10 pl-3">
-                  <Link to="/shop?category=books" onClick={closeMenu} className="rounded-md px-3 py-2.5 text-[14px] font-semibold leading-5 text-brand transition-colors hover:bg-white/55">All books</Link>
+                  <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", mobileSubjectsOpen && "rotate-180")} />
+                </button>
+                <div className={cn("ml-3 overflow-hidden border-l border-foreground/10 pl-3 transition-all duration-200 ease-out", mobileSubjectsOpen ? "mb-2 max-h-[560px] opacity-100" : "max-h-0 opacity-0")}>
+                  <div className="grid gap-1 py-1">
+                  <Link to="/shop?category=books" onClick={closeMenu} className="rounded-md bg-white/45 px-3 py-2.5 text-[14px] font-semibold leading-5 text-brand transition-colors hover:bg-white/75">All books</Link>
                   {BOOK_SUBJECTS.map((subject) => (
-                    <Link key={subject.key} to={subjectHref(subject.key)} onClick={closeMenu} className="rounded-md px-3 py-2.5 text-[14px] leading-5 text-foreground/75 transition-colors hover:bg-white/55 hover:text-brand">
-                      {subject.label}
+                    <Link key={subject.key} to={subjectHref(subject.key)} onClick={closeMenu} className="group flex items-center justify-between rounded-md px-3 py-2.5 text-[14px] leading-5 text-foreground/75 transition-colors hover:bg-white/55 hover:text-brand">
+                      <span>{subject.label}</span>
+                      <span className="h-1.5 w-1.5 rounded-full bg-foreground/15 transition-colors group-hover:bg-brand" />
                     </Link>
                   ))}
+                  </div>
                 </div>
-              </details>
+              </div>
               <button type="button" onClick={() => goCategorySection("clothing")} className="w-full rounded-md px-3 py-3 text-left text-[15px] leading-5 text-foreground transition-colors hover:bg-white/55 hover:text-brand">Clothing</button>
               <button type="button" onClick={() => goCategorySection("children")} className="w-full rounded-md px-3 py-3 text-left text-[15px] leading-5 text-foreground transition-colors hover:bg-white/55 hover:text-brand">Essentials</button>
               <Link to="/contact" onClick={closeMenu} className="rounded-md px-3 py-3 text-[15px] leading-5 text-foreground transition-colors hover:bg-white/55 hover:text-brand">Contact</Link>

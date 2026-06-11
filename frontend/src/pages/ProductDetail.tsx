@@ -297,23 +297,7 @@ const ProductDetail = () => {
                   <button type="button" onClick={() => setTab("details")} className={cn("pdp-press pb-2", tab === "details" ? "border-b border-[#06133a] font-semibold text-[#06133a]" : "text-black/60")}>Product Details</button>
                 </div>
                 {tab === "description" ? (
-                  <div className="mt-5 space-y-5">
-                    {subjectLabels.length > 0 && (
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-serif text-base text-black/55 sm:text-lg">Subject:</span>
-                        {subjectEntries.map((subject) => (
-                          <Link
-                            key={subject.key}
-                            to={`/shop?category=books&subject=${encodeURIComponent(subject.key)}`}
-                            className="rounded-full border border-[#06133a]/15 bg-white px-3 py-1 text-xs font-semibold text-[#06133a] transition-colors hover:border-[#06133a]/35 hover:bg-[#eef2fa] sm:text-sm"
-                          >
-                            {subject.label}
-                          </Link>
-                        ))}
-                      </div>
-                    )}
-                    <p className="whitespace-pre-line font-serif text-lg leading-relaxed text-black/80 sm:text-xl">{product.description || product.short_description || "Product details coming soon."}</p>
-                  </div>
+                  <p className="mt-5 whitespace-pre-line font-serif text-lg leading-relaxed text-black/80 sm:text-xl">{product.description || product.short_description || "Product details coming soon."}</p>
                 ) : (
                   <dl className="mt-5 grid gap-3 font-serif text-lg text-black sm:grid-cols-2">
                     <Fact label="Category" value={categoryMeta?.label || product.category || "Product"} />
