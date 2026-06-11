@@ -12,6 +12,23 @@ export function adminEmail() {
   return email.trim().toLowerCase();
 }
 
+export function adminEmails() {
+  const configured = [process.env.ADMIN_EMAIL, process.env.ADMIN_EMAILS]
+    .filter(Boolean)
+    .join(",");
+  const emails = configured
+    .split(",")
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+  if (!emails.length) throw new Error("ADMIN_EMAIL is not configured in Convex environment.");
+  return new Set(emails);
+}
+
+export function isAdminEmail(email: string | null | undefined) {
+  const normalized = email?.trim().toLowerCase();
+  return Boolean(normalized && adminEmails().has(normalized));
+}
+
 export async function requireIdentity(ctx: GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>) {
   const identity = await ctx.auth.getUserIdentity();
   const userId = await getAuthUserId(ctx);
@@ -24,30 +41,69 @@ export async function requireIdentity(ctx: GenericQueryCtx<DataModel> | GenericM
 export async function requireAdmin(ctx: GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>) {
   const auth = await requireIdentity(ctx);
   const email = (auth.user as any).email?.trim().toLowerCase();
-  if (email !== adminEmail()) throw new Error("Admin access required.");
+  if (!isAdminEmail(email)) throw new Error("Admin access required.");
   return auth;
 }
 
-export function publicProduct(doc: Record<string, any>) {
+export async function writeAuditLog(
+  ctx: GenericMutationCtx<DataModel>,
+  input: {
+    action: string;
+    entityType: string;
+    entityId?: string | null;
+    summary?: string | null;
+    metadata?: unknown;
+  },
+) {
+  const identity = await ctx.auth.getUserIdentity().catch(() => null);
+  const userId = await getAuthUserId(ctx).catch(() => null);
+  await ctx.db.insert("audit_logs", {
+    actor_user_id: userId ? String(userId) : null,
+    actor_email: identity?.email?.trim().toLowerCase() ?? null,
+    action: input.action,
+    entity_type: input.entityType,
+    entity_id: input.entityId ?? null,
+    summary: input.summary ?? null,
+    metadata: input.metadata ?? null,
+    created_at: nowIso(),
+  });
+}
+
+export function publicProduct(doc: Record<string, any>): Record<string, any> {
   const { _id, _creationTime, ...rest } = doc;
   return { id: _id, ...normalizeBookCategory(rest) };
 }
 
-export function publicProductCard(doc: Record<string, any>) {
+export function publicProductCard(doc: Record<string, any>): Record<string, any> {
   const product = publicProduct(doc);
-  const {
-    description,
-    images,
-    linked_product_ids,
-    edition,
-    length_cm,
-    width_cm,
-    height_cm,
-    weight_source_url,
-    weight_confidence,
-    ...card
-  } = product;
-  return card;
+  const tags = Array.isArray(product.tags) ? product.tags.slice(0, 16) : [];
+
+  return {
+    id: product.id,
+    name: product.name ?? null,
+    slug: product.slug ?? null,
+    author: product.author ?? null,
+    price: product.price ?? product.price_inr ?? 0,
+    price_inr: product.price_inr ?? product.price ?? 0,
+    sale_price: product.sale_price ?? null,
+    sale_price_inr: product.sale_price_inr ?? null,
+    stock_quantity: product.stock_quantity ?? 0,
+    category: product.category ?? null,
+    category_id: product.category_id ?? null,
+    tags,
+    cover_image_url: product.cover_image_url ?? null,
+    color_options: Array.isArray(product.color_options) ? product.color_options.slice(0, 30) : [],
+    size_options: Array.isArray(product.size_options) ? product.size_options.slice(0, 30) : [],
+    option_types: Array.isArray(product.option_types) ? product.option_types.slice(0, 3) : [],
+    badge: product.badge ?? null,
+    is_active: product.is_active ?? true,
+    is_featured: product.is_featured ?? false,
+    show_in_category_section: product.show_in_category_section ?? false,
+    is_new_arrival: product.is_new_arrival ?? false,
+    is_bestseller: product.is_bestseller ?? false,
+    is_on_sale: product.is_on_sale ?? false,
+    in_stock: product.in_stock ?? true,
+  };
 }
 
 const BOOK_SUBJECTS = new Set(["aqeedah", "arabic", "fiqh", "hadith", "purification", "seerah", "tafsir", "urdu"]);
@@ -85,17 +141,17 @@ function normalizeBookCategory(product: Record<string, any>) {
   };
 }
 
-export function publicProfile(doc: Record<string, any>) {
+export function publicProfile(doc: Record<string, any>): Record<string, any> {
   const { _id, _creationTime, userId, ...rest } = doc;
   return { id: _id, user_id: userId, ...rest };
 }
 
-export function publicAddress(doc: Record<string, any>) {
+export function publicAddress(doc: Record<string, any>): Record<string, any> {
   const { _id, _creationTime, ...rest } = doc;
   return { id: _id, ...rest };
 }
 
-export function publicOrder(doc: Record<string, any>) {
+export function publicOrder(doc: Record<string, any>): Record<string, any> {
   const { _id, _creationTime, ...rest } = doc;
   return { id: _id, ...rest };
 }

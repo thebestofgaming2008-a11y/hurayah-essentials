@@ -45,6 +45,152 @@ export const TOP_LEVEL_CATEGORIES = CATEGORIES.filter((c) => !c.parent);
 export const BOOK_SUBJECTS = CATEGORIES.filter((c) => c.parent === "books");
 
 export const SUBJECTS = ["Aqeedah", "Arabic", "Fiqh", "Hadith", "Purification", "Seerah", "Tafsir", "Urdu"] as const;
+export const BOOK_SUBJECT_KEYS = new Set(BOOK_SUBJECTS.map((subject) => subject.key));
+export const BOOK_SUBJECT_LABELS = new Map(BOOK_SUBJECTS.map((subject) => [subject.key, subject.label]));
+
+const subjectAliases: Record<string, string> = {
+  tazkiyah: "purification",
+  spirituality: "purification",
+  purification: "purification",
+  aqidah: "aqeedah",
+  aqeedah: "aqeedah",
+  creed: "aqeedah",
+  tawheed: "aqeedah",
+  tawhid: "aqeedah",
+};
+
+const subjectSignals: Record<string, RegExp[]> = {
+  aqeedah: [
+    /\baq[ie]e?dah\b/i,
+    /\bcreed\b/i,
+    /\btawh[ei]ed\b/i,
+    /\btawhid\b/i,
+    /\bnullifiers?\b/i,
+    /\bnawaqid\b/i,
+    /\bfaith\b/i,
+    /\biman\b/i,
+    /\busool\b/i,
+    /\bwasitiyyah\b/i,
+    /\bhai'?yah\b/i,
+    /\bnames?\s+of\s+allah\b/i,
+    /\basma/i,
+  ],
+  arabic: [
+    /\barabic\s+(course|language|grammar|reader|reading)\b/i,
+    /\bnahw\b/i,
+    /\bsarf\b/i,
+    /\bajrumiyyah\b/i,
+    /\bajroomiyyah\b/i,
+    /\bbalagah\b/i,
+    /\bnuraniyyah\b/i,
+    /\bnooraniyyah\b/i,
+    /\bqa'?idah\b/i,
+  ],
+  fiqh: [
+    /\bfiqh\b/i,
+    /\brulings?\b/i,
+    /\bwudu\b/i,
+    /\bwudhu\b/i,
+    /\bsalah\b/i,
+    /\bprayer\b/i,
+    /\bmarriage\b/i,
+    /\bnikah\b/i,
+    /\bwomen\b/i,
+    /\bobligatory\s+duties\b/i,
+    /\bbulugh\b/i,
+  ],
+  hadith: [
+    /\bhadith\b/i,
+    /\bahadith\b/i,
+    /\bsunnah\b/i,
+    /\bbukhari\b/i,
+    /\bmuslim\b/i,
+    /\briyad\b/i,
+    /\bsunan\b/i,
+    /\badab\b/i,
+  ],
+  purification: [
+    /\btazkiyah\b/i,
+    /\bpurification\b/i,
+    /\bheart\b/i,
+    /\bsoul\b/i,
+    /\bsins?\b/i,
+    /\btawbah\b/i,
+    /\brepentance\b/i,
+    /\bdistress\b/i,
+    /\bdua\b/i,
+    /\bdhikr\b/i,
+    /\bremembrance\b/i,
+    /\bmadarij\b/i,
+    /\bdivine\s+seekers\b/i,
+  ],
+  seerah: [
+    /\bseerah\b/i,
+    /\bprophet'?s?\s+(life|biograph|story|stories|wives|companions|description|depiction)\b/i,
+    /\bdepiction\s+of\s+the\s+prophet\b/i,
+    /\bsealed\s+nectar\b/i,
+    /\bmoon\s+split\b/i,
+    /\bbiograph/i,
+    /\bwives\s+of\s+the\s+prophet\b/i,
+    /\bshama/i,
+  ],
+  tafsir: [
+    /\btafsir\b/i,
+    /\bexegesis\b/i,
+    /\bahsanul\s+bayan\b/i,
+    /\bqur'?anic\s+commentary\b/i,
+  ],
+  urdu: [/\burdu\b/i],
+};
+
+export function normalizeBookSubject(value: string | null | undefined): string | null {
+  const normalized = String(value ?? "").trim().toLowerCase().replace(/[\s_]+/g, "-");
+  if (!normalized) return null;
+  if (BOOK_SUBJECT_KEYS.has(normalized)) return normalized;
+  const compact = normalized.replace(/-/g, " ");
+  const byLabel = BOOK_SUBJECTS.find((subject) => subject.label.toLowerCase() === compact);
+  if (byLabel) return byLabel.key;
+  return subjectAliases[compact] ?? subjectAliases[normalized] ?? null;
+}
+
+export function bookSubjectParam(value: string | null | undefined) {
+  const key = normalizeBookSubject(value);
+  return key ? BOOK_SUBJECTS.find((subject) => subject.key === key) ?? null : null;
+}
+
+export function productSubjectKeys(product: Pick<ServiceProduct, "name" | "slug" | "author" | "publisher" | "category" | "category_id" | "tags" | "search_text">): string[] {
+  const keys = new Set<string>();
+  const categorySubject = normalizeBookSubject(product.category_id) ?? normalizeBookSubject(product.category);
+  if (categorySubject) keys.add(categorySubject);
+
+  const signalText = [
+    product.name,
+    product.slug,
+    product.author,
+    product.publisher,
+    product.category,
+    product.category_id,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  for (const tag of Array.isArray(product.tags) ? product.tags : []) {
+    const exactSubject = BOOK_SUBJECTS.find((subject) => tag.trim() === subject.label)?.key;
+    if (exactSubject) {
+      keys.add(exactSubject);
+      continue;
+    }
+
+    const subject = normalizeBookSubject(tag);
+    if (subject && subject !== "arabic" && subject !== "seerah") keys.add(subject);
+  }
+
+  for (const [key, patterns] of Object.entries(subjectSignals)) {
+    if (patterns.some((pattern) => pattern.test(signalText))) keys.add(key);
+  }
+
+  return [...keys].filter((key) => BOOK_SUBJECT_KEYS.has(key));
+}
 
 export const formatPrice = (
   n: number | null | undefined,
@@ -58,6 +204,7 @@ export const formatPrice = (
 };
 
 const isRemote = (s: string | null | undefined): s is string => !!s && /^https?:\/\//i.test(s);
+const MEDIA_IMAGE_HOST = "media.abuhurayrahessentials.site";
 
 export const productImage = (p: ServiceProduct): string | null => {
   // Prefer working remote URLs over broken local paths during the data migration.
@@ -70,6 +217,20 @@ export const productImage = (p: ServiceProduct): string | null => {
   if (Array.isArray(p.images) && p.images.length > 0) return p.images[0];
   return null;
 };
+
+export function productCardThumbnailUrl(image: string | null | undefined, width = 420): string | null {
+  if (!isRemote(image)) return null;
+  try {
+    const url = new URL(image);
+    if (url.hostname !== MEDIA_IMAGE_HOST) return null;
+    const path = decodeURIComponent(url.pathname).replace(/^\/+/, "");
+    if (!path || path.startsWith("thumbnails/") || !/\.(png|jpe?g|webp)$/i.test(path)) return null;
+    const safeName = path.replace(/[^a-zA-Z0-9._-]+/g, "_");
+    return `${url.origin}/thumbnails/w${width}/${safeName}.webp`;
+  } catch {
+    return null;
+  }
+}
 
 export const productPrice = (p: ServiceProduct): number => {
   if (p.is_on_sale && p.sale_price_inr != null) return p.sale_price_inr;

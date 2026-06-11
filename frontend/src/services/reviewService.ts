@@ -15,6 +15,17 @@ export interface ProductReview {
 }
 
 export async function listPublishedReviews(productId: string): Promise<ProductReview[]> {
+  if (typeof window !== "undefined") {
+    try {
+      const response = await fetch(`/api/catalog/reviews?productId=${encodeURIComponent(productId)}`, {
+        headers: { accept: "application/json" },
+      });
+      if (!response.ok) throw new Error("Review cache unavailable.");
+      return (await response.json()) as ProductReview[];
+    } catch {
+      // Fall through to Convex so reviews do not disappear if the cache endpoint fails.
+    }
+  }
   return (await convex.query(api.reviews.listPublishedForProduct, { productId })) as ProductReview[];
 }
 

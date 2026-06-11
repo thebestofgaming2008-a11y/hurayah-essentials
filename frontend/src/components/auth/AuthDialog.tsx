@@ -1,99 +1,98 @@
-import { useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { SiteLayout } from "@/components/layout/SiteLayout";
+import { useEffect, useState } from "react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
-const Login = () => {
+type AuthMode = "signIn" | "signUp" | "forgot" | "reset";
+
+export function AuthDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [resetCode, setResetCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [fullName, setFullName] = useState("");
-  const [mode, setMode] = useState<"signIn" | "signUp" | "forgot" | "reset">("signIn");
+  const [mode, setMode] = useState<AuthMode>("signIn");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const navigate = useNavigate();
-  const [params] = useSearchParams();
-  const redirect = params.get("redirect") || "/account";
-  const isAdminLogin = redirect === "/admin";
   const { signIn, signUp, requestPasswordReset, resetPassword } = useAuth();
+
+  useEffect(() => {
+    if (!open) return;
+    setError(null);
+  }, [open]);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
-    if (!email.trim()) {
-      setError("Email is required.");
-      return;
-    }
-    if ((mode === "signIn" || mode === "signUp") && !password) {
-      setError("Email and password are required.");
-      return;
-    }
-    if (mode === "reset" && (!resetCode.trim() || !newPassword)) {
-      setError("Reset code and new password are required.");
-      return;
-    }
+    if (!email.trim()) return setError("Email is required.");
+    if ((mode === "signIn" || mode === "signUp") && !password) return setError("Email and password are required.");
+    if (mode === "reset" && (!resetCode.trim() || !newPassword)) return setError("Reset code and new password are required.");
+
     setSubmitting(true);
     try {
       if (mode === "forgot") {
         const { error: resetErr } = await requestPasswordReset(email);
-        if (resetErr) {
-          setError(resetErr.message);
-          return;
-        }
+        if (resetErr) return setError(resetErr.message);
         toast({ title: "Reset code sent", description: "Check your email for the password reset code." });
         setMode("reset");
         return;
       }
+
       if (mode === "reset") {
         const { error: resetErr } = await resetPassword(email, resetCode, newPassword);
-        if (resetErr) {
-          setError(resetErr.message);
-          return;
-        }
+        if (resetErr) return setError(resetErr.message);
         toast({ title: "Password reset", description: "You are signed in now." });
-        navigate(redirect);
+        onOpenChange(false);
         return;
       }
-      const { error: signInErr } = mode === "signIn" ? await signIn(email, password) : await signUp(email, password, fullName);
-      if (signInErr) {
-        setError(signInErr.message);
-        return;
-      }
+
+      const { error: authErr } = mode === "signIn" ? await signIn(email, password) : await signUp(email, password, fullName);
+      if (authErr) return setError(authErr.message);
       toast({ title: mode === "signIn" ? "Signed in" : "Account created" });
-      navigate(redirect);
+      onOpenChange(false);
     } catch (err) {
-      console.error("auth submit", err);
+      console.error("auth dialog submit", err);
       setError("Something went wrong. Please try again.");
     } finally {
       setSubmitting(false);
     }
   };
 
-  return (
-    <SiteLayout>
-      <div className="commerce-shell mx-auto max-w-[460px] px-4 py-12 md:px-8 md:py-20">
-        <div className="rounded-lg border border-[rgb(var(--vibe-border))] bg-white p-6 shadow-sm md:p-8">
-          <h1 className="text-center text-[20px] font-semibold tracking-tight text-[rgb(var(--vibe-foreground))]">
-            {isAdminLogin ? "Admin sign in" : mode === "signIn" ? "Sign in" : mode === "signUp" ? "Create account" : "Reset password"}
-          </h1>
-          <p className="mt-1 text-center text-[13px] text-[rgb(var(--vibe-muted))]">
-            {isAdminLogin ? "Sign in with the store admin account to manage products and orders." : mode === "forgot" || mode === "reset" ? "Use the code sent to your email to choose a new password." : "Access your orders, addresses and saved items."}
-          </p>
-          {isAdminLogin && (
-            <p className="mt-3 rounded-md border border-[rgb(var(--vibe-border))] bg-[rgb(var(--vibe-page))] px-3 py-2 text-center text-[12px] text-[rgb(var(--vibe-muted))]">
-              Dashboard access is restricted to the configured store administrator.
-            </p>
-          )}
-          {!isAdminLogin && (
-            <div className="mt-5 grid grid-cols-2 rounded-md border border-[rgb(var(--vibe-border))] bg-[rgb(var(--vibe-page))] p-1">
-              <button type="button" onClick={() => setMode("signIn")} className={`h-8 rounded text-[12px] ${mode === "signIn" ? "bg-white shadow-sm" : "text-[rgb(var(--vibe-muted))]"}`}>Sign in</button>
-              <button type="button" onClick={() => setMode("signUp")} className={`h-8 rounded text-[12px] ${mode === "signUp" ? "bg-white shadow-sm" : "text-[rgb(var(--vibe-muted))]"}`}>Create</button>
-            </div>
-          )}
+  const title = mode === "signIn" ? "Sign in" : mode === "signUp" ? "Create account" : "Reset password";
+  const description = mode === "forgot" || mode === "reset"
+    ? "Use the code sent to your email to choose a new password."
+    : "Access your orders, addresses and saved items without leaving this page.";
 
-          <form onSubmit={submit} className={`${isAdminLogin ? "mt-5" : "mt-6"} space-y-3`} noValidate>
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="commerce-shell max-h-[92dvh] max-w-[440px] overflow-y-auto rounded-lg border border-[rgb(var(--vibe-border))] bg-white p-0 shadow-2xl">
+        <div className="p-5 sm:p-6">
+          <DialogHeader className="text-center">
+            <DialogTitle className="text-[20px] font-semibold tracking-tight text-[rgb(var(--vibe-foreground))]">
+              {title}
+            </DialogTitle>
+            <DialogDescription className="text-[13px] text-[rgb(var(--vibe-muted))]">
+              {description}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="mt-5 grid grid-cols-2 rounded-md border border-[rgb(var(--vibe-border))] bg-[rgb(var(--vibe-page))] p-1">
+            <button type="button" onClick={() => setMode("signIn")} className={cn("h-8 rounded text-[12px]", mode === "signIn" ? "bg-white shadow-sm" : "text-[rgb(var(--vibe-muted))]")}>
+              Sign in
+            </button>
+            <button type="button" onClick={() => setMode("signUp")} className={cn("h-8 rounded text-[12px]", mode === "signUp" ? "bg-white shadow-sm" : "text-[rgb(var(--vibe-muted))]")}>
+              Create
+            </button>
+          </div>
+
+          <form onSubmit={submit} className="mt-5 space-y-3" noValidate>
             {mode === "signUp" && <Field label="Full name" value={fullName} onChange={setFullName} autoComplete="name" />}
             <Field label="Email" type="email" value={email} onChange={setEmail} autoComplete="email" required />
             {(mode === "signIn" || mode === "signUp") && <Field label="Password" type="password" value={password} onChange={setPassword} autoComplete={mode === "signIn" ? "current-password" : "new-password"} required />}
@@ -113,21 +112,13 @@ const Login = () => {
             <button
               type="submit"
               disabled={submitting}
-              data-testid="login-form-submit-button"
+              data-testid="auth-dialog-submit-button"
               className="h-9 w-full rounded-md bg-[rgb(var(--vibe-foreground))] px-3 text-[12px] font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {submitting ? "Please wait..." : mode === "signIn" ? "Sign in" : mode === "signUp" ? "Create account" : mode === "forgot" ? "Send reset code" : "Reset password"}
             </button>
           </form>
 
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            <Link to="/track" className="grid h-8 place-items-center rounded-md border border-[rgb(var(--vibe-border))] text-[12px] text-[rgb(var(--vibe-muted))] hover:bg-[rgb(var(--vibe-accent))]">
-              Track order
-            </Link>
-            <Link to="/" className="grid h-8 place-items-center rounded-md border border-[rgb(var(--vibe-border))] text-[12px] text-[rgb(var(--vibe-muted))] hover:bg-[rgb(var(--vibe-accent))]">
-              Storefront
-            </Link>
-          </div>
           {(mode === "signIn" || mode === "forgot" || mode === "reset") && (
             <button
               type="button"
@@ -135,16 +126,16 @@ const Login = () => {
                 setError(null);
                 setMode(mode === "signIn" ? "forgot" : "signIn");
               }}
-              className="mt-4 block text-center text-[12px] text-brand hover:underline"
+              className="mx-auto mt-4 block text-center text-[12px] text-brand hover:underline"
             >
               {mode === "signIn" ? "Forgot your password?" : "Back to sign in"}
             </button>
           )}
         </div>
-      </div>
-    </SiteLayout>
+      </DialogContent>
+    </Dialog>
   );
-};
+}
 
 interface FieldProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "onChange"> {
   label: string;
@@ -160,11 +151,9 @@ function Field({ label, value, onChange, ...props }: FieldProps) {
         {...props}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        data-testid={`login-${label.toLowerCase().replace(/\s+/g, "-")}-input`}
+        data-testid={`auth-dialog-${label.toLowerCase().replace(/\s+/g, "-")}-input`}
         className="h-9 w-full rounded-md border border-[rgb(var(--vibe-border))] bg-white px-3 text-[13px] text-[rgb(var(--vibe-foreground))] outline-none focus:ring-1 focus:ring-zinc-500"
       />
     </label>
   );
 }
-
-export default Login;

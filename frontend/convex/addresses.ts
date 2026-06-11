@@ -48,7 +48,6 @@ function normalizeAddress(payload: Record<string, unknown>, existing: Partial<Do
   if (!normalized.full_name || !normalized.address_line_1 || !normalized.city || !normalized.state || !normalized.postal_code || !normalized.country) {
     throw new Error("Complete address details are required.");
   }
-  if (normalized.country.toLowerCase() !== "india") throw new Error("We currently deliver within India only.");
   return normalized;
 }
 

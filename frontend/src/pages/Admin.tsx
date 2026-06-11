@@ -73,9 +73,10 @@ import {
   type ShippingRate,
 } from "@/services/adminService";
 import type { Product } from "@/services/productService";
-import { CATEGORIES, formatPrice } from "@/data/products";
+import { BOOK_SUBJECTS, CATEGORIES, formatPrice, normalizeBookSubject } from "@/data/products";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { StarRatingInput } from "@/components/shop/ReviewStars";
 
 type SectionKey =
   | "dashboard"
@@ -180,6 +181,16 @@ const statusMeta: Record<OrderStatus, { label: string; dot: string }> = {
   delivered: { label: "Delivered", dot: "bg-emerald-500" },
   cancelled: { label: "Cancelled", dot: "bg-red-500" },
 };
+
+const canonicalBookSubjectTags = new Set([
+  ...BOOK_SUBJECTS.map((subject) => subject.key.toLowerCase()),
+  ...BOOK_SUBJECTS.map((subject) => subject.label.toLowerCase()),
+  "tazkiyah",
+]);
+
+function isCanonicalSubjectTag(tag: string) {
+  return canonicalBookSubjectTags.has(tag.trim().toLowerCase()) || Boolean(normalizeBookSubject(tag));
+}
 
 const filters: Array<{ key: OrderStatus; label: string; description: string; icon: LucideIcon }> = [
   { key: "unshipped", label: "Not shipped", description: "Awaiting fulfillment", icon: PackageOpen },
@@ -584,14 +595,24 @@ export default function Admin() {
       }
     }
     const oldGroup = currentProduct ? variantGroupFromTags(currentProduct.tags) : "";
-    const rawTags = form.tags.split(",").map((tag) => tag.trim()).filter(Boolean).filter((tag) => !tag.startsWith("vg:"));
+    const rawTags = form.tags
+      .split(",")
+      .map((tag) => tag.trim())
+      .filter(Boolean)
+      .filter((tag) => !tag.startsWith("vg:"))
+      .filter((tag) => !isCanonicalSubjectTag(tag));
     const variantPeers = variantGroup
       ? products.filter((product) => product.id !== currentProduct?.id && variantGroupFromTags(product.tags) === variantGroup)
       : [];
     const selectedCategory = form.category.trim() || "books";
     const selectedMeta = adminCategories.find((category) => category.key === selectedCategory);
     const topCategory = selectedMeta?.parent || selectedCategory;
-    const subjectTag = selectedMeta?.parent === "books" ? selectedMeta.label : null;
+    const selectedSubjectKey = normalizeBookSubject(selectedCategory);
+    if (topCategory === "books" && !selectedSubjectKey) {
+      toast({ title: "Choose a book subject", description: "Books must be placed in Aqeedah, Arabic, Fiqh, Hadith, Purification, Seerah, Tafsir, or Urdu.", variant: "destructive" });
+      return;
+    }
+    const subjectTag = selectedSubjectKey ? BOOK_SUBJECTS.find((subject) => subject.key === selectedSubjectKey)?.label ?? selectedMeta?.label ?? null : null;
     const optionGroups = normalizeOptionGroups(form.option_types);
     const payload = {
       name: form.name.trim(),
@@ -859,8 +880,9 @@ export default function Admin() {
       )}
 
       <aside
-        style={{ transform: mobileOpen ? "translateX(0)" : "translateX(-100%)" }}
-        className={`admin-mobile-sidebar fixed inset-y-0 left-0 z-50 flex w-60 shrink-0 flex-col border-r border-[rgb(var(--vibe-border))] bg-[rgb(var(--vibe-page))] transition-all duration-200 md:static ${
+        className={`admin-mobile-sidebar fixed inset-y-0 left-0 z-50 flex w-60 shrink-0 flex-col border-r border-[rgb(var(--vibe-border))] bg-[rgb(var(--vibe-page))] transition-all duration-200 md:static md:translate-x-0 ${
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        } ${
           collapsed ? "md:w-16" : "md:w-56"
         }`}
       >
@@ -1562,7 +1584,7 @@ function productToForm(product: Product | null): ProductFormState {
     cover_image_url: product?.cover_image_url ?? "",
     images: (product?.images ?? []).join("\n"),
     badge: product?.badge ?? "",
-    tags: (product?.tags ?? []).join(", "),
+    tags: (product?.tags ?? []).filter((tag) => !tag.startsWith("vg:") && !isCanonicalSubjectTag(tag)).join(", "),
     is_active: product?.is_active ?? true,
     is_featured: product?.is_featured ?? false,
     show_in_category_section: product?.show_in_category_section ?? false,
@@ -1589,6 +1611,7 @@ function ProductEditorDialog({
   const [uploading, setUploading] = useState(false);
   const [draggingMedia, setDraggingMedia] = useState(false);
   const [familyPickerOpen, setFamilyPickerOpen] = useState(false);
+  const [editorTab, setEditorTab] = useState<"general" | "pricing" | "media" | "variants" | "organize">("general");
   const galleryImages = form.images.split("\n").map((image) => image.trim()).filter(Boolean);
   const gallery = Array.from(new Set([form.cover_image_url, ...galleryImages].map((image) => image.trim()).filter(Boolean)));
   const savedVariantGroups = (() => {
@@ -1603,6 +1626,10 @@ function ProductEditorDialog({
   const selectedVariantProducts = normalizedVariantGroup
     ? products.filter((item) => item.id !== product?.id && variantGroupFromTags(item.tags) === normalizedVariantGroup)
     : [];
+  const storeCategories = categories.filter((category) => !category.parent && category.key !== "books");
+  const bookSubjectCategories = categories.filter((category) => category.parent === "books" || normalizeBookSubject(category.key));
+  const selectedSubjectKey = normalizeBookSubject(form.category);
+  const needsBookSubject = form.category === "books";
   const setField = <K extends keyof ProductFormState>(key: K, value: ProductFormState[K]) => {
     setForm((current) => ({ ...current, [key]: value }));
   };
@@ -1675,8 +1702,8 @@ function ProductEditorDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/35 p-0 sm:items-center sm:p-6">
-      <form onSubmit={handleSubmit} onPaste={handlePastedMedia} className="vibe-card flex max-h-[95dvh] w-full max-w-5xl flex-col overflow-hidden rounded-b-none sm:max-h-[95vh] sm:rounded-b-lg">
+    <div className="fixed inset-0 z-50 flex items-end justify-end bg-black/35 p-0">
+      <form onSubmit={handleSubmit} onPaste={handlePastedMedia} className="flex h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-2xl sm:max-w-xl">
         <div className="flex items-center justify-between border-b border-[rgb(var(--vibe-border))] px-5 py-4">
           <div>
             <h2 className="text-[15px] font-semibold">{product ? "Edit product" : "Add product"}</h2>
@@ -1686,8 +1713,31 @@ function ProductEditorDialog({
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="grid gap-5 overflow-y-auto p-4 pb-24 sm:p-5 lg:grid-cols-[280px_1fr]">
-          <div className="space-y-3">
+        <div className="shrink-0 overflow-x-auto border-b border-[rgb(var(--vibe-border))] px-5 pt-3">
+          <div className="flex min-w-max gap-1">
+            {[
+              ["general", "General"],
+              ["pricing", "Pricing"],
+              ["media", "Media"],
+              ["variants", "Variants"],
+              ["organize", "Organize"],
+            ].map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setEditorTab(key as typeof editorTab)}
+                className={cn(
+                  "mb-3 h-8 rounded-md px-3 text-[12px] font-medium transition-colors",
+                  editorTab === key ? "bg-[rgb(var(--vibe-foreground))] text-white" : "text-[rgb(var(--vibe-muted))] hover:bg-[rgb(var(--vibe-accent))] hover:text-[rgb(var(--vibe-foreground))]",
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="overflow-y-auto p-4 pb-24 sm:p-5">
+          <div className={cn("space-y-3", editorTab !== "media" && "hidden")}>
             <div className="aspect-[3/4] overflow-hidden rounded-md border border-[rgb(var(--vibe-border))] bg-[rgb(var(--vibe-surface))]">
               {form.cover_image_url ? (
                 <img src={form.cover_image_url} alt={form.name || "Product cover"} className="h-full w-full object-contain" />
@@ -1744,31 +1794,74 @@ function ProductEditorDialog({
             )}
           </div>
           <div className="space-y-5">
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className={cn("grid gap-3 sm:grid-cols-2", editorTab !== "general" && "hidden")}>
+              <h3 className="sm:col-span-2 text-[12px] font-medium uppercase tracking-wide text-[rgb(var(--vibe-muted))]">General</h3>
               <ProductInputField label="Name" value={form.name} onChange={(value) => setField("name", value)} required />
               <ProductInputField label="Slug (optional)" value={form.slug} onChange={(value) => setField("slug", value)} placeholder="auto-generated if blank" />
               <ProductInputField label="SKU (optional)" value={form.sku} onChange={(value) => setField("sku", value)} />
               <label className="space-y-1 text-[11px] font-medium text-[rgb(var(--vibe-muted))]">
                 <span>Category</span>
                 <select value={form.category} onChange={(event) => setField("category", event.target.value)} className="h-9 w-full rounded-md border border-[rgb(var(--vibe-border))] bg-white px-3 text-[13px] text-[rgb(var(--vibe-foreground))] outline-none focus:ring-1 focus:ring-zinc-500">
-                  {categories.map((category) => (
-                    <option key={category.key} value={category.key}>{category.parent ? `${category.label} (${category.parent})` : category.label}</option>
-                  ))}
+                  <option value="books">Books - choose a subject below</option>
+                  <optgroup label="Book subjects">
+                    {bookSubjectCategories.map((category) => (
+                      <option key={category.key} value={category.key}>{category.label}</option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Store sections">
+                    {storeCategories.map((category) => (
+                      <option key={category.key} value={category.key}>{category.label}</option>
+                    ))}
+                  </optgroup>
                 </select>
                 <span className="block text-[10px] font-normal text-[rgb(var(--vibe-muted))]">
-                  This places the product in the landing page “Shop by category” section.
+                  Books must use a subject. Clothing and essentials can use their store section.
                 </span>
               </label>
+              {(form.category === "books" || selectedSubjectKey) && (
+                <div className="sm:col-span-2 rounded-md border border-[rgb(var(--vibe-border))] bg-white p-3">
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-[rgb(var(--vibe-muted))]">Book subject</p>
+                    {needsBookSubject && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">Required</span>}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {BOOK_SUBJECTS.map((subject) => {
+                      const active = selectedSubjectKey === subject.key;
+                      return (
+                        <button
+                          key={subject.key}
+                          type="button"
+                          onClick={() => setField("category", subject.key)}
+                          className={cn(
+                            "h-10 rounded-md border px-2 text-[12px] font-medium transition-colors",
+                            active ? "border-zinc-900 bg-zinc-900 text-white" : "border-[rgb(var(--vibe-border))] bg-white text-[rgb(var(--vibe-muted))] hover:border-zinc-400 hover:text-[rgb(var(--vibe-foreground))]",
+                          )}
+                        >
+                          {subject.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-2 text-[11px] text-[rgb(var(--vibe-muted))]">
+                    The selected subject is added automatically. Use Tags only for extra search words.
+                  </p>
+                </div>
+              )}
+              <ProductInputField label="Author" value={form.author} onChange={(value) => setField("author", value)} />
+              <ProductInputField label="Publisher" value={form.publisher} onChange={(value) => setField("publisher", value)} />
+              <ProductInputField label="Language" value={form.language} onChange={(value) => setField("language", value)} />
+              <ProductTextArea label="Short description" value={form.short_description} onChange={(value) => setField("short_description", value)} rows={2} className="sm:col-span-2" />
+              <ProductTextArea label="Full description" value={form.description} onChange={(value) => setField("description", value)} rows={5} className="sm:col-span-2" />
+            </div>
+            <div className={cn("grid gap-3 sm:grid-cols-2", editorTab !== "pricing" && "hidden")}>
+              <h3 className="sm:col-span-2 text-[12px] font-medium uppercase tracking-wide text-[rgb(var(--vibe-muted))]">Pricing and stock</h3>
               <ProductInputField label="Price" type="number" value={form.price_inr} onChange={(value) => setField("price_inr", value)} required />
               <ProductInputField label="Sale price (optional)" type="number" value={form.sale_price_inr} onChange={(value) => setField("sale_price_inr", value)} />
               <ProductInputField label="Stock" type="number" value={form.stock_quantity} onChange={(value) => setField("stock_quantity", value)} />
               <ProductInputField label="Badge (optional)" value={form.badge} onChange={(value) => setField("badge", value)} placeholder="New, Sale, Bestseller..." />
-              <ProductInputField label="Author" value={form.author} onChange={(value) => setField("author", value)} />
-              <ProductInputField label="Publisher" value={form.publisher} onChange={(value) => setField("publisher", value)} />
-              <ProductInputField label="Language" value={form.language} onChange={(value) => setField("language", value)} />
             </div>
-            <div className="grid gap-3 sm:grid-cols-4">
-              <h3 className="sm:col-span-4 text-[12px] font-medium text-[rgb(var(--vibe-foreground))]">Weight and dimensions</h3>
+            <div className={cn("grid gap-3 sm:grid-cols-4", editorTab !== "pricing" && "hidden")}>
+              <h3 className="sm:col-span-4 text-[12px] font-medium uppercase tracking-wide text-[rgb(var(--vibe-muted))]">Weight and dimensions</h3>
               <ProductInputField label="Weight (g)" type="number" value={form.weight_g} onChange={(value) => setField("weight_g", value)} />
               <ProductInputField label="Length (cm)" type="number" value={form.length_cm} onChange={(value) => setField("length_cm", value)} />
               <ProductInputField label="Width (cm)" type="number" value={form.width_cm} onChange={(value) => setField("width_cm", value)} />
@@ -1784,8 +1877,8 @@ function ProductEditorDialog({
               </label>
               <ProductInputField label="Weight source URL" value={form.weight_source_url} onChange={(value) => setField("weight_source_url", value)} className="sm:col-span-2" />
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <h3 className="sm:col-span-2 text-[12px] font-medium text-[rgb(var(--vibe-foreground))]">Linked product variants</h3>
+            <div className={cn("grid gap-3 sm:grid-cols-2", editorTab !== "variants" && "hidden")}>
+              <h3 className="sm:col-span-2 text-[12px] font-medium uppercase tracking-wide text-[rgb(var(--vibe-muted))]">Linked product variants</h3>
               <ProductInputField label="Product family" value={form.variant_group} onChange={(value) => setField("variant_group", value)} placeholder="kufi_prayer-cap or kufi-prayer-cap" />
               <ProductInputField label="This product label" value={form.variant_label} onChange={(value) => setField("variant_label", value)} placeholder="Brown, Large, Urdu..." />
               {variantGroups.length > 0 && (
@@ -1827,11 +1920,11 @@ function ProductEditorDialog({
                 <VariantOptionsEditor value={form.option_types} onChange={(value) => setField("option_types", value)} />
               </div>
             </div>
-            <ProductInputField label="Tags" value={form.tags} onChange={(value) => setField("tags", value)} placeholder="comma separated" />
-            <ProductTextArea label="Gallery images/videos" value={form.images} onChange={(value) => setField("images", value)} rows={3} placeholder="one media URL per line" />
-            <ProductTextArea label="Short description" value={form.short_description} onChange={(value) => setField("short_description", value)} rows={2} />
-            <ProductTextArea label="Full description" value={form.description} onChange={(value) => setField("description", value)} rows={5} />
-            <div className="grid gap-2 sm:grid-cols-2">
+            <div className={cn("space-y-4", editorTab !== "organize" && "hidden")}>
+              <ProductInputField label="Tags" value={form.tags} onChange={(value) => setField("tags", value)} placeholder="comma separated" />
+              <ProductTextArea label="Gallery images/videos" value={form.images} onChange={(value) => setField("images", value)} rows={3} placeholder="one media URL per line" />
+            </div>
+            <div className={cn("grid gap-2 sm:grid-cols-2", editorTab !== "organize" && "hidden")}>
               <ProductToggle label="Active in storefront" checked={form.is_active} onChange={(value) => setField("is_active", value)} />
               <ProductToggle label="Featured" checked={form.is_featured} onChange={(value) => setField("is_featured", value)} />
               <ProductToggle label="Bestseller" checked={form.is_bestseller} onChange={(value) => setField("is_bestseller", value)} />
@@ -2766,7 +2859,7 @@ function AdminReviewForm({ products, onCreateReview }: { products: Product[]; on
   const firstProduct = products[0]?.id ?? "";
   const [open, setOpen] = useState(false);
   const [productId, setProductId] = useState(firstProduct);
-  const [rating, setRating] = useState("5");
+  const [rating, setRating] = useState(5);
   const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   const [title, setTitle] = useState("");
@@ -2788,7 +2881,7 @@ function AdminReviewForm({ products, onCreateReview }: { products: Product[]; on
     try {
       await onCreateReview({
         productId,
-        rating: Number(rating) || 5,
+        rating,
         customerName: customerName || null,
         customerEmail: customerEmail || null,
         title: title || null,
@@ -2799,7 +2892,7 @@ function AdminReviewForm({ products, onCreateReview }: { products: Product[]; on
       setCustomerEmail("");
       setTitle("");
       setBody("");
-      setRating("5");
+      setRating(5);
       setStatus("published");
       setOpen(false);
     } finally {
@@ -2831,7 +2924,9 @@ function AdminReviewForm({ products, onCreateReview }: { products: Product[]; on
           <ProductInputField label="Review title" value={title} onChange={setTitle} />
           <label className="space-y-1 text-[11px] font-medium text-[rgb(var(--vibe-muted))]">
             <span>Rating</span>
-            <input type="number" min="1" max="5" step="0.1" value={rating} onChange={(event) => setRating(event.target.value)} className="h-9 w-full rounded-md border border-[rgb(var(--vibe-border))] bg-white px-3 text-[13px] outline-none focus:ring-1 focus:ring-zinc-500" />
+            <div className="rounded-md border border-[rgb(var(--vibe-border))] bg-white px-2 py-1">
+              <StarRatingInput value={rating} onChange={setRating} disabled={saving} />
+            </div>
           </label>
           <label className="space-y-1 text-[11px] font-medium text-[rgb(var(--vibe-muted))]">
             <span>Status</span>

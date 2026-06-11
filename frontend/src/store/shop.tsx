@@ -1,5 +1,4 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "convex/react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -70,8 +69,6 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
   const { user } = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
   const remoteWishlist = useQuery(api.wishlists.listMine, user ? {} : "skip");
   const toggleRemoteWishlist = useMutation(api.wishlists.toggle);
 
@@ -134,7 +131,7 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
   const toggleWishlist = useCallback((id: string) => {
     if (!user) {
       toast({ title: "Sign in to save items", description: "Wishlists are connected to your account." });
-      navigate(`/login?redirect=${encodeURIComponent(location.pathname + location.search)}`);
+      window.dispatchEvent(new CustomEvent("hurayah:open-auth"));
       return;
     }
     const wasSaved = wishlist.includes(id);
@@ -151,7 +148,7 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
       setWishlist((prev) => (wasSaved ? [...new Set([...prev, id])] : prev.filter((item) => item !== id)));
       toast({ title: "Could not update wishlist", variant: "destructive" });
     });
-  }, [location.pathname, location.search, navigate, toggleRemoteWishlist, user, wishlist]);
+  }, [toggleRemoteWishlist, user, wishlist]);
 
   const isWishlisted = useCallback((id: string) => wishlist.includes(id), [wishlist]);
 

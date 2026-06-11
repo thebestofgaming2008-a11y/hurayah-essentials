@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { Heart, ShoppingBag } from "lucide-react";
+import { Heart } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useShop } from "@/store/shop";
 import type { Product } from "@/services/productService";
-import { productImage, productPrice, productCompareAt } from "@/data/products";
+import { productImage, productPrice, productCompareAt, productCardThumbnailUrl } from "@/data/products";
 import { cn } from "@/lib/utils";
 import { useCurrency } from "@/contexts/CurrencyContext";
 
@@ -18,10 +18,13 @@ export function ProductCard({ product, className, priority = false }: Props) {
   const navigate = useNavigate();
   const { format } = useCurrency();
   const [imgError, setImgError] = useState(false);
+  const [useOriginalImage, setUseOriginalImage] = useState(false);
   const wished = isWishlisted(product.id);
   const price = productPrice(product);
   const compareAt = productCompareAt(product);
-  const image = productImage(product);
+  const originalImage = productImage(product);
+  const thumbnailImage = productCardThumbnailUrl(originalImage);
+  const image = useOriginalImage ? originalImage : thumbnailImage ?? originalImage;
   const showImage = !!image && !imgError;
   const link = `/product/${product.slug ?? product.id}`;
   const hasOptions = Boolean((product.color_options?.length ?? 0) || (product.size_options?.length ?? 0));
@@ -45,8 +48,8 @@ export function ProductCard({ product, className, priority = false }: Props) {
   };
 
   return (
-    <article className={cn("commerce-card-in group min-w-0", className)}>
-      <div className="relative aspect-[2/3] overflow-hidden rounded-md border border-border bg-white transition-all duration-300 group-hover:border-brand/25 group-hover:shadow-[0_14px_28px_-20px_rgba(3,15,48,0.55)]">
+    <article className={cn("commerce-card-in premium-card-hover group flex h-full min-w-0 flex-col", className)}>
+      <div className="relative aspect-[2/3] overflow-hidden rounded-md border border-border bg-white transition-all duration-300 group-hover:border-brand/25 group-hover:shadow-[0_18px_34px_-24px_rgba(3,15,48,0.64)]">
         <Link to={link} className="absolute inset-0 z-10" aria-label={product.name} />
         {showImage ? (
           <img
@@ -55,7 +58,16 @@ export function ProductCard({ product, className, priority = false }: Props) {
             loading={priority ? "eager" : "lazy"}
             fetchPriority={priority ? "high" : "auto"}
             decoding="async"
-            onError={() => setImgError(true)}
+            width={420}
+            height={630}
+            sizes="(min-width: 1280px) 25vw, (min-width: 1024px) 33vw, (min-width: 768px) 25vw, 50vw"
+            onError={() => {
+              if (!useOriginalImage && originalImage && image !== originalImage) {
+                setUseOriginalImage(true);
+                return;
+              }
+              setImgError(true);
+            }}
             className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.035]"
           />
         ) : (
@@ -88,20 +100,30 @@ export function ProductCard({ product, className, priority = false }: Props) {
           type="button"
           onClick={onAdd}
           data-testid={`product-card-add-to-cart-button-${product.id}`}
-          className="absolute inset-x-3 bottom-3 z-20 hidden items-center justify-center gap-2 rounded-md bg-brand py-2.5 text-sm font-semibold text-brand-foreground shadow-lg transition-all duration-200 md:inline-flex md:translate-y-2 md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100 md:focus-visible:translate-y-0 md:focus-visible:opacity-100"
+          className="premium-cart-button absolute inset-x-3 bottom-3 z-20 hidden h-10 items-center justify-center px-3 text-sm font-semibold md:inline-flex md:translate-y-2 md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100 md:focus-visible:translate-y-0 md:focus-visible:opacity-100"
         >
-          <ShoppingBag className="h-4 w-4" />
           {hasOptions ? "Choose options" : "Add to cart"}
         </button>
       </div>
-      <div className="mt-3 flex min-h-[126px] flex-col md:min-h-[88px]">
+      <div className="mt-3 flex flex-1 flex-col">
         <Link to={link}>
-          <h3 className="line-clamp-2 min-h-[2.5rem] text-sm font-medium leading-5 text-foreground transition-colors hover:text-brand md:min-h-0 md:text-base">
+          <h3
+            title={product.name}
+            className="line-clamp-2 min-h-[2.5rem] break-words text-sm font-medium leading-5 text-foreground transition-colors hover:text-brand md:min-h-[2.7rem] md:text-base md:leading-[1.35]"
+          >
             {product.name}
           </h3>
         </Link>
         {product.author && (
-          <p className="text-xs md:text-sm text-foreground/60 line-clamp-1">{product.author}</p>
+          <p
+            title={product.author}
+            className="mt-0.5 line-clamp-1 min-h-4 break-words text-xs leading-4 text-foreground/60 md:min-h-5 md:text-sm md:leading-5"
+          >
+            {product.author}
+          </p>
+        )}
+        {!product.author && (
+          <span aria-hidden className="mt-0.5 block min-h-4 md:min-h-5" />
         )}
         <div className="mt-1 flex items-baseline gap-2">
           <p className="text-sm md:text-base text-hero-foreground font-semibold">
@@ -114,9 +136,8 @@ export function ProductCard({ product, className, priority = false }: Props) {
         <button
           type="button"
           onClick={onAdd}
-          className="mt-auto inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-md border border-brand bg-background px-2 text-xs font-semibold text-brand transition-all hover:bg-brand hover:text-brand-foreground md:hidden"
+          className="premium-outline-button mt-auto inline-flex h-10 w-full items-center justify-center px-2 text-xs font-semibold md:hidden"
         >
-          <ShoppingBag className="h-3.5 w-3.5" />
           {hasOptions ? "Choose options" : "Add to cart"}
         </button>
       </div>

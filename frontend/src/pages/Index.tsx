@@ -7,36 +7,21 @@ import {
   Headphones,
   Instagram,
   BookOpen,
-  Scroll,
-  Feather,
   Quote,
-  Languages,
-  Scale,
-  Heart,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import calligraphyLeft from "@/assets/calligraphy-left.png";
 import calligraphyRight from "@/assets/calligraphy-right.png";
 import { SiteLayout } from "@/components/layout/SiteLayout";
 import { ProductCard } from "@/components/shop/ProductCard";
-import { CATEGORIES, topCategoryForProduct, type CategoryKey } from "@/data/products";
+import { Reveal } from "@/components/ui/Reveal";
+import { BOOK_SUBJECTS, CATEGORIES, productSubjectKeys, topCategoryForProduct, type CategoryKey } from "@/data/products";
 import { listActiveProducts, type Product } from "@/services/productService";
 
-const GUARANTEES = ["Authentic titles", "India-wide delivery", "Secure checkout"];
-
-const SUBJECTS = [
-  { name: "Aqeedah", desc: "Creed & belief", Icon: Shield },
-  { name: "Seerah", desc: "The Prophet's life", Icon: Scroll },
-  { name: "Tafsir", desc: "Qur'anic exegesis", Icon: BookOpen },
-  { name: "Hadith", desc: "Prophetic traditions", Icon: Quote },
-  { name: "Fiqh", desc: "Islamic jurisprudence", Icon: Scale },
-  { name: "Arabic", desc: "Language of the Qur'an", Icon: Languages },
-  { name: "Tazkiyah", desc: "Purification of the soul", Icon: Feather },
-  { name: "Essentials", desc: "Everyday household picks", Icon: Heart },
-];
+const GUARANTEES = ["Authentic titles", "International delivery", "Secure checkout"];
 
 const VALUE_PROPS = [
-  { Icon: Truck, title: "India-wide delivery", desc: "Shipping included across India." },
+  { Icon: Truck, title: "International delivery", desc: "India checkout and international WhatsApp ordering." },
   { Icon: Shield, title: "Secure checkout", desc: "Encrypted payments, every time." },
   { Icon: RotateCcw, title: "Easy returns", desc: "Returns on every order." },
   { Icon: Headphones, title: "Real support", desc: "Friendly humans, here to help." },
@@ -106,6 +91,17 @@ const Index = () => {
         .slice(0, 12),
     [allProducts, activeCat],
   );
+  const subjectCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const subject of BOOK_SUBJECTS) counts.set(subject.key, 0);
+    for (const product of allProducts) {
+      if (topCategoryForProduct(product) !== "books") continue;
+      for (const key of productSubjectKeys(product)) {
+        counts.set(key, (counts.get(key) ?? 0) + 1);
+      }
+    }
+    return counts;
+  }, [allProducts]);
 
   // Fallbacks: if no flagged products yet, show the latest items so sections never look empty
   const featuredView = featured.length ? featured : allProducts.slice(0, 4);
@@ -147,24 +143,24 @@ const Index = () => {
         />
 
         <div className="relative mx-auto max-w-[1440px] px-4 py-12 md:py-20 lg:py-24 text-center">
-          <h1 className="font-bold italic tracking-tight text-foreground text-[clamp(1.75rem,5vw,5.125rem)] leading-[0.95]">
+          <h1 className="hero-blur-in hero-delay-0 font-bold italic tracking-tight text-foreground text-[clamp(1.75rem,5vw,5.125rem)] leading-[0.95]">
             SEEK KNOWLEDGE
           </h1>
-          <p className="text-hero-foreground tracking-tight text-[clamp(2.5rem,8vw,7.625rem)] leading-[0.95] -mt-1 md:-mt-2">
+          <p className="hero-blur-in hero-delay-1 text-hero-foreground tracking-tight text-[clamp(2.5rem,8vw,7.625rem)] leading-[0.95] -mt-1 md:-mt-2">
             AFFORDABLY.
           </p>
 
-          <p className="mt-4 md:mt-6 text-[hsl(0_0%_0%_/_0.65)] text-[clamp(0.875rem,1.6vw,2.375rem)] tracking-tight">
+          <p className="hero-blur-in hero-delay-2 mt-4 md:mt-6 text-[hsl(0_0%_0%_/_0.65)] text-[clamp(0.875rem,1.6vw,2.375rem)] tracking-tight">
             Seeking knowledge made easy.
           </p>
 
-          <ul className="mt-3 md:mt-5 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[hsl(0_0%_0%_/_0.6)] text-xs sm:text-sm md:text-base">
+          <ul className="hero-blur-in hero-delay-3 mt-3 md:mt-5 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[hsl(0_0%_0%_/_0.6)] text-xs sm:text-sm md:text-base">
             {GUARANTEES.map((g) => (
               <li key={g}>{g}</li>
             ))}
           </ul>
 
-          <div className="mt-7 md:mt-10 flex flex-col sm:flex-row items-center justify-center gap-3 md:gap-4">
+          <div className="hero-blur-in hero-delay-4 mt-7 md:mt-10 flex flex-col sm:flex-row items-center justify-center gap-3 md:gap-4">
             <Link
               to="/shop"
               className="group inline-flex items-center justify-center gap-2 rounded-md bg-brand text-brand-foreground font-bold tracking-tight text-base md:text-lg px-10 md:px-14 py-3.5 md:py-4 shadow-2xl hover:opacity-95 transition-opacity"
@@ -183,6 +179,7 @@ const Index = () => {
       </section>
 
       <section id="products" className="bg-hero pb-16 md:pb-24">
+        <Reveal>
         <div className="mx-auto max-w-[1440px] px-4 md:px-8">
           <div className="flex items-end justify-between mb-6 md:mb-10">
             <h2 className="text-foreground tracking-tight text-2xl md:text-3xl lg:text-4xl">
@@ -208,15 +205,17 @@ const Index = () => {
             </p>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-              {featuredView.map((p, index) => (
-                <ProductCard key={p.id} product={p} priority={index < 4} />
+              {featuredView.map((p) => (
+                <ProductCard key={p.id} product={p} />
               ))}
             </div>
           )}
         </div>
+        </Reveal>
       </section>
 
-      <section id="categories" className="bg-background border-t border-border">
+      <section id="categories" className="content-auto-section bg-background border-t border-border">
+        <Reveal>
         <div className="mx-auto max-w-[1440px] px-4 md:px-8 py-14 md:py-20">
           <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6 md:mb-8">
             <div>
@@ -285,6 +284,7 @@ const Index = () => {
             </div>
           )}
         </div>
+        </Reveal>
       </section>
 
       <CollectionSection
@@ -307,7 +307,8 @@ const Index = () => {
         bgClass="bg-background"
       />
 
-      <section id="subjects" className="bg-hero/40 border-t border-border scroll-mt-[140px]">
+      <section id="subjects" className="content-auto-section bg-hero/40 border-t border-border scroll-mt-[140px]">
+        <Reveal>
         <div className="mx-auto max-w-[1440px] px-4 md:px-8 py-16 md:py-24">
           <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-10 md:mb-14">
             <div className="max-w-xl">
@@ -330,10 +331,12 @@ const Index = () => {
             </Link>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-border rounded-2xl overflow-hidden border border-border">
-            {SUBJECTS.map(({ name, desc, Icon }) => (
+            {BOOK_SUBJECTS.map(({ key, label, blurb, Icon }) => {
+              const count = subjectCounts.get(key) ?? 0;
+              return (
               <Link
-                key={name}
-                to={`/shop?category=books&subject=${encodeURIComponent(name)}`}
+                key={key}
+                to={`/shop?category=books&subject=${encodeURIComponent(key)}`}
                 className="group relative bg-background p-6 md:p-8 flex flex-col gap-4 hover:bg-hero/60 transition-colors"
               >
                 <span className="h-10 w-10 grid place-items-center rounded-lg border border-border text-brand group-hover:bg-brand group-hover:text-brand-foreground group-hover:border-brand transition-colors">
@@ -341,18 +344,24 @@ const Index = () => {
                 </span>
                 <div>
                   <h3 className="font-semibold text-foreground text-base md:text-lg tracking-tight">
-                    {name}
+                    {label}
                   </h3>
-                  <p className="mt-1 text-xs md:text-sm text-foreground/55">{desc}</p>
+                  <p className="mt-1 text-xs md:text-sm text-foreground/55">{blurb}</p>
                 </div>
+                <span className="mt-auto text-[11px] font-medium uppercase tracking-[0.16em] text-foreground/40">
+                  {loading ? "Loading" : `${count} ${count === 1 ? "item" : "items"}`}
+                </span>
                 <ArrowRight className="absolute top-6 right-6 h-4 w-4 text-foreground/30 group-hover:text-brand group-hover:translate-x-0.5 transition-all" />
               </Link>
-            ))}
+              );
+            })}
           </div>
         </div>
+        </Reveal>
       </section>
 
-      <section className="bg-background border-t border-border">
+      <section className="content-auto-section bg-background border-t border-border">
+        <Reveal>
         <div className="mx-auto max-w-[1440px] px-4 md:px-8 py-12 md:py-16">
           <div className="grid grid-cols-2 lg:grid-cols-4 divide-y divide-x divide-border lg:divide-y-0 border border-border rounded-2xl overflow-hidden">
             {VALUE_PROPS.map(({ Icon, title, desc }) => (
@@ -370,9 +379,11 @@ const Index = () => {
             ))}
           </div>
         </div>
+        </Reveal>
       </section>
 
-      <section className="bg-hero/40 border-t border-border">
+      <section className="content-auto-section bg-hero/40 border-t border-border">
+        <Reveal>
         <div className="mx-auto max-w-[1440px] px-4 md:px-8 py-16 md:py-24">
           <div className="text-center mb-10 md:mb-14 max-w-2xl mx-auto">
             <p className="text-xs md:text-sm font-semibold uppercase tracking-[0.18em] text-brand">
@@ -405,9 +416,6 @@ const Index = () => {
             ))}
           </div>
           <div className="mt-12 md:mt-16 flex flex-col items-center gap-3">
-            <p className="text-sm text-foreground/60">
-              More reviews shared by customers on our Instagram stories.
-            </p>
             <a
               href="https://www.instagram.com/stories/highlights/18086224496025327/"
               target="_blank"
@@ -420,6 +428,7 @@ const Index = () => {
             </a>
           </div>
         </div>
+        </Reveal>
       </section>
     </SiteLayout>
   );
@@ -444,7 +453,8 @@ function CollectionSection({
 }) {
   if (!products.length) return null;
   return (
-    <section className={`${bgClass} border-t border-border`}>
+    <section className={`content-auto-section ${bgClass} border-t border-border`}>
+      <Reveal>
       <div className="mx-auto max-w-[1440px] px-4 md:px-8 py-14 md:py-20">
         <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6 md:mb-10">
           <div>
@@ -476,6 +486,7 @@ function CollectionSection({
           </div>
         </div>
       </div>
+      </Reveal>
     </section>
   );
 }

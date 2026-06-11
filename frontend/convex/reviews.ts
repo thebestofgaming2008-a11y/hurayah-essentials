@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { nowIso, requireAdmin, requireIdentity } from "./lib";
+import { nowIso, requireAdmin, requireIdentity, writeAuditLog } from "./lib";
 
 const reviewStatus = new Set(["pending", "published", "hidden"]);
 
@@ -47,7 +47,7 @@ async function hasVerifiedPurchase(ctx: any, userId: string, email: string | nul
   return false;
 }
 
-function publicReview(doc: Record<string, any>) {
+function publicReview(doc: Record<string, any>): Record<string, any> {
   const { _id, _creationTime, ...rest } = doc;
   return { id: _id, ...rest };
 }
@@ -98,7 +98,7 @@ export const submit = mutation({
   },
   handler: async (ctx, args) => {
     const auth = await requireIdentity(ctx);
-    const product = await ctx.db.get(args.productId as any);
+    const product = await ctx.db.get(args.productId as any) as any;
     if (!product || product.is_active === false) throw new Error("Product not found.");
     const rating = Math.max(1, Math.min(5, Math.round(args.rating * 10) / 10));
     const user = auth.user as any;
@@ -107,6 +107,9 @@ export const submit = mutation({
       .withIndex("by_user_product", (q) => q.eq("user_id", auth.userId).eq("product_id", args.productId))
       .first();
     if (existing) throw new Error("You already reviewed this product.");
+    if (!(await hasVerifiedPurchase(ctx, auth.userId, user.email, args.productId))) {
+      throw new Error("Only verified customers can review this product.");
+    }
     const timestamp = nowIso();
     const id = await ctx.db.insert("reviews", {
       product_id: args.productId,
@@ -140,7 +143,7 @@ export const submitForOrder = mutation({
     const orderNumber = normalizeOrderNumber(args.orderNumber);
     const email = cleanEmail(args.email);
     if (!orderNumber || !email) throw new Error("Order number and email are required.");
-    const product = await ctx.db.get(args.productId as any);
+    const product = await ctx.db.get(args.productId as any) as any;
     if (!product || product.is_active === false) throw new Error("Product not found.");
     const order = await ctx.db.query("orders").withIndex("by_order_number", (q: any) => q.eq("order_number", orderNumber)).first();
     if (!order || cleanEmail(order.customer_email) !== email) throw new Error("Order not found for this email.");
@@ -180,7 +183,7 @@ export const createAdmin = mutation({
   },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
-    const product = await ctx.db.get(args.productId as any);
+    const product = await ctx.db.get(args.productId as any) as any;
     if (!product) throw new Error("Product not found.");
     const status = cleanText(args.status ?? "published", 24).toLowerCase();
     if (!reviewStatus.has(status)) throw new Error("Invalid review status.");
@@ -200,6 +203,13 @@ export const createAdmin = mutation({
       updated_at: timestamp,
     });
     if (status === "published") await recalculateProductRating(ctx, args.productId);
+    await writeAuditLog(ctx, {
+      action: "review.create",
+      entityType: "review",
+      entityId: String(id),
+      summary: cleanNullable(args.title, 120) ?? cleanNullable(args.body, 120),
+      metadata: { productId: args.productId, status },
+    });
     const doc = await ctx.db.get(id);
     return doc ? publicReview(doc) : null;
   },
@@ -229,7 +239,7 @@ export const updateStatus = mutation({
     await requireAdmin(ctx);
     const status = cleanText(args.status, 24).toLowerCase();
     if (!reviewStatus.has(status)) throw new Error("Invalid review status.");
-    const current = await ctx.db.get(args.id as any);
+    const current = await ctx.db.get(args.id as any) as any;
     if (!current) throw new Error("Review not found.");
     await ctx.db.patch(args.id as any, {
       status,
@@ -237,6 +247,13 @@ export const updateStatus = mutation({
       updated_at: nowIso(),
     });
     await recalculateProductRating(ctx, current.product_id);
+    await writeAuditLog(ctx, {
+      action: "review.status.update",
+      entityType: "review",
+      entityId: args.id,
+      summary: status,
+      metadata: { productId: current.product_id },
+    });
     return true;
   },
 });

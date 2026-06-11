@@ -1,5 +1,5 @@
 import { Heart, LayoutDashboard, LogOut, Menu, Package, Search, ShoppingBag, User, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import logo from "@/assets/logo-header.png";
 import { useAuth } from "@/contexts/AuthContext";
@@ -21,12 +21,15 @@ const ICON_BUTTON =
 const BADGE =
   "absolute -top-1 -right-1 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-brand px-1 text-[10px] font-semibold leading-none text-brand-foreground shadow-sm";
 
+const LazyAuthDialog = lazy(() => import("@/components/auth/AuthDialog").then((module) => ({ default: module.AuthDialog })));
+
 export function SiteHeader() {
   const [query, setQuery] = useState("");
   const [scrolled, setScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuClosing, setMenuClosing] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
   const [noticeIndex, setNoticeIndex] = useState(0);
   const navigate = useNavigate();
   const { cartCount, openCart } = useShop();
@@ -53,12 +56,16 @@ export function SiteHeader() {
     return () => window.clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    const openAuth = () => setAuthOpen(true);
+    window.addEventListener("hurayah:open-auth", openAuth);
+    return () => window.removeEventListener("hurayah:open-auth", openAuth);
+  }, []);
+
   const openMenu = () => {
-    setMenuClosing(true);
+    setSearchOpen(false);
+    setMenuClosing(false);
     setMenuOpen(true);
-    window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => setMenuClosing(false));
-    });
   };
 
   const closeMenu = () => {
@@ -67,6 +74,12 @@ export function SiteHeader() {
       setMenuOpen(false);
       setMenuClosing(false);
     }, 220);
+  };
+
+  const openAuthDialog = () => {
+    setMenuOpen(false);
+    setMenuClosing(false);
+    setAuthOpen(true);
   };
 
   const submitSearch = (e: React.FormEvent) => {
@@ -132,12 +145,13 @@ export function SiteHeader() {
       </DropdownMenuContent>
     </DropdownMenu>
   ) : (
-    <Link to="/login?redirect=/account" aria-label="Sign in" data-testid="site-header-sign-in-link" className={ICON_BUTTON}>
+    <button type="button" onClick={openAuthDialog} aria-label="Sign in" data-testid="site-header-sign-in-link" className={ICON_BUTTON}>
       <User className="h-5 w-5" />
-    </Link>
+    </button>
   );
 
   return (
+    <>
     <div className={cn("sticky top-0 z-40 transition-shadow duration-200", scrolled && "shadow-[0_4px_18px_-12px_rgba(3,15,48,0.35)]")} data-testid="site-header-sticky-wrapper">
       <div className="bg-brand text-brand-foreground">
         <div className="relative mx-auto flex max-w-[1440px] items-center overflow-hidden px-3 py-1.5 text-[11px] sm:px-4 sm:py-2 sm:text-xs md:text-sm">
@@ -174,7 +188,7 @@ export function SiteHeader() {
             </button>
           </div>
           <Link to="/" className="flex min-w-0 justify-self-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40" aria-label="Hurayrah Essentials home" data-testid="site-header-logo-link">
-            <img src={logo} alt="Hurayrah Essentials" className="h-8 w-auto object-contain transition-all sm:h-9 md:h-10" />
+            <img src={logo} alt="Hurayrah Essentials" width={472} height={316} className="h-8 w-auto object-contain transition-all sm:h-9 md:h-10" />
           </Link>
           <div className="flex min-w-0 justify-self-end">
             <Link to="/track" aria-label="Track order" data-testid="site-header-desktop-track-link" className={cn(ICON_BUTTON, "hidden md:inline-flex")}>
@@ -235,7 +249,7 @@ export function SiteHeader() {
           >
             <div className="flex items-center justify-between border-b border-foreground/10 px-5 py-4">
               <Link to="/" onClick={closeMenu} className="inline-flex items-center gap-3">
-                <img src={logo} alt="" className="h-9 w-auto object-contain" />
+                <img src={logo} alt="" width={472} height={316} className="h-9 w-auto object-contain" />
                 <span className="text-[13px] font-semibold text-hero-foreground">Back to store</span>
               </Link>
               <button type="button" onClick={closeMenu} aria-label="Close menu" data-testid="site-header-close-menu-button" className="grid h-9 w-9 place-items-center rounded-md hover:bg-foreground/5">
@@ -262,7 +276,7 @@ export function SiteHeader() {
                     </button>
                   </>
                 ) : (
-                  <Link to="/login?redirect=/account" onClick={closeMenu} className="block rounded-md px-3 py-3 text-[14px] font-semibold text-brand hover:bg-white/55">Sign in</Link>
+                  <button type="button" onClick={openAuthDialog} className="block w-full rounded-md px-3 py-3 text-left text-[14px] font-semibold text-brand hover:bg-white/55">Sign in</button>
                 )}
               </div>
             </nav>
@@ -270,5 +284,11 @@ export function SiteHeader() {
         </div>
       )}
     </div>
+    {authOpen && (
+      <Suspense fallback={null}>
+        <LazyAuthDialog open={authOpen} onOpenChange={setAuthOpen} />
+      </Suspense>
+    )}
+    </>
   );
 }

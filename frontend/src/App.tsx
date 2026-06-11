@@ -90,6 +90,31 @@ function BasicAnalytics() {
   return null;
 }
 
+function ChunkLoadRecovery() {
+  useEffect(() => {
+    const key = "he_chunk_reload_v1";
+    const recover = (message: string) => {
+      if (!/Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed/i.test(message)) return;
+      if (sessionStorage.getItem(key) === "1") return;
+      sessionStorage.setItem(key, "1");
+      window.location.reload();
+    };
+    const onRejection = (event: PromiseRejectionEvent) => {
+      recover(String(event.reason?.message || event.reason || ""));
+    };
+    const onError = (event: ErrorEvent) => {
+      recover(String(event.message || event.error?.message || ""));
+    };
+    window.addEventListener("unhandledrejection", onRejection);
+    window.addEventListener("error", onError);
+    return () => {
+      window.removeEventListener("unhandledrejection", onRejection);
+      window.removeEventListener("error", onError);
+    };
+  }, []);
+  return null;
+}
+
 function ScrollManager() {
   const { pathname, hash } = useLocation();
 
@@ -113,6 +138,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <BasicAnalytics />
+        <ChunkLoadRecovery />
         <ScrollManager />
         <ConvexAuthProvider client={convex} storageNamespace="hurayah-auth-v2">
           <AuthProvider>

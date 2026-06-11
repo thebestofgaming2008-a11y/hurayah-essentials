@@ -14,6 +14,7 @@ import type * as auth from "../auth.js";
 import type * as crons from "../crons.js";
 import type * as http from "../http.js";
 import type * as lib from "../lib.js";
+import type * as media from "../media.js";
 import type * as orders from "../orders.js";
 import type * as photoRoomImport from "../photoRoomImport.js";
 import type * as products from "../products.js";
@@ -36,6 +37,7 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   http: typeof http;
   lib: typeof lib;
+  media: typeof media;
   orders: typeof orders;
   photoRoomImport: typeof photoRoomImport;
   products: typeof products;

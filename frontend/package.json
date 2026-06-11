@@ -8,6 +8,8 @@
     "dev": "vite --host 0.0.0.0 --port 3000",
     "build": "vite build",
     "build:dev": "vite build --mode development",
+    "check:launch": "node scripts/check-launch-readiness.mjs",
+    "check:new-shop": "node scripts/check-new-shop-config.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",

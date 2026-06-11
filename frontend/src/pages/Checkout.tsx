@@ -87,12 +87,30 @@ function flagFromCountryCode(code: string) {
 
 function CountryFlag({ country }: { country?: CountryOption }) {
   if (!country) return <span className="h-4 w-5 shrink-0" />;
+  const code = country.code.toLowerCase();
 
   return (
-    <span className="flex h-4 w-5 shrink-0 items-center justify-center overflow-hidden text-[15px] leading-none">
-      {flagFromCountryCode(country.code)}
+    <span className="flex h-4 w-5 shrink-0 items-center justify-center overflow-hidden rounded-[2px] bg-[rgb(var(--vibe-accent))] text-[15px] leading-none">
+      <img
+        src={`https://flagcdn.com/w40/${code}.png`}
+        alt=""
+        loading="lazy"
+        className="h-full w-full object-cover"
+        onError={(event) => {
+          event.currentTarget.replaceWith(document.createTextNode(flagFromCountryCode(country.code)));
+        }}
+      />
     </span>
   );
+}
+
+function formatInr(amountInr: number | null | undefined) {
+  if (amountInr == null) return "-";
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(amountInr);
 }
 
 function openWhatsappMessage(message: string) {
@@ -148,6 +166,7 @@ const Checkout = () => {
   const total = cartSubtotal + shippingMeta.amount;
   const address = ADDRESS_BY_COUNTRY[form.country] ?? { stateLabel: "State / province / region", postalLabel: "Postal code", cityLabel: "City", stateRequired: false };
   const isIndiaCheckout = shippingMeta.countryType === "india";
+  const formatCheckoutAmount = isIndiaCheckout ? formatInr : format;
 
   useEffect(() => {
     if (!detectedCountry) return;
@@ -171,7 +190,7 @@ const Checkout = () => {
       city: saved.city || "",
       state: saved.state || "",
       postalCode: saved.postal_code || "",
-      country: "India",
+      country: saved.country || prev.country || "India",
     }));
     setErrors({});
   }, [user?.email]);
@@ -373,7 +392,7 @@ const Checkout = () => {
             <button type="button" onClick={() => navigate(-1)} data-testid="checkout-go-back-button" className="text-[12px] text-[rgb(var(--vibe-muted))] hover:text-[rgb(var(--vibe-foreground))]">
               <span className="hidden sm:inline">Back to store</span><span className="sm:hidden">Back</span>
             </button>
-            <img src={logo} alt="Hurayrah Essentials" className="h-9 w-auto object-contain md:h-11" />
+            <img src={logo} alt="Hurayrah Essentials" width={472} height={316} className="h-9 w-auto object-contain md:h-11" />
             <button type="button" onClick={openCart} data-testid="checkout-back-to-cart-link" className="justify-self-end text-[12px] text-[rgb(var(--vibe-muted))] hover:text-[rgb(var(--vibe-foreground))]">
               Review cart
             </button>
@@ -393,7 +412,7 @@ const Checkout = () => {
               </Section>
 
               <Section title="Delivery">
-                {isIndiaCheckout && savedAddresses.length > 0 && (
+                {savedAddresses.length > 0 && (
                   <div>
                     <span className="mb-1.5 block text-[11px] text-[rgb(var(--vibe-muted))]">Saved addresses</span>
                     <div className="grid gap-2 sm:grid-cols-2" data-testid="checkout-saved-addresses">
@@ -463,18 +482,18 @@ const Checkout = () => {
                       </div>
                       <button type="button" onClick={() => removeFromCart(line.cartKey ?? line.productId)} className="ml-2 text-[11px] text-[rgb(var(--vibe-muted))] hover:text-red-600">Remove</button>
                     </div>
-                    <span className="font-mono font-medium">{format(line.price * line.qty)}</span>
+                    <span className="font-mono font-medium">{formatCheckoutAmount(line.price * line.qty)}</span>
                   </li>
                 ))}
               </ul>
               <dl className="mt-4 space-y-2 border-t border-[rgb(var(--vibe-border))] pt-4 text-[12px]">
-                <div className="flex justify-between"><dt className="text-[rgb(var(--vibe-muted))]">Subtotal</dt><dd className="font-mono font-medium">{format(cartSubtotal)}</dd></div>
+                <div className="flex justify-between"><dt className="text-[rgb(var(--vibe-muted))]">Subtotal</dt><dd className="font-mono font-medium">{formatCheckoutAmount(cartSubtotal)}</dd></div>
                 <div className="flex justify-between"><dt className="text-[rgb(var(--vibe-muted))]">Shipping</dt><dd className="text-right font-mono font-medium">{isIndiaCheckout ? "Included" : "Confirmed on WhatsApp"}</dd></div>
-                <div className="flex justify-between border-t border-[rgb(var(--vibe-border))] pt-3 text-[13px]"><dt className="font-medium">Total</dt><dd className="font-mono font-semibold" data-testid="checkout-total-amount">{format(total)}</dd></div>
+                <div className="flex justify-between border-t border-[rgb(var(--vibe-border))] pt-3 text-[13px]"><dt className="font-medium">Total</dt><dd className="font-mono font-semibold" data-testid="checkout-total-amount">{formatCheckoutAmount(total)}</dd></div>
               </dl>
               {isIndiaCheckout && <PaymentMethods compact className="mt-4" />}
               <button type="submit" disabled={submitting} data-testid="checkout-submit-button" className="mt-5 inline-flex h-10 w-full items-center justify-center rounded-md bg-[rgb(var(--vibe-foreground))] px-3 text-[12px] font-medium text-white hover:opacity-90 disabled:opacity-50">
-                {submitting ? (isIndiaCheckout ? "Opening checkout..." : "Opening WhatsApp...") : isIndiaCheckout ? `Pay ${format(total)}` : "Send request on WhatsApp"}
+                {submitting ? (isIndiaCheckout ? "Opening checkout..." : "Opening WhatsApp...") : isIndiaCheckout ? `Pay ${formatCheckoutAmount(total)}` : "Send request on WhatsApp"}
               </button>
             </aside>
           </form>
@@ -535,6 +554,7 @@ function CountrySelect({ value, onChange, error }: { value: string; onChange: (v
       <button
         type="button"
         onClick={() => setOpen((current) => !current)}
+        data-testid="checkout-country-button"
         className={cn(
           "flex h-10 w-full items-center justify-between rounded-md border bg-white px-3 text-left text-[13px] text-[rgb(var(--vibe-foreground))] outline-none transition-colors hover:border-zinc-400 focus:ring-1 focus:ring-zinc-500",
           error ? "border-red-400" : "border-[rgb(var(--vibe-border))]",

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Heart, ShoppingBag, Trash2, X } from "lucide-react";
 import { useCurrency } from "@/contexts/CurrencyContext";
-import { productImage, productPrice } from "@/data/products";
+import { productCardThumbnailUrl, productImage, productPrice } from "@/data/products";
 import { cn } from "@/lib/utils";
 import { listActiveProducts, listByIds, type Product } from "@/services/productService";
 import { useShop } from "@/store/shop";
@@ -236,18 +236,19 @@ export function CartDrawer() {
                 <div className="grid grid-cols-3 gap-2">
                   {recommendations.map((product) => {
                     const image = productImage(product);
+                    const thumb = productCardThumbnailUrl(image) ?? image;
                     const price = productPrice(product);
                     return (
                       <div key={product.id} className="group rounded-md border border-[rgb(var(--vibe-border))] bg-white p-2 transition-colors hover:border-zinc-400">
                         <Link to={`/product/${product.slug ?? product.id}`} onClick={closeCart} className="block aspect-[3/4] overflow-hidden rounded bg-white">
-                          {image && <img src={image} alt="" loading="eager" decoding="async" className="h-full w-full object-cover transition-transform group-hover:scale-[1.03]" />}
+                          {thumb && <img src={thumb} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform group-hover:scale-[1.03]" />}
                         </Link>
                         <Link to={`/product/${product.slug ?? product.id}`} onClick={closeCart} className="mt-2 line-clamp-2 block text-[11px] font-medium leading-snug">{product.name}</Link>
                         <span className="mt-1 block font-mono text-[11px] text-[rgb(var(--vibe-muted))]">{format(price)}</span>
                         <div className="mt-2 grid grid-cols-2 gap-1">
                           <button
                             type="button"
-                            onClick={() => hasProductOptions(product) ? (closeCart(), navigate(`/product/${product.slug ?? product.id}`)) : addToCart({ id: product.id, name: product.name, price, priceInr: product.price_inr, image, slug: product.slug ?? undefined, weightG: product.weight_g, shippingClass: product.shipping_class })}
+                            onClick={() => hasProductOptions(product) ? (closeCart(), navigate(`/product/${product.slug ?? product.id}`)) : addToCart({ id: product.id, name: product.name, price, priceInr: product.price_inr, image: thumb, slug: product.slug ?? undefined, weightG: product.weight_g, shippingClass: product.shipping_class })}
                             className="h-7 rounded-md bg-[rgb(var(--vibe-foreground))] px-1 text-[10px] font-medium text-white"
                           >
                             {hasProductOptions(product) ? "Select" : "Add"}
@@ -326,12 +327,13 @@ export function WishlistDrawer({ open, onClose }: { open: boolean; onClose: () =
           <ul className="space-y-3">
             {items.map((product) => {
               const image = productImage(product);
+              const thumb = productCardThumbnailUrl(image) ?? image;
               const price = productPrice(product);
               return (
                 <li key={product.id} className="vibe-card p-3">
                   <div className="flex gap-3">
                     <Link to={`/product/${product.slug ?? product.id}`} onClick={onClose} className="h-20 w-16 shrink-0 overflow-hidden rounded-md bg-white">
-                      {image && <img src={image} alt={product.name} loading="eager" decoding="async" className="h-full w-full object-cover" />}
+                      {thumb && <img src={thumb} alt={product.name} loading="lazy" decoding="async" className="h-full w-full object-cover" />}
                     </Link>
                     <div className="min-w-0 flex-1">
                       <Link to={`/product/${product.slug ?? product.id}`} onClick={onClose} className="line-clamp-2 text-[13px] font-medium leading-snug hover:text-zinc-600">{product.name}</Link>
@@ -339,7 +341,7 @@ export function WishlistDrawer({ open, onClose }: { open: boolean; onClose: () =
                       <div className="mt-3 flex gap-2">
                         <button
                           type="button"
-                          onClick={() => hasProductOptions(product) ? (onClose(), navigate(`/product/${product.slug ?? product.id}`)) : addToCart({ id: product.id, name: product.name, price, priceInr: product.price_inr, image, slug: product.slug ?? undefined, weightG: product.weight_g, shippingClass: product.shipping_class })}
+                          onClick={() => hasProductOptions(product) ? (onClose(), navigate(`/product/${product.slug ?? product.id}`)) : addToCart({ id: product.id, name: product.name, price, priceInr: product.price_inr, image: thumb, slug: product.slug ?? undefined, weightG: product.weight_g, shippingClass: product.shipping_class })}
                           className="h-8 flex-1 rounded-md bg-[rgb(var(--vibe-foreground))] px-3 text-[11px] font-medium text-white"
                         >
                           {hasProductOptions(product) ? "Choose options" : "Add to cart"}

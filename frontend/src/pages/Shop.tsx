@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { SlidersHorizontal, X } from "lucide-react";
 import { SiteLayout } from "@/components/layout/SiteLayout";
 import { ProductCard } from "@/components/shop/ProductCard";
-import { CATEGORIES, TOP_LEVEL_CATEGORIES, productPrice, topCategoryForProduct, type CategoryKey } from "@/data/products";
-import { listActiveProducts, type Product } from "@/services/productService";
+import { CATEGORIES, TOP_LEVEL_CATEGORIES, bookSubjectParam, productPrice, productSubjectKeys, topCategoryForProduct, type CategoryKey } from "@/data/products";
+import { clearProductListCache, listActiveProducts, type Product } from "@/services/productService";
 import { cn } from "@/lib/utils";
 
 const SORTS = [
@@ -16,12 +16,14 @@ type SortKey = (typeof SORTS)[number]["key"];
 
 const PRICE_MIN = 100;
 const PRICE_MAX = 5000;
+const SHOP_BATCH_SIZE = 24;
 
 const Shop = () => {
   const [params, setParams] = useSearchParams();
   const q = params.get("q")?.toLowerCase() ?? "";
   const subject = params.get("subject") ?? "";
   const initialCat = (params.get("category") as CategoryKey | null) ?? null;
+  const subjectMeta = bookSubjectParam(subject);
 
   const [cat, setCat] = useState<CategoryKey | null>(initialCat);
   const [sort, setSort] = useState<SortKey>("featured");
@@ -29,14 +31,30 @@ const Shop = () => {
   const [open, setOpen] = useState(false);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [visibleCount, setVisibleCount] = useState(SHOP_BATCH_SIZE);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    listActiveProducts().then((data) => {
+
+    async function loadProducts() {
+      setLoading(true);
+      let data: Product[] = [];
+      try {
+        data = await listActiveProducts();
+        if (data.length === 0) {
+          clearProductListCache();
+          data = await listActiveProducts();
+        }
+      } catch {
+        clearProductListCache();
+      }
       if (cancelled) return;
       setAllProducts(data);
       setLoading(false);
-    });
+    }
+
+    void loadProducts();
     return () => {
       cancelled = true;
     };
@@ -51,6 +69,7 @@ const Shop = () => {
     const p = new URLSearchParams(params);
     if (next) p.set("category", next);
     else p.delete("category");
+    if (next !== "books") p.delete("subject");
     setParams(p, { replace: true });
   };
 
@@ -69,29 +88,19 @@ const Shop = () => {
   const filtered = useMemo(() => {
     let list = [...allProducts];
     if (cat) list = list.filter((p) => topCategoryForProduct(p) === cat);
-    if (subject)
+    if (subjectMeta)
       list = list.filter(
-        (p) =>
-          Array.isArray(p.tags) &&
-          p.tags.some((t) => (t ?? "").toLowerCase() === subject.toLowerCase()),
+        (p) => productSubjectKeys(p).includes(subjectMeta.key),
       );
     if (q) {
       list = list.filter((p) => {
         const tags = Array.isArray(p.tags) ? p.tags : [];
-        const haystack = [
-          p.name,
-          p.author,
-          p.short_description,
-          p.description,
-          p.publisher,
-          p.isbn,
-          p.category,
-          p.language,
-          ...tags,
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase();
+        const haystack =
+          p.search_text ||
+          [p.name, p.author, p.category, p.category_id, ...tags]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
         return haystack.includes(q);
       });
     }
@@ -99,10 +108,39 @@ const Shop = () => {
     if (sort === "price-asc") list.sort((a, b) => productPrice(a) - productPrice(b));
     else if (sort === "price-desc") list.sort((a, b) => productPrice(b) - productPrice(a));
     return list;
-  }, [allProducts, cat, subject, q, maxPrice, sort]);
+  }, [allProducts, cat, subjectMeta, q, maxPrice, sort]);
+
+  useEffect(() => {
+    setVisibleCount(SHOP_BATCH_SIZE);
+  }, [cat, maxPrice, q, sort, subjectMeta?.key]);
+
+  const visibleProducts = useMemo(
+    () => filtered.slice(0, visibleCount),
+    [filtered, visibleCount],
+  );
+  const hasMoreProducts = visibleCount < filtered.length;
+
+  useEffect(() => {
+    const node = loadMoreRef.current;
+    if (!node || !hasMoreProducts) return;
+
+    if (typeof IntersectionObserver === "undefined") return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisibleCount((current) => Math.min(current + SHOP_BATCH_SIZE, filtered.length));
+        }
+      },
+      { rootMargin: "720px 0px", threshold: 0 },
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [filtered.length, hasMoreProducts]);
 
   const activeFilterCount =
-    (cat ? 1 : 0) + (subject ? 1 : 0) + (maxPrice < PRICE_MAX ? 1 : 0);
+    (cat ? 1 : 0) + (subjectMeta ? 1 : 0) + (maxPrice < PRICE_MAX ? 1 : 0);
 
   const Filters = (
     <div className="space-y-7">
@@ -208,9 +246,9 @@ const Shop = () => {
               </p>
 
               <div className="flex flex-wrap items-center gap-2">
-                {subject && (
+                {subjectMeta && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-brand/10 text-brand px-2.5 py-1 text-xs font-medium">
-                    {subject}
+                    {subjectMeta.label}
                     <button onClick={clearSubject} aria-label="Clear subject">
                       <X className="h-3 w-3" />
                     </button>
@@ -277,11 +315,24 @@ const Shop = () => {
                 </button>
               </div>
             ) : (
+              <>
               <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
-                {filtered.map((p, index) => (
-                  <ProductCard key={p.id} product={p} priority={index < 4} />
+                {visibleProducts.map((p, index) => (
+                  <ProductCard key={p.id} product={p} priority={index < 6} />
                 ))}
               </div>
+              {hasMoreProducts && (
+                <div ref={loadMoreRef} className="mt-8 flex justify-center">
+                  <button
+                    type="button"
+                    onClick={() => setVisibleCount((current) => Math.min(current + SHOP_BATCH_SIZE, filtered.length))}
+                    className="premium-outline-button inline-flex h-11 items-center justify-center px-5 text-sm font-semibold"
+                  >
+                    Show more products
+                  </button>
+                </div>
+              )}
+              </>
             )}
           </div>
         </div>

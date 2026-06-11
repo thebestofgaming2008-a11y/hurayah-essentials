@@ -4,8 +4,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { upsertProfile } from "@/services/accountService";
 
-const WHATSAPP_COMMUNITY_URL =
-  "https://chat.whatsapp.com/GDkQ2LfA392LaVhXxkqxux?mode=wwt&utm_source=igios&utm_campaign=wa_communities_url_xma&source_surface=25&utm_medium=social&utm_content=link_in_bio";
+const WHATSAPP_COMMUNITIES = {
+  brothers: "https://chat.whatsapp.com/ItGQ3rtedokE2FRVna0seJ?mode=gi_t",
+  sisters: "https://chat.whatsapp.com/DqHKsd7ALCV1pn4CXu5Lc3?mode=gi_t",
+};
 const OFFER_OPT_IN_IGNORED_KEY = "hurayah_offer_opt_in_ignored";
 
 export function OfferOptIn({ className = "" }: { className?: string }) {
@@ -24,7 +26,7 @@ export function OfferOptIn({ className = "" }: { className?: string }) {
     setOpen(false);
   };
 
-  const joinCommunity = async () => {
+  const joinCommunity = async (community: keyof typeof WHATSAPP_COMMUNITIES) => {
     if (user && !profile?.marketing_consent && !saving) {
       setSaving(true);
       try {
@@ -36,7 +38,7 @@ export function OfferOptIn({ className = "" }: { className?: string }) {
         setSaving(false);
       }
     }
-    window.open(WHATSAPP_COMMUNITY_URL, "_blank", "noopener,noreferrer");
+    window.open(WHATSAPP_COMMUNITIES[community], "_blank", "noopener,noreferrer");
     setOpen(false);
   };
 
@@ -48,7 +50,7 @@ export function OfferOptIn({ className = "" }: { className?: string }) {
         className={`inline-flex h-10 items-center justify-center gap-2 rounded-full border border-brand/20 bg-white px-4 text-[12px] font-semibold text-brand shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${className}`}
       >
         <Bell className="h-4 w-4" />
-        Join offers community
+        Join offers groups
       </button>
       {open && (
         <div className="fixed inset-0 z-[70] grid place-items-center bg-black/35 px-4 py-6 backdrop-blur-sm">
@@ -63,11 +65,14 @@ export function OfferOptIn({ className = "" }: { className?: string }) {
             </div>
             <h2 className="mt-4 text-[19px] font-semibold text-foreground">Get offers and announcements</h2>
             <p className="mt-2 text-[13px] leading-6 text-foreground/65">
-              Join the Hurayrah Essentials WhatsApp community for restocks, offers, and store announcements.
+              Choose the right Hurayrah Essentials WhatsApp group for restocks, offers, and store announcements.
             </p>
             <div className="mt-5 grid gap-2">
-              <button type="button" onClick={joinCommunity} disabled={saving} className="h-11 rounded-md bg-green-600 px-4 text-[13px] font-semibold text-white transition-colors hover:bg-green-700 disabled:opacity-60">
-                {saving ? "Saving..." : "Join WhatsApp community"}
+              <button type="button" onClick={() => joinCommunity("brothers")} disabled={saving} className="h-11 rounded-md bg-green-600 px-4 text-[13px] font-semibold text-white transition-colors hover:bg-green-700 disabled:opacity-60">
+                {saving ? "Saving..." : "Join brothers group"}
+              </button>
+              <button type="button" onClick={() => joinCommunity("sisters")} disabled={saving} className="h-11 rounded-md border border-green-600 bg-white px-4 text-[13px] font-semibold text-green-700 transition-colors hover:bg-green-50 disabled:opacity-60">
+                {saving ? "Saving..." : "Join sisters group"}
               </button>
               <div className="grid grid-cols-2 gap-2">
                 <button type="button" onClick={() => setOpen(false)} className="h-10 rounded-md border border-border px-4 text-[12px] font-medium text-foreground/70 hover:bg-hero/50">

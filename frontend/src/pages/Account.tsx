@@ -1,7 +1,8 @@
-import { Fragment, useEffect, useState, type FormEvent } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { ArrowLeft, ChevronDown, Heart, Info, LogOut, Package, Plus, Star, Trash2, User } from "lucide-react";
 import { SiteLayout } from "@/components/layout/SiteLayout";
+import { StarRatingInput } from "@/components/shop/ReviewStars";
 import { useAuth } from "@/contexts/AuthContext";
 import { useShop } from "@/store/shop";
 import { useCurrency } from "@/contexts/CurrencyContext";
@@ -23,6 +24,61 @@ import { toast } from "@/hooks/use-toast";
 import { submitOrderReview } from "@/services/reviewService";
 
 type Tab = "orders" | "wishlist" | "profile";
+
+type CountryOption = {
+  code: string;
+  name: string;
+};
+
+const FALLBACK_COUNTRIES = [
+  "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Argentina", "Armenia", "Australia", "Austria", "Azerbaijan",
+  "Bahrain", "Bangladesh", "Belgium", "Brazil", "Brunei", "Bulgaria", "Canada", "China", "Denmark", "Egypt", "Finland",
+  "France", "Germany", "Ghana", "Greece", "Hong Kong", "India", "Indonesia", "Ireland", "Italy", "Japan", "Jordan",
+  "Kenya", "Kuwait", "Malaysia", "Maldives", "Morocco", "Netherlands", "New Zealand", "Nigeria", "Norway", "Oman",
+  "Pakistan", "Philippines", "Qatar", "Saudi Arabia", "Singapore", "South Africa", "Spain", "Sri Lanka", "Sweden",
+  "Switzerland", "Thailand", "Turkey", "United Arab Emirates", "United Kingdom", "United States", "Yemen",
+];
+
+const FALLBACK_COUNTRY_CODES: Record<string, string> = {
+  Afghanistan: "AF", Albania: "AL", Algeria: "DZ", Andorra: "AD", Angola: "AO", Argentina: "AR", Armenia: "AM", Australia: "AU", Austria: "AT", Azerbaijan: "AZ",
+  Bahrain: "BH", Bangladesh: "BD", Belgium: "BE", Brazil: "BR", Brunei: "BN", Bulgaria: "BG", Canada: "CA", China: "CN", Denmark: "DK", Egypt: "EG", Finland: "FI",
+  France: "FR", Germany: "DE", Ghana: "GH", Greece: "GR", "Hong Kong": "HK", India: "IN", Indonesia: "ID", Ireland: "IE", Italy: "IT", Japan: "JP", Jordan: "JO",
+  Kenya: "KE", Kuwait: "KW", Malaysia: "MY", Maldives: "MV", Morocco: "MA", Netherlands: "NL", "New Zealand": "NZ", Nigeria: "NG", Norway: "NO", Oman: "OM",
+  Pakistan: "PK", Philippines: "PH", Qatar: "QA", "Saudi Arabia": "SA", Singapore: "SG", "South Africa": "ZA", Spain: "ES", "Sri Lanka": "LK", Sweden: "SE",
+  Switzerland: "CH", Thailand: "TH", Turkey: "TR", "United Arab Emirates": "AE", "United Kingdom": "GB", "United States": "US", Yemen: "YE",
+};
+
+function getCountryOptions(): CountryOption[] {
+  try {
+    const intlWithRegions = Intl as typeof Intl & { supportedValuesOf?: (key: string) => string[] };
+    const displayNames = new Intl.DisplayNames(["en"], { type: "region" });
+    const options = (intlWithRegions.supportedValuesOf?.("region") ?? [])
+      .map((code) => ({ code, name: displayNames.of(code) ?? code }))
+      .filter((country) => Boolean(country.name && !/^\d+$/.test(country.name)))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    return options.length ? options : FALLBACK_COUNTRIES.map((name) => ({ code: FALLBACK_COUNTRY_CODES[name] ?? name, name }));
+  } catch {
+    return FALLBACK_COUNTRIES.map((name) => ({ code: FALLBACK_COUNTRY_CODES[name] ?? name, name }));
+  }
+}
+
+const COUNTRIES = getCountryOptions();
+
+function flagFromCountryCode(code: string) {
+  if (!/^[A-Z]{2}$/i.test(code)) return "";
+  const normalized = code.toUpperCase();
+  return String.fromCodePoint(...[...normalized].map((letter) => 127397 + letter.charCodeAt(0)));
+}
+
+function CountryFlag({ country }: { country?: CountryOption }) {
+  if (!country) return <span className="h-4 w-5 shrink-0" />;
+
+  return (
+    <span className="flex h-4 w-5 shrink-0 items-center justify-center overflow-hidden text-[15px] leading-none">
+      {flagFromCountryCode(country.code)}
+    </span>
+  );
+}
 
 const Account = () => {
   const { user, loading: authLoading, signOut } = useAuth();
@@ -274,7 +330,7 @@ function OrderItemsList({ order, customerEmail, formatPrice }: { order: Order; c
 
 function OrderReviewForm({ orderNumber, email, productId }: { orderNumber: string; email: string; productId: string }) {
   const [open, setOpen] = useState(false);
-  const [rating, setRating] = useState("5");
+  const [rating, setRating] = useState(5);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [saving, setSaving] = useState(false);
@@ -285,7 +341,7 @@ function OrderReviewForm({ orderNumber, email, productId }: { orderNumber: strin
     if (!body.trim()) return toast({ title: "Write a short review first", variant: "destructive" });
     setSaving(true);
     try {
-      await submitOrderReview({ orderNumber, email, productId, rating: Number(rating) || 5, title: title || null, body });
+      await submitOrderReview({ orderNumber, email, productId, rating, title: title || null, body });
       setSubmitted(true);
       setOpen(false);
       toast({ title: "Review submitted", description: "It will appear after approval." });
@@ -304,8 +360,11 @@ function OrderReviewForm({ orderNumber, email, productId }: { orderNumber: strin
       </button>
       {open && (
         <form onSubmit={submit} className="mt-2 grid gap-2 rounded-md border border-[rgb(var(--vibe-border))] bg-[rgb(var(--vibe-surface))] p-3">
-          <div className="grid gap-2 sm:grid-cols-[100px_1fr]">
-            <Field label="Rating" type="number" min="1" max="5" step="0.1" value={rating} onChange={setRating} />
+          <div className="grid gap-3">
+            <label className="block text-[12px]">
+              <span className="mb-1.5 block text-[rgb(var(--vibe-muted))]">Rating</span>
+              <StarRatingInput value={rating} onChange={setRating} disabled={saving} />
+            </label>
             <Field label="Title" value={title} onChange={setTitle} placeholder="Optional" />
           </div>
           <label className="block text-[12px]">
@@ -464,7 +523,7 @@ function AddressForm({ userId, address, onCancel, onSaved }: { userId: string; a
     city: address?.city ?? "",
     state: address?.state ?? "",
     postal_code: address?.postal_code ?? "",
-    country: "India",
+    country: address?.country ?? "India",
     type: address?.type ?? "shipping",
   });
   const [saving, setSaving] = useState(false);
@@ -490,14 +549,116 @@ function AddressForm({ userId, address, onCancel, onSaved }: { userId: string; a
       <Field label="Address line 1" value={form.address_line_1} onChange={(v) => setForm({ ...form, address_line_1: v })} required className="sm:col-span-2" />
       <Field label="Address line 2" value={form.address_line_2} onChange={(v) => setForm({ ...form, address_line_2: v })} className="sm:col-span-2" />
       <Field label="City" value={form.city} onChange={(v) => setForm({ ...form, city: v })} required />
-      <Field label="State / union territory" value={form.state} onChange={(v) => setForm({ ...form, state: v })} required />
-      <Field label="PIN code" value={form.postal_code} onChange={(v) => setForm({ ...form, postal_code: v })} required />
-      <Field label="Country" value={form.country} disabled required />
+      <Field label="State / province / region" value={form.state} onChange={(v) => setForm({ ...form, state: v })} required />
+      <Field label="Postal code" value={form.postal_code} onChange={(v) => setForm({ ...form, postal_code: v })} required />
+      <AccountCountrySelect value={form.country} onChange={(country) => setForm({ ...form, country })} />
       <div className="sm:col-span-2 flex justify-end gap-2">
         <button type="button" onClick={onCancel} className="h-9 rounded-md border border-[rgb(var(--vibe-border))] px-3 text-[12px]">Cancel</button>
         <button type="submit" disabled={saving} className="h-9 rounded-md bg-[rgb(var(--vibe-foreground))] px-3 text-[12px] font-medium text-white disabled:opacity-60">{saving ? "Saving..." : "Save address"}</button>
       </div>
     </form>
+  );
+}
+
+function AccountCountrySelect({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const selected = useMemo(() => COUNTRIES.find((country) => country.name === value), [value]);
+  const filteredCountries = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return COUNTRIES;
+    return COUNTRIES.filter((country) => `${country.name} ${country.code}`.toLowerCase().includes(needle));
+  }, [query]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [open]);
+
+  const selectCountry = (country: CountryOption) => {
+    onChange(country.name);
+    setQuery("");
+    setOpen(false);
+  };
+
+  const handleSearchChange = (nextQuery: string) => {
+    setQuery(nextQuery);
+    const exactMatch = COUNTRIES.find((country) => country.name.toLowerCase() === nextQuery.trim().toLowerCase());
+    if (exactMatch) onChange(exactMatch.name);
+    if (!open) setOpen(true);
+  };
+
+  return (
+    <div ref={rootRef} className="relative text-[12px]">
+      <span className="mb-1.5 block text-[rgb(var(--vibe-muted))]">Country / region</span>
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        className="flex h-9 w-full items-center justify-between rounded-md border border-[rgb(var(--vibe-border))] bg-white px-3 text-left text-[13px] outline-none transition-colors hover:border-zinc-400 focus:ring-1 focus:ring-zinc-500"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+      >
+        <span className="flex min-w-0 items-center gap-2">
+          <CountryFlag country={selected} />
+          <span className="truncate">{value || "Choose your country"}</span>
+        </span>
+        <ChevronDown className={cn("ml-2 h-4 w-4 shrink-0 text-[rgb(var(--vibe-muted))] transition-transform", open && "rotate-180")} />
+      </button>
+
+      {open && (
+        <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-md border border-[rgb(var(--vibe-border))] bg-white shadow-xl">
+          <div className="border-b border-[rgb(var(--vibe-border))] p-2">
+            <input
+              value={query}
+              onChange={(event) => handleSearchChange(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && filteredCountries[0]) {
+                  event.preventDefault();
+                  selectCountry(filteredCountries[0]);
+                }
+                if (event.key === "Escape") setOpen(false);
+              }}
+              data-testid="account-address-country-input"
+              className="h-9 w-full rounded-md border border-[rgb(var(--vibe-border))] bg-[rgb(var(--vibe-surface))] px-3 text-[12px] outline-none focus:border-zinc-500 focus:bg-white"
+              autoComplete="off"
+              placeholder="Find your country..."
+              autoFocus
+            />
+          </div>
+          <div className="max-h-64 overflow-y-auto py-1" role="listbox">
+            {filteredCountries.length > 0 ? (
+              filteredCountries.map((country) => {
+                const isSelected = country.name === value;
+                return (
+                  <button
+                    key={country.code}
+                    type="button"
+                    onClick={() => selectCountry(country)}
+                    className={cn(
+                      "flex min-h-10 w-full items-center gap-2 px-3 text-left text-[12px] transition-colors hover:bg-[rgb(var(--vibe-surface))] focus:bg-[rgb(var(--vibe-surface))] focus:outline-none",
+                      isSelected && "bg-[rgb(var(--vibe-surface))] text-brand",
+                    )}
+                    role="option"
+                    aria-selected={isSelected}
+                  >
+                    <CountryFlag country={country} />
+                    <span className="min-w-0 flex-1 truncate">{country.name}</span>
+                    {isSelected && <span aria-hidden="true" className="shrink-0 text-[12px]">✓</span>}
+                  </button>
+                );
+              })
+            ) : (
+              <div className="px-3 py-3 text-[12px] text-[rgb(var(--vibe-muted))]">No country found.</div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

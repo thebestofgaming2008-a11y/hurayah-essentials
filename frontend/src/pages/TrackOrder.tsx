@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { ChevronDown, Package } from "lucide-react";
 import { SiteLayout } from "@/components/layout/SiteLayout";
+import { StarRatingInput } from "@/components/shop/ReviewStars";
 import { trackOrder } from "@/services/orderService";
 import type { Order } from "@/services/accountService";
 import { useCurrency } from "@/contexts/CurrencyContext";
@@ -183,7 +184,7 @@ function TrackedOrderItems({ order, email, formatPrice }: { order: Order; email:
 
 function TrackedReviewForm({ orderNumber, email, productId }: { orderNumber: string; email: string; productId: string }) {
   const [open, setOpen] = useState(false);
-  const [rating, setRating] = useState("5");
+  const [rating, setRating] = useState(5);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [saving, setSaving] = useState(false);
@@ -194,7 +195,7 @@ function TrackedReviewForm({ orderNumber, email, productId }: { orderNumber: str
     if (!body.trim()) return toast({ title: "Write a short review first", variant: "destructive" });
     setSaving(true);
     try {
-      await submitOrderReview({ orderNumber, email, productId, rating: Number(rating) || 5, title: title || null, body });
+      await submitOrderReview({ orderNumber, email, productId, rating, title: title || null, body });
       setSubmitted(true);
       setOpen(false);
       toast({ title: "Review submitted", description: "It will appear after approval." });
@@ -213,10 +214,10 @@ function TrackedReviewForm({ orderNumber, email, productId }: { orderNumber: str
       </button>
       {open && (
         <form onSubmit={submit} className="mt-2 grid gap-2 rounded-md border border-[rgb(var(--vibe-border))] bg-white p-3">
-          <div className="grid gap-2 sm:grid-cols-[100px_1fr]">
+          <div className="grid gap-3">
             <label className="block text-[12px]">
               <span className="mb-1.5 block text-[rgb(var(--vibe-muted))]">Rating</span>
-              <input type="number" min="1" max="5" step="0.1" value={rating} onChange={(event) => setRating(event.target.value)} className="h-9 w-full rounded-md border border-[rgb(var(--vibe-border))] bg-white px-3 text-[13px] outline-none focus:ring-1 focus:ring-zinc-500" />
+              <StarRatingInput value={rating} onChange={setRating} disabled={saving} />
             </label>
             <label className="block text-[12px]">
               <span className="mb-1.5 block text-[rgb(var(--vibe-muted))]">Title</span>

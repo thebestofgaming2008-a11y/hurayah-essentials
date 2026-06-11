@@ -1,0 +1,8 @@
+# Cloudflare Pages Functions local variables.
+# Copy to .dev.vars only for local Cloudflare Pages testing.
+# Never commit .dev.vars with real tokens.
+
+VITE_CONVEX_URL=https://<your-convex-deployment-name>.convex.cloud
+VITE_CONVEX_SITE_URL=https://<your-convex-deployment-name>.convex.site
+R2_PUBLIC_BASE_URL=https://media.<your-domain>
+ADMIN_UPLOAD_TOKEN=<generate-a-long-random-token>

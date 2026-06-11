@@ -28,6 +28,8 @@ interface AuthContextValue {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, fullName?: string) => Promise<{ error: Error | null }>;
+  requestPasswordReset: (email: string) => Promise<{ error: Error | null }>;
+  resetPassword: (email: string, code: string, newPassword: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -93,6 +95,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [convexSignIn, ensureCurrentProfile],
   );
 
+  const requestPasswordReset = useCallback(
+    async (email: string) => {
+      try {
+        await convexSignIn("password", {
+          email: email.trim().toLowerCase(),
+          flow: "reset",
+        });
+        return { error: null };
+      } catch (err) {
+        return { error: err instanceof Error ? err : new Error("Unable to send reset code.") };
+      }
+    },
+    [convexSignIn],
+  );
+
+  const resetPassword = useCallback(
+    async (email: string, code: string, newPassword: string) => {
+      try {
+        await convexSignIn("password", {
+          email: email.trim().toLowerCase(),
+          code: code.trim(),
+          newPassword,
+          flow: "reset-verification",
+        });
+        return { error: null };
+      } catch (err) {
+        return { error: err instanceof Error ? err : new Error("Unable to reset password.") };
+      }
+    },
+    [convexSignIn],
+  );
+
   const signOut = useCallback(async () => {
     await convexSignOut();
   }, [convexSignOut]);
@@ -100,8 +134,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshProfile = useCallback(async () => {}, []);
 
   const value = useMemo<AuthContextValue>(
-    () => ({ user, profile, isAdmin, loading, signIn, signUp, signOut, refreshProfile }),
-    [user, profile, isAdmin, loading, signIn, signUp, signOut, refreshProfile],
+    () => ({ user, profile, isAdmin, loading, signIn, signUp, requestPasswordReset, resetPassword, signOut, refreshProfile }),
+    [user, profile, isAdmin, loading, signIn, signUp, requestPasswordReset, resetPassword, signOut, refreshProfile],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

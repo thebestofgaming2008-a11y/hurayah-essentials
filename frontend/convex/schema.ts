@@ -225,4 +225,29 @@ export default defineSchema({
     value: v.any(),
     updated_at: v.string(),
   }).index("by_key", ["key"]),
+  audit_logs: defineTable({
+    actor_user_id: optionalString,
+    actor_email: optionalString,
+    action: v.string(),
+    entity_type: v.string(),
+    entity_id: optionalString,
+    summary: optionalString,
+    metadata: v.optional(v.any()),
+    created_at: v.string(),
+  })
+    .index("by_entity", ["entity_type", "entity_id"])
+    .index("by_created_at", ["created_at"]),
+  categories: defineTable({
+    slug: v.string(),
+    name: v.string(),
+    type: v.string(),
+    parent_slug: optionalString,
+    sort_order: optionalNumber,
+    is_active: optionalBoolean,
+    created_at: v.string(),
+    updated_at: v.string(),
+  })
+    .index("by_slug", ["slug"])
+    .index("by_type", ["type"])
+    .index("by_active", ["is_active"]),
 });

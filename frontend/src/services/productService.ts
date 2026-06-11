@@ -49,7 +49,17 @@ export interface Product {
   in_stock: boolean | null;
   created_at: string | null;
   updated_at: string | null;
+  search_text?: string | null;
 }
+
+const ACTIVE_PRODUCTS_CACHE_KEY = "he_active_products_v6";
+const OLD_ACTIVE_PRODUCTS_CACHE_KEYS = ["he_active_products_v3", "he_active_products_v4", "he_active_products_v5"];
+const ACTIVE_PRODUCTS_TTL_MS = 5 * 60 * 1000;
+const TOP_LEVEL_CATEGORY_KEYS = new Set(["books", "clothing", "children", "women", "essentials"]);
+const BOOK_SUBJECT_KEYS = new Set(["aqeedah", "arabic", "fiqh", "hadith", "purification", "seerah", "tafsir", "urdu"]);
+
+let activeProductsMemoryCache: { expiresAt: number; products: Product[] } | null = null;
+let activeProductsInFlight: Promise<Product[]> | null = null;
 
 function normalize(p: unknown): Product {
   const r = p as Record<string, unknown>;
@@ -63,29 +73,157 @@ function normalize(p: unknown): Product {
   } as Product;
 }
 
-export async function listActiveProducts(): Promise<Product[]> {
+function readActiveProductsCache(): Product[] | null {
+  if (typeof window === "undefined") return null;
+  if (activeProductsMemoryCache && activeProductsMemoryCache.expiresAt > Date.now()) {
+    if (activeProductsMemoryCache.products.length > 0) {
+      return activeProductsMemoryCache.products;
+    }
+    activeProductsMemoryCache = null;
+  }
   try {
-    return ((await convex.query(api.products.listActiveProducts, {})) as Product[]).map(normalize);
+    const cached = window.localStorage.getItem(ACTIVE_PRODUCTS_CACHE_KEY);
+    if (!cached) return null;
+    const parsed = JSON.parse(cached) as { expiresAt?: number; products?: unknown[] };
+    if (!parsed.expiresAt || parsed.expiresAt <= Date.now() || !Array.isArray(parsed.products) || parsed.products.length === 0) {
+      window.localStorage.removeItem(ACTIVE_PRODUCTS_CACHE_KEY);
+      return null;
+    }
+    const products = parsed.products.map(normalize);
+    activeProductsMemoryCache = { expiresAt: parsed.expiresAt, products };
+    return products;
   } catch {
-    return [];
+    return null;
+  }
+}
+
+async function fetchEdgeCatalog(cacheBust = false): Promise<unknown> {
+  const version = cacheBust ? `r2-compact-v2-20260610-${Date.now()}` : "r2-compact-v2-20260610";
+  const response = await fetch(`/api/catalog/products?v=${encodeURIComponent(version)}`, {
+    headers: { accept: "application/json" },
+    cache: cacheBust ? "no-store" : "default",
+  });
+  if (!response.ok) throw new Error("Catalog edge cache unavailable.");
+  return response.json();
+}
+
+function normalizeProductList(raw: unknown): Product[] {
+  if (!Array.isArray(raw)) throw new Error("Catalog response was not an array.");
+  const products = raw.map(normalize);
+  if (products.length === 0) throw new Error("Catalog response was empty.");
+  return products;
+}
+
+function writeActiveProductsCache(products: Product[]) {
+  if (!products.length) return;
+  const expiresAt = Date.now() + ACTIVE_PRODUCTS_TTL_MS;
+  activeProductsMemoryCache = { expiresAt, products };
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(ACTIVE_PRODUCTS_CACHE_KEY, JSON.stringify({ expiresAt, products }));
+  } catch {
+    // Cache is a performance optimization only.
+  }
+}
+
+function topCategory(product: Pick<Product, "category" | "category_id">): string | null {
+  const category = String(product.category ?? "").trim().toLowerCase();
+  const categoryId = String(product.category_id ?? "").trim().toLowerCase();
+  if (categoryId === "essentials" || category === "essentials") return "children";
+  if (TOP_LEVEL_CATEGORY_KEYS.has(categoryId)) return categoryId === "essentials" ? "children" : categoryId;
+  if (TOP_LEVEL_CATEGORY_KEYS.has(category)) return category === "essentials" ? "children" : category;
+  if (BOOK_SUBJECT_KEYS.has(categoryId) || BOOK_SUBJECT_KEYS.has(category)) return "books";
+  return category || categoryId || null;
+}
+
+export async function listActiveProducts(): Promise<Product[]> {
+  const cached = readActiveProductsCache();
+  if (cached) return cached;
+  if (activeProductsInFlight) return activeProductsInFlight;
+
+  const request = typeof window !== "undefined" ? fetchEdgeCatalog() : convex.query(api.products.listActiveProducts, {});
+
+  activeProductsInFlight = request
+    .then((raw) => {
+      const products = normalizeProductList(raw);
+      writeActiveProductsCache(products);
+      return products;
+    })
+    .catch(async () => {
+      if (typeof window !== "undefined") {
+        try {
+          const products = normalizeProductList(await fetchEdgeCatalog(true));
+          writeActiveProductsCache(products);
+          return products;
+        } catch {
+          // Fall through to Convex as the final source of truth.
+        }
+      }
+      try {
+        const products = ((await convex.query(api.products.listActiveProducts, {})) as Product[]).map(normalize);
+        writeActiveProductsCache(products);
+        return products;
+      } catch {
+        return [];
+      }
+    })
+    .finally(() => {
+      activeProductsInFlight = null;
+    });
+
+  return activeProductsInFlight;
+}
+
+export function clearProductListCache() {
+  activeProductsMemoryCache = null;
+  activeProductsInFlight = null;
+  if (typeof window !== "undefined") {
+    try {
+      window.localStorage.removeItem(ACTIVE_PRODUCTS_CACHE_KEY);
+      OLD_ACTIVE_PRODUCTS_CACHE_KEYS.forEach((key) => window.localStorage.removeItem(key));
+    } catch {
+      // Ignore storage failures.
+    }
   }
 }
 
 export async function getProductById(id: string): Promise<Product | null> {
   try {
-    const product = (await convex.query(api.products.getProductById, { id })) as Product | null;
+    const product =
+      typeof window !== "undefined"
+        ? ((await fetch(`/api/catalog/product?id=${encodeURIComponent(id)}`, { headers: { accept: "application/json" } }).then((response) => {
+            if (!response.ok) throw new Error("Product cache unavailable.");
+            return response.json();
+          })) as Product | null)
+        : ((await convex.query(api.products.getProductById, { id })) as Product | null);
     return product ? normalize(product) : null;
   } catch {
-    return null;
+    try {
+      const product = (await convex.query(api.products.getProductById, { id })) as Product | null;
+      return product ? normalize(product) : null;
+    } catch {
+      return null;
+    }
   }
 }
 
 export async function getProductBySlug(slug: string): Promise<Product | null> {
   try {
-    const product = (await convex.query(api.products.getProductBySlug, { slug })) as Product | null;
+    const product =
+      typeof window !== "undefined"
+        ? ((await fetch(`/api/catalog/product?slug=${encodeURIComponent(slug)}`, { headers: { accept: "application/json" } }).then((response) => {
+            if (!response.ok) throw new Error("Product cache unavailable.");
+            return response.json();
+          })) as Product | null)
+        : ((await convex.query(api.products.getProductBySlug, { slug })) as Product | null);
     return product ? normalize(product) : null;
   } catch {
-    return null;
+    try {
+      const product = (await convex.query(api.products.getProductBySlug, { slug })) as Product | null;
+      return product ? normalize(product) : null;
+    } catch {
+      return null;
+    }
   }
 }
 
@@ -95,15 +233,25 @@ export async function listFeatured(limit = 8): Promise<Product[]> {
 }
 
 export async function listByCategory(categorySlug: string): Promise<Product[]> {
-  try {
-    return ((await convex.query(api.products.listByCategory, { category: categorySlug })) as Product[]).map(normalize);
-  } catch {
-    return [];
-  }
+  const categoryKey = categorySlug === "essentials" ? "children" : categorySlug;
+  const data = await listActiveProducts();
+  return data.filter((product) => topCategory(product) === categoryKey || product.category_id === categorySlug || product.category === categorySlug);
 }
 
 export async function listByIds(ids: string[]): Promise<Product[]> {
   if (!ids.length) return [];
+  const cached = readActiveProductsCache();
+  if (cached) {
+    const byId = new Map(cached.map((product) => [product.id, product]));
+    if (ids.every((id) => byId.has(id))) {
+      return ids.map((id) => byId.get(id)).filter(Boolean) as Product[];
+    }
+  }
+  const products = await listActiveProducts();
+  const byId = new Map(products.map((product) => [product.id, product]));
+  if (ids.every((id) => byId.has(id))) {
+    return ids.map((id) => byId.get(id)).filter(Boolean) as Product[];
+  }
   try {
     return ((await convex.query(api.products.listByIds, { ids })) as Product[]).map(normalize);
   } catch {

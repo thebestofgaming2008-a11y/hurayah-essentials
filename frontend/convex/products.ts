@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { nowIso, publicProduct, publicProductCard, requireAdmin } from "./lib";
+import { nowIso, publicProduct, publicProductCard, requireAdmin, writeAuditLog } from "./lib";
 
 const productInput = {
   name: v.string(),
@@ -256,7 +256,7 @@ export const listActiveProducts = query({
       .query("products")
       .withIndex("by_active", (q) => q.eq("is_active", true))
       .collect();
-    return rows.filter(isLaunchReady).map(publicProductCard).sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")));
+    return rows.filter(isLaunchReady).sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? ""))).map(publicProductCard);
   },
 });
 
@@ -272,7 +272,7 @@ export const listAllProducts = query({
 export const getProductById = query({
   args: { id: v.string() },
   handler: async (ctx, args) => {
-    const doc = await ctx.db.get(args.id as any);
+    const doc = await ctx.db.get(args.id as any) as any;
     if (!doc || doc.is_active === false || !isLaunchReady(doc)) return null;
     return publicProduct(doc);
   },
@@ -317,7 +317,14 @@ export const createProduct = mutation({
     const payload = normalize(args);
     const existing = await ctx.db.query("products").withIndex("by_slug", (q) => q.eq("slug", payload.slug)).first();
     if (existing) throw new Error("A product with this slug already exists.");
-    const id = await ctx.db.insert("products", { ...payload, created_at: timestamp });
+    const id = await ctx.db.insert("products", { ...payload, created_at: timestamp } as any);
+    await writeAuditLog(ctx, {
+      action: "product.create",
+      entityType: "product",
+      entityId: String(id),
+      summary: payload.name,
+      metadata: { slug: payload.slug, category: payload.category, category_id: payload.category_id },
+    });
     const doc = await ctx.db.get(id);
     return doc ? publicProduct(doc) : null;
   },
@@ -327,7 +334,7 @@ export const updateProduct = mutation({
   args: { id: v.string(), patch: v.object(productPatch) },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
-    const current = await ctx.db.get(args.id as any);
+    const current = await ctx.db.get(args.id as any) as any;
     if (!current) throw new Error("Product not found.");
     const payload = normalize(args.patch, true, current.price_inr ?? current.price);
     if (payload.slug) {
@@ -335,7 +342,14 @@ export const updateProduct = mutation({
       if (existing && String(existing._id) !== args.id) throw new Error("A product with this slug already exists.");
     }
     await ctx.db.patch(args.id as any, payload);
-    const doc = await ctx.db.get(args.id as any);
+    await writeAuditLog(ctx, {
+      action: "product.update",
+      entityType: "product",
+      entityId: args.id,
+      summary: payload.name ?? current.name,
+      metadata: { changed: Object.keys(payload).filter((key) => key !== "updated_at") },
+    });
+    const doc = await ctx.db.get(args.id as any) as any;
     return doc ? publicProduct(doc) : null;
   },
 });
@@ -344,7 +358,15 @@ export const deleteProduct = mutation({
   args: { id: v.string() },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
+    const current = await ctx.db.get(args.id as any) as any;
     await ctx.db.delete(args.id as any);
+    await writeAuditLog(ctx, {
+      action: "product.delete",
+      entityType: "product",
+      entityId: args.id,
+      summary: current?.name ?? null,
+      metadata: { slug: current?.slug ?? null },
+    });
     return true;
   },
 });

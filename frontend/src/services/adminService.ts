@@ -84,16 +84,25 @@ export async function deleteProduct(id: string): Promise<boolean> {
 }
 
 export async function uploadProductImage(file: File): Promise<string | null> {
-  const uploadUrl = await convex.mutation(api.products.generateProductImageUploadUrl, {});
-  const result = await fetch(uploadUrl, {
-    method: "POST",
-    headers: { "Content-Type": file.type || "application/octet-stream" },
-    body: file,
-  });
-  if (!result.ok) return null;
-  const { storageId } = await result.json();
-  const url = await convex.query(api.products.getProductImageUrl, { storageId });
-  return url ? `${url}#${encodeURIComponent(file.name)}` : null;
+  try {
+    const media = await convex.action(api.media.createProductMediaUpload, {
+      fileName: file.name || "product-media",
+      contentType: file.type || "application/octet-stream",
+      size: file.size,
+    });
+    const result = await fetch(media.uploadUrl, {
+      method: media.method ?? "POST",
+      headers: media.headers,
+      body: file,
+    });
+    if (!result.ok) return null;
+    const payload = (await result.json().catch(() => null)) as { url?: string } | null;
+    const url = media.publicUrl || payload?.url;
+    return url ? `${url}#${encodeURIComponent(file.name)}` : null;
+  } catch (error) {
+    console.error("R2 product media upload failed", error);
+    return null;
+  }
 }
 
 export interface ShippingRate {

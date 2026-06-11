@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { adminEmail, nowIso, publicProfile, requireAdmin, requireIdentity } from "./lib";
+import { isAdminEmail, nowIso, publicProfile, requireAdmin, requireIdentity } from "./lib";
 
 async function getProfileByUserId(ctx: any, userId: string) {
   return await ctx.db
@@ -124,7 +124,7 @@ export const currentUser = query({
       id: auth.userId,
       email: authUser.email ?? null,
       name: authUser.name ?? null,
-      isAdmin: authUser.email?.trim().toLowerCase() === adminEmail(),
+      isAdmin: isAdminEmail(authUser.email),
     };
   },
 });

@@ -28,7 +28,7 @@ export const toggle = mutation({
       return { saved: false };
     }
 
-    const product = await ctx.db.get(args.productId as any);
+    const product = await ctx.db.get(args.productId as any) as any;
     if (!product || product.is_active === false) throw new Error("This product is no longer available.");
 
     await ctx.db.insert("wishlist_items", {

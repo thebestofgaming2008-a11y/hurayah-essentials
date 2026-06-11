@@ -40,7 +40,7 @@ export function SiteFooter({ compact = false }: { compact?: boolean }) {
       {!compact && (
         <div className="mx-auto grid max-w-[1440px] gap-10 px-4 py-12 md:grid-cols-4 md:px-8 md:py-16">
           <div>
-            <img src={logo} alt="Hurayrah Essentials" className="mb-3 h-10 w-auto object-contain" />
+            <img src={logo} alt="Hurayrah Essentials" width={472} height={316} loading="lazy" decoding="async" className="mb-3 h-10 w-auto object-contain" />
             <p className="max-w-xs text-sm text-foreground/60">
               Seeking knowledge, made affordable. Authentic books, clothing and essentials delivered across India.
             </p>

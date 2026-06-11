@@ -1,6 +1,6 @@
 import { SiteHeader } from "./SiteHeader";
 import { SiteFooter } from "./SiteFooter";
-import { CartDrawer } from "@/components/shop/CommerceDrawers";
+import { DeferredCartDrawer } from "@/components/shop/DeferredCartDrawer";
 
 export function SiteLayout({
   children,
@@ -14,9 +14,9 @@ export function SiteLayout({
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {!hideHeader && <SiteHeader />}
-      <main className="page-enter flex-1">{children}</main>
+      <main className="flex-1">{children}</main>
       <SiteFooter compact={compactFooter} />
-      <CartDrawer />
+      <DeferredCartDrawer />
     </div>
   );
 }
