@@ -29,6 +29,7 @@ export function SiteHeader() {
   const [scrolled, setScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
   const [menuClosing, setMenuClosing] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [noticeIndex, setNoticeIndex] = useState(0);
@@ -44,8 +45,11 @@ export function SiteHeader() {
 
   useEffect(() => {
     if (!menuOpen) return;
+    setMenuVisible(false);
+    const frame = window.requestAnimationFrame(() => setMenuVisible(true));
     document.body.style.overflow = "hidden";
     return () => {
+      window.cancelAnimationFrame(frame);
       document.body.style.overflow = "";
     };
   }, [menuOpen]);
@@ -70,14 +74,16 @@ export function SiteHeader() {
   };
 
   const closeMenu = () => {
+    setMenuVisible(false);
     setMenuClosing(true);
     window.setTimeout(() => {
       setMenuOpen(false);
       setMenuClosing(false);
-    }, 220);
+    }, 280);
   };
 
   const openAuthDialog = () => {
+    setMenuVisible(false);
     setMenuOpen(false);
     setMenuClosing(false);
     setAuthOpen(true);
@@ -262,14 +268,14 @@ export function SiteHeader() {
 
       {menuOpen && (
         <div
-          className={cn("fixed inset-0 z-50 bg-foreground/40 backdrop-blur-sm transition-opacity duration-200 md:hidden", menuClosing ? "opacity-0" : "opacity-100")}
+          className={cn("fixed inset-0 z-50 bg-foreground/40 backdrop-blur-sm transition-opacity duration-300 ease-out md:hidden", menuVisible && !menuClosing ? "opacity-100" : "opacity-0")}
           onClick={closeMenu}
           data-testid="site-header-mobile-menu-overlay"
         >
           <aside
             className={cn(
-              "absolute left-0 top-0 flex h-full w-[86%] max-w-[360px] flex-col overflow-y-auto border-r border-foreground/10 bg-hero shadow-2xl transition-transform duration-200 ease-out",
-              menuClosing ? "-translate-x-full" : "translate-x-0",
+              "absolute left-0 top-0 flex h-full w-[86%] max-w-[360px] transform-gpu flex-col overflow-y-auto border-r border-foreground/10 bg-hero shadow-2xl transition-transform duration-300 ease-out",
+              menuVisible && !menuClosing ? "translate-x-0" : "-translate-x-full",
             )}
             onClick={(event) => event.stopPropagation()}
             data-testid="site-header-mobile-menu-panel"
@@ -277,46 +283,46 @@ export function SiteHeader() {
             <div className="flex items-center justify-between border-b border-foreground/10 px-5 py-4">
               <Link to="/" onClick={closeMenu} className="inline-flex items-center gap-3">
                 <img src={logo} alt="" width={472} height={316} className="h-9 w-auto object-contain" />
-                <span className="text-[13px] font-semibold text-hero-foreground">Back to store</span>
+                <span className="text-[14px] font-semibold text-hero-foreground">Back to store</span>
               </Link>
               <button type="button" onClick={closeMenu} aria-label="Close menu" data-testid="site-header-close-menu-button" className="grid h-9 w-9 place-items-center rounded-md hover:bg-foreground/5">
                 <X className="h-5 w-5" />
               </button>
             </div>
             <nav className="flex flex-col gap-1 px-3 py-5">
-              {isAdmin && <Link to="/admin" onClick={closeMenu} className="rounded-md px-3 py-3 text-[14px] font-semibold text-brand hover:bg-white/55">Admin dashboard</Link>}
-              <Link to="/shop" onClick={closeMenu} className="rounded-md px-3 py-3 text-[14px] text-foreground hover:bg-white/55 hover:text-brand">Shop all</Link>
+              {isAdmin && <Link to="/admin" onClick={closeMenu} className="rounded-md px-3 py-3 text-[15px] font-semibold leading-5 text-brand transition-colors hover:bg-white/55">Admin dashboard</Link>}
+              <Link to="/shop" onClick={closeMenu} className="rounded-md px-3 py-3 text-[15px] leading-5 text-foreground transition-colors hover:bg-white/55 hover:text-brand">Shop all</Link>
               <details className="group rounded-md">
-                <summary className="flex cursor-pointer list-none items-center justify-between rounded-md px-3 py-3 text-[14px] text-foreground transition-colors hover:bg-white/55 hover:text-brand">
+                <summary className="flex cursor-pointer list-none items-center justify-between rounded-md px-3 py-3 text-[15px] leading-5 text-foreground transition-colors hover:bg-white/55 hover:text-brand">
                   Books
                   <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
                 </summary>
                 <div className="mb-2 ml-3 grid gap-1 border-l border-foreground/10 pl-3">
-                  <Link to="/shop?category=books" onClick={closeMenu} className="rounded-md px-3 py-2 text-[13px] font-semibold text-brand hover:bg-white/55">All books</Link>
+                  <Link to="/shop?category=books" onClick={closeMenu} className="rounded-md px-3 py-2.5 text-[14px] font-semibold leading-5 text-brand transition-colors hover:bg-white/55">All books</Link>
                   {BOOK_SUBJECTS.map((subject) => (
-                    <Link key={subject.key} to={subjectHref(subject.key)} onClick={closeMenu} className="rounded-md px-3 py-2 text-[13px] text-foreground/75 hover:bg-white/55 hover:text-brand">
+                    <Link key={subject.key} to={subjectHref(subject.key)} onClick={closeMenu} className="rounded-md px-3 py-2.5 text-[14px] leading-5 text-foreground/75 transition-colors hover:bg-white/55 hover:text-brand">
                       {subject.label}
                     </Link>
                   ))}
                 </div>
               </details>
-              <button type="button" onClick={() => goCategorySection("clothing")} className="w-full rounded-md px-3 py-3 text-left text-[14px] text-foreground hover:bg-white/55 hover:text-brand">Clothing</button>
-              <button type="button" onClick={() => goCategorySection("children")} className="w-full rounded-md px-3 py-3 text-left text-[14px] text-foreground hover:bg-white/55 hover:text-brand">Essentials</button>
-              <Link to="/contact" onClick={closeMenu} className="rounded-md px-3 py-3 text-[14px] text-foreground hover:bg-white/55 hover:text-brand">Contact</Link>
+              <button type="button" onClick={() => goCategorySection("clothing")} className="w-full rounded-md px-3 py-3 text-left text-[15px] leading-5 text-foreground transition-colors hover:bg-white/55 hover:text-brand">Clothing</button>
+              <button type="button" onClick={() => goCategorySection("children")} className="w-full rounded-md px-3 py-3 text-left text-[15px] leading-5 text-foreground transition-colors hover:bg-white/55 hover:text-brand">Essentials</button>
+              <Link to="/contact" onClick={closeMenu} className="rounded-md px-3 py-3 text-[15px] leading-5 text-foreground transition-colors hover:bg-white/55 hover:text-brand">Contact</Link>
               <div className="mt-3 border-t border-foreground/10 pt-3">
                 <CurrencySelector variant="menu" label className="mb-3 px-3" />
-                <Link to="/track" onClick={closeMenu} className="block rounded-md px-3 py-3 text-[14px] text-foreground hover:bg-white/55 hover:text-brand">Track order</Link>
+                <Link to="/track" onClick={closeMenu} className="block rounded-md px-3 py-3 text-[15px] leading-5 text-foreground transition-colors hover:bg-white/55 hover:text-brand">Track order</Link>
                 {user ? (
                   <>
-                    <Link to="/account" onClick={closeMenu} className="block rounded-md px-3 py-3 text-[14px] text-foreground hover:bg-white/55 hover:text-brand">My account</Link>
-                    <Link to="/wishlist" onClick={closeMenu} className="block rounded-md px-3 py-3 text-[14px] text-foreground hover:bg-white/55 hover:text-brand">Wishlist</Link>
-                    <button type="button" onClick={handleSignOut} className="inline-flex w-full items-center gap-2 rounded-md px-3 py-3 text-[14px] text-red-600 hover:bg-white/55">
+                    <Link to="/account" onClick={closeMenu} className="block rounded-md px-3 py-3 text-[15px] leading-5 text-foreground transition-colors hover:bg-white/55 hover:text-brand">My account</Link>
+                    <Link to="/wishlist" onClick={closeMenu} className="block rounded-md px-3 py-3 text-[15px] leading-5 text-foreground transition-colors hover:bg-white/55 hover:text-brand">Wishlist</Link>
+                    <button type="button" onClick={handleSignOut} className="inline-flex w-full items-center gap-2 rounded-md px-3 py-3 text-[15px] leading-5 text-red-600 transition-colors hover:bg-white/55">
                       <LogOut className="h-4 w-4" />
                       Sign out
                     </button>
                   </>
                 ) : (
-                  <button type="button" onClick={openAuthDialog} className="block w-full rounded-md px-3 py-3 text-left text-[14px] font-semibold text-brand hover:bg-white/55">Sign in</button>
+                  <button type="button" onClick={openAuthDialog} className="block w-full rounded-md px-3 py-3 text-left text-[15px] font-semibold leading-5 text-brand transition-colors hover:bg-white/55">Sign in</button>
                 )}
               </div>
             </nav>
