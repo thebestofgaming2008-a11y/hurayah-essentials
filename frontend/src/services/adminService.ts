@@ -83,6 +83,23 @@ export async function deleteProduct(id: string): Promise<boolean> {
   return await convex.mutation(api.products.deleteProduct, { id });
 }
 
+export async function refreshPublicCatalog(product?: Pick<Product, "id" | "slug"> | null) {
+  if (typeof window === "undefined") return;
+  const version = Date.now().toString();
+  const requests = [`/api/catalog/products?refresh=${encodeURIComponent(version)}`];
+  if (product?.id) requests.push(`/api/catalog/product?id=${encodeURIComponent(product.id)}&refresh=${encodeURIComponent(version)}`);
+  if (product?.slug) requests.push(`/api/catalog/product?slug=${encodeURIComponent(product.slug)}&refresh=${encodeURIComponent(version)}`);
+
+  await Promise.allSettled(
+    requests.map((url) =>
+      fetch(url, {
+        cache: "no-store",
+        headers: { accept: "application/json" },
+      }),
+    ),
+  );
+}
+
 export async function uploadProductImage(file: File): Promise<string | null> {
   const contentType = inferProductMediaType(file);
   if (file.size > 25 * 1024 * 1024) {

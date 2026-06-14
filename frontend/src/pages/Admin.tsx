@@ -57,6 +57,7 @@ import {
   listAllProducts,
   listAllReviews,
   listShippingRates,
+  refreshPublicCatalog,
   saveStoreSettings,
   uploadProductImage,
   updateProduct,
@@ -72,7 +73,7 @@ import {
   type AdminReview,
   type ShippingRate,
 } from "@/services/adminService";
-import type { Product } from "@/services/productService";
+import { clearProductListCache, type Product } from "@/services/productService";
 import { BOOK_SUBJECTS, CATEGORIES, formatPrice, normalizeBookSubject } from "@/data/products";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -691,6 +692,8 @@ export default function Admin() {
           }
         }
       }
+      clearProductListCache();
+      await refreshPublicCatalog(savedProduct);
       void refreshNotifications();
       setProductEditor(null);
     } catch (error) {
@@ -737,6 +740,8 @@ export default function Admin() {
       if (updated) {
         setProducts((current) => current.map((item) => (item.id === product.id ? updated : item)));
       }
+      clearProductListCache();
+      void refreshPublicCatalog(updated ?? product);
       void refreshNotifications();
     } catch {
       setProducts((current) => current.map((item) => (item.id === product.id ? product : item)));
@@ -751,6 +756,8 @@ export default function Admin() {
       const removed = await deleteProduct(product.id);
       if (!removed) throw new Error("Delete failed");
       setProducts((current) => current.filter((item) => item.id !== product.id));
+      clearProductListCache();
+      void refreshPublicCatalog(product);
       toast({ title: "Product deleted", description: product.name });
       void refreshNotifications();
     } catch {
@@ -764,6 +771,8 @@ export default function Admin() {
     try {
       const updated = await updateProduct(product.id, { is_active: nextActive });
       if (updated) setProducts((current) => current.map((item) => (item.id === product.id ? updated : item)));
+      clearProductListCache();
+      void refreshPublicCatalog(updated ?? product);
       void refreshNotifications();
     } catch {
       setProducts((current) => current.map((item) => (item.id === product.id ? product : item)));
@@ -795,6 +804,8 @@ export default function Admin() {
       });
       if (!created) throw new Error("Duplicate failed");
       setProducts((current) => [created, ...current]);
+      clearProductListCache();
+      void refreshPublicCatalog(created);
       setProductEditor(created);
       toast({ title: "Product duplicated", description: "Review it before activating." });
     } catch {

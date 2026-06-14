@@ -52,9 +52,9 @@ export interface Product {
   search_text?: string | null;
 }
 
-const ACTIVE_PRODUCTS_CACHE_KEY = "he_active_products_v7";
-const OLD_ACTIVE_PRODUCTS_CACHE_KEYS = ["he_active_products_v3", "he_active_products_v4", "he_active_products_v5", "he_active_products_v6"];
-const ACTIVE_PRODUCTS_TTL_MS = 5 * 60 * 1000;
+const ACTIVE_PRODUCTS_CACHE_KEY = "he_active_products_v8";
+const OLD_ACTIVE_PRODUCTS_CACHE_KEYS = ["he_active_products_v3", "he_active_products_v4", "he_active_products_v5", "he_active_products_v6", "he_active_products_v7"];
+const ACTIVE_PRODUCTS_TTL_MS = 60 * 1000;
 const TOP_LEVEL_CATEGORY_KEYS = new Set(["books", "clothing", "children", "women", "essentials"]);
 const BOOK_SUBJECT_KEYS = new Set([
   "aqeedah",

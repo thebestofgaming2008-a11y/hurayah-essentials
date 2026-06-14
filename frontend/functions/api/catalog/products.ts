@@ -4,9 +4,11 @@ type Env = {
 };
 
 const CATALOG_KEY = "catalog/products-compact-v4-subjects.json";
+const FRONTEND_CATALOG_VERSION = "r2-compact-v3-subjects-20260611";
 const SNAPSHOT_TTL_MS = 5 * 60 * 1000;
 const CATALOG_CACHE_CONTROL = "public, max-age=60, s-maxage=600, stale-while-revalidate=86400";
 const STALE_CATALOG_CACHE_CONTROL = "public, max-age=30, s-maxage=60, stale-while-revalidate=86400";
+const REFRESH_CACHE_CONTROL = "no-store";
 
 function json(data: unknown, init: ResponseInit = {}) {
   const headers = new Headers(init.headers);
@@ -121,6 +123,39 @@ async function refreshSnapshot(env: Env, convexUrl: string, cache: Cache, cacheK
   );
 }
 
+async function refreshCatalogNow(env: Env, convexUrl: string, request: Request, cache: Cache) {
+  const catalog = compactCatalog(await fetchCatalogFromConvex(convexUrl));
+  const body = JSON.stringify(catalog);
+  if (env.MEDIA_BUCKET) {
+    await env.MEDIA_BUCKET.put(CATALOG_KEY, body, {
+      httpMetadata: { contentType: "application/json; charset=utf-8" },
+      customMetadata: { updatedAt: String(Date.now()) },
+    });
+
+    const url = new URL(request.url);
+    const canonical = new URL(request.url);
+    canonical.search = `?v=${encodeURIComponent(FRONTEND_CATALOG_VERSION)}`;
+    const response = new Response(body, {
+      headers: {
+        "content-type": "application/json; charset=utf-8",
+        "cache-control": CATALOG_CACHE_CONTROL,
+        "x-catalog-source": "convex-refresh",
+      },
+    });
+    await Promise.all([
+      cache.put(new Request(`${url.origin}${url.pathname}${url.search}`, request), response.clone()),
+      cache.put(new Request(canonical.toString(), request), response.clone()),
+    ]);
+  }
+  return new Response(body, {
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": REFRESH_CACHE_CONTROL,
+      "x-catalog-source": "convex-refresh",
+    },
+  });
+}
+
 export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
   const convexUrl = env.VITE_CONVEX_URL?.replace(/\/+$/, "");
   if (!convexUrl) return json({ error: "Convex URL is not configured." }, { status: 500 });
@@ -128,6 +163,13 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
 
   const cache = caches.default;
   const url = new URL(request.url);
+  if (url.searchParams.has("refresh")) {
+    try {
+      return await refreshCatalogNow(env, convexUrl, request, cache);
+    } catch {
+      return json({ error: "Catalog refresh failed." }, { status: 502 });
+    }
+  }
   const cacheKey = new Request(`${url.origin}${url.pathname}${url.search}`, request);
   const cached = await cache.match(cacheKey);
   if (cached) return cached;
