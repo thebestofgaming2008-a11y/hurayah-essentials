@@ -84,26 +84,66 @@ export async function deleteProduct(id: string): Promise<boolean> {
 }
 
 export async function uploadProductImage(file: File): Promise<string | null> {
-  try {
-    const media = await convex.action(api.media.createProductMediaUpload, {
-      fileName: file.name || "product-media",
-      contentType: file.type || "application/octet-stream",
-      size: file.size,
-    });
-    const result = await fetch(media.uploadUrl, {
-      method: media.method ?? "POST",
-      headers: media.headers,
-      body: file,
-    });
-    if (!result.ok) return null;
-    const payload = (await result.json().catch(() => null)) as { url?: string } | null;
-    const url = media.publicUrl || payload?.url;
-    return url ? `${url}#${encodeURIComponent(file.name)}` : null;
-  } catch (error) {
-    console.error("R2 product media upload failed", error);
-    return null;
+  const contentType = inferProductMediaType(file);
+  if (file.size > 25 * 1024 * 1024) {
+    throw new Error("Product media must be 25 MB or smaller.");
   }
+  if (!contentType) {
+    throw new Error("Upload JPG, PNG, WebP, AVIF, GIF, MP4, or WebM. HEIC/HEIF phone photos must be exported as JPG first.");
+  }
+
+  const media = await convex.action(api.media.createProductMediaUpload, {
+    fileName: file.name || "product-media",
+    contentType,
+    size: file.size,
+  });
+  const result = await fetch(media.uploadUrl, {
+    method: media.method ?? "POST",
+    headers: media.headers,
+    body: file,
+  });
+  if (!result.ok) {
+    const payload = (await result.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(payload?.error || `Upload failed with status ${result.status}.`);
+  }
+  const payload = (await result.json().catch(() => null)) as { url?: string } | null;
+  const url = media.publicUrl || payload?.url;
+  if (!url) throw new Error("Upload finished, but no media URL was returned.");
+  return `${url}#${encodeURIComponent(file.name)}`;
 }
+
+function inferProductMediaType(file: File) {
+  const declared = file.type === "image/jpg" ? "image/jpeg" : file.type;
+  if (SUPPORTED_PRODUCT_MEDIA_TYPES.has(declared)) return declared;
+
+  const extension = file.name.toLowerCase().split(".").pop() ?? "";
+  return PRODUCT_MEDIA_TYPES_BY_EXTENSION[extension] ?? null;
+}
+
+const SUPPORTED_PRODUCT_MEDIA_TYPES = new Set([
+  "image/avif",
+  "image/gif",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "video/mp4",
+  "video/webm",
+]);
+
+const PRODUCT_MEDIA_TYPES_BY_EXTENSION: Record<string, string | null> = {
+  avif: "image/avif",
+  gif: "image/gif",
+  jpeg: "image/jpeg",
+  jpg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  mp4: "video/mp4",
+  webm: "video/webm",
+  heic: null,
+  heif: null,
+  mov: null,
+  m4v: null,
+};
 
 export interface ShippingRate {
   id: string;

@@ -1648,16 +1648,24 @@ function ProductEditorDialog({
     try {
       const url = await uploadProductImage(file);
       if (url) setField("cover_image_url", url);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Try a smaller JPG, PNG, WebP, AVIF, GIF, MP4, or WebM file.";
+      toast({ title: "Could not upload cover photo", description: message, variant: "destructive" });
     } finally {
       setUploading(false);
     }
   };
   const handleGalleryImages = async (files?: FileList | File[] | null) => {
-    const batch = Array.from(files ?? []).filter((file) => file.type.startsWith("image/") || file.type.startsWith("video/"));
+    const batch = Array.from(files ?? []);
     if (!batch.length) return;
     setUploading(true);
     try {
-      const uploaded = (await Promise.all(batch.map((file) => uploadProductImage(file)))).filter(Boolean);
+      const results = await Promise.allSettled(batch.map((file) => uploadProductImage(file)));
+      const uploaded = results
+        .filter((result): result is PromiseFulfilledResult<string | null> => result.status === "fulfilled")
+        .map((result) => result.value)
+        .filter(Boolean);
+      const failed = results.filter((result) => result.status === "rejected");
       if (uploaded.length) {
         const existing = form.images.split("\n").map((image) => image.trim()).filter(Boolean);
         const [first, ...rest] = uploaded;
@@ -1667,6 +1675,15 @@ function ProductEditorDialog({
         } else {
           setField("images", Array.from(new Set([...existing, ...uploaded])).join("\n"));
         }
+      }
+      if (failed.length) {
+        const firstError = failed[0] as PromiseRejectedResult;
+        const message = firstError.reason instanceof Error ? firstError.reason.message : "Try a smaller JPG, PNG, WebP, AVIF, GIF, MP4, or WebM file.";
+        toast({
+          title: uploaded.length ? "Some media did not upload" : "Could not upload media",
+          description: message,
+          variant: "destructive",
+        });
       }
     } finally {
       setUploading(false);
@@ -1748,11 +1765,11 @@ function ProductEditorDialog({
             <div className="grid grid-cols-2 gap-2">
               <label className="inline-flex h-11 cursor-pointer items-center justify-center rounded-md border border-[rgb(var(--vibe-border))] px-3 text-[12px] transition-colors hover:bg-[rgb(var(--vibe-accent))]">
                 Cover photo
-                <input type="file" accept=".jpg,.jpeg,.png,.webp,.gif" onChange={(event) => handleImage(event.target.files?.[0])} className="sr-only" />
+                <input type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif,.jpg,.jpeg,.png,.webp,.gif,.avif" onChange={(event) => handleImage(event.target.files?.[0])} className="sr-only" />
               </label>
               <label className="inline-flex h-11 cursor-pointer items-center justify-center rounded-md border border-[rgb(var(--vibe-border))] px-3 text-[12px] transition-colors hover:bg-[rgb(var(--vibe-accent))]">
                 Gallery media
-                <input type="file" accept=".jpg,.jpeg,.png,.webp,.gif,.mp4,.webm,.mov,.m4v" multiple onChange={(event) => handleGalleryImages(event.target.files)} className="sr-only" />
+                <input type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif,video/mp4,video/webm,.jpg,.jpeg,.png,.webp,.gif,.avif,.mp4,.webm" multiple onChange={(event) => handleGalleryImages(event.target.files)} className="sr-only" />
               </label>
             </div>
             <ProductInputField label="Image URL" value={form.cover_image_url} onChange={(value) => setField("cover_image_url", value)} />
@@ -1776,7 +1793,7 @@ function ProductEditorDialog({
               <p className="font-medium text-[rgb(var(--vibe-foreground))]">Paste or drop media</p>
               <p className="mt-1 leading-5">Paste screenshots with Ctrl+V, or drag images/videos here in bulk.</p>
             </div>
-            {uploading && <p className="text-[11px] text-[rgb(var(--vibe-muted))]">Uploading to Convex storage...</p>}
+            {uploading && <p className="text-[11px] text-[rgb(var(--vibe-muted))]">Uploading to R2 media...</p>}
             {gallery.length > 0 && (
               <div className="flex gap-3 overflow-x-auto pb-2">
                 {gallery.map((image, index) => (
