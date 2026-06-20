@@ -737,11 +737,22 @@ export const razorpayWebhook = httpAction(async (ctx, request) => {
   const eventId = request.headers.get("x-razorpay-event-id") ?? "";
   if (!eventId) return new Response("Missing event ID.", { status: 400 });
   const payload = JSON.parse(rawBody);
-  const payment = payload?.payload?.payment?.entity;
+  let payment = payload?.payload?.payment?.entity;
   const order = payload?.payload?.order?.entity;
+  const eventType = cleanText(payload?.event, 80);
+  if (eventType === "order.paid" && !payment?.id && order?.id) {
+    const result = await razorpayRequest(`/orders/${cleanText(order.id, 120)}/payments`);
+    const payments = Array.isArray(result?.items) ? result.items : [];
+    payment = payments.find((item: any) =>
+      item?.status === "captured" &&
+      item?.order_id === order.id &&
+      item?.currency === "INR" &&
+      Number.isFinite(item?.amount)
+    );
+  }
   await ctx.runMutation(internal.orders.recordRazorpayWebhook, {
     event_id: eventId,
-    event_type: cleanText(payload?.event, 80),
+    event_type: payment?.status === "captured" ? "payment.captured" : eventType,
     razorpay_order_id: payment?.order_id ? cleanText(payment.order_id, 120) : order?.id ? cleanText(order.id, 120) : undefined,
     razorpay_payment_id: payment?.id ? cleanText(payment.id, 120) : undefined,
     amount_paise: Number.isFinite(payment?.amount) ? payment.amount : undefined,
