@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { action, httpAction, internalMutation, internalQuery, mutation, query } from "./_generated/server";
+import { action, httpAction, internalAction, internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { nowIso, publicOrder, requireAdmin, requireIdentity, writeAuditLog } from "./lib";
 import { checkoutShippingForCountry } from "./shipping";
@@ -634,6 +634,55 @@ export const findCheckoutIntent = internalQuery({
   args: { razorpay_order_id: v.string() },
   handler: async (ctx, args) => {
     return await ctx.db.query("checkout_intents").withIndex("by_razorpay_order_id", (q: any) => q.eq("razorpay_order_id", args.razorpay_order_id)).first();
+  },
+});
+
+export const listUnresolvedCheckoutIntents = internalQuery({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const limit = Math.min(Math.max(args.limit ?? 50, 1), 100);
+    const statuses = ["pending", "released"];
+    const rows = [];
+    const cutoff = Date.now() - 14 * 24 * 60 * 60 * 1000;
+    for (const status of statuses) {
+      const matches = await ctx.db.query("checkout_intents").withIndex("by_status", (q) => q.eq("status", status)).collect();
+      rows.push(...matches.filter((intent) => !intent.payment_id && intent.expires_at >= cutoff));
+    }
+    return rows.sort((a, b) => b._creationTime - a._creationTime).slice(0, limit);
+  },
+});
+
+export const reconcileCapturedPayments = internalAction({
+  args: {},
+  handler: async (ctx) => {
+    const intents: any[] = await ctx.runQuery(internal.orders.listUnresolvedCheckoutIntents, { limit: 75 });
+    let finalized = 0;
+    let checked = 0;
+    const errors: string[] = [];
+    for (const intent of intents) {
+      checked += 1;
+      try {
+        const result = await razorpayRequest(`/orders/${intent.razorpay_order_id}/payments`);
+        const payments = Array.isArray(result?.items) ? result.items : [];
+        const captured = payments.find((payment: any) =>
+          payment?.status === "captured" &&
+          payment?.amount === intent.amount_paise &&
+          payment?.currency === "INR" &&
+          payment?.order_id === intent.razorpay_order_id
+        );
+        if (!captured?.id) continue;
+        const order = await ctx.runMutation(internal.orders.finalizeCheckoutIntent, {
+          razorpay_order_id: intent.razorpay_order_id,
+          razorpay_payment_id: cleanText(captured.id, 120),
+          amount_paise: captured.amount,
+          currency: captured.currency,
+        });
+        if (order) finalized += 1;
+      } catch (error) {
+        errors.push(`${intent.razorpay_order_id}: ${error instanceof Error ? cleanText(error.message, 160) : "Unknown reconciliation error"}`);
+      }
+    }
+    return { checked, finalized, errors: errors.slice(0, 10) };
   },
 });
 
