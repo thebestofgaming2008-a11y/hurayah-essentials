@@ -133,9 +133,14 @@ function DrawerShell({
 
 export function CartDrawer() {
   const { cartOpen, closeCart, cartLines, cartSubtotal, cartCount, updateQty, removeFromCart, toggleWishlist, isWishlisted, addToCart } = useShop();
-  const { format } = useCurrency();
+  const { detectedCountry, format } = useCurrency();
   const navigate = useNavigate();
   const [recommendations, setRecommendations] = useState<Product[]>([]);
+  const isIndiaVisitor = String(detectedCountry ?? "").toUpperCase() === "IN";
+  const shippingLabel = isIndiaVisitor ? "Included" : "Confirmed at checkout";
+  const shippingNote = isIndiaVisitor
+    ? "Shipping is included across India."
+    : "International shipping and payment details are confirmed on WhatsApp at checkout.";
   const shipping = 0;
   const total = cartSubtotal + shipping;
 
@@ -271,7 +276,7 @@ export function CartDrawer() {
           <div className="border-t border-[rgb(var(--vibe-border))] bg-white p-4">
             <dl className="space-y-2 text-[12px]">
               <div className="flex justify-between"><dt className="text-[rgb(var(--vibe-muted))]">Subtotal</dt><dd className="font-mono font-medium tabular-nums">{format(cartSubtotal)}</dd></div>
-              <div className="flex justify-between"><dt className="text-[rgb(var(--vibe-muted))]">Shipping</dt><dd className="font-mono font-medium tabular-nums">Included</dd></div>
+              <div className="flex justify-between"><dt className="text-[rgb(var(--vibe-muted))]">Shipping</dt><dd className="font-mono font-medium tabular-nums">{shippingLabel}</dd></div>
               <div className="flex justify-between border-t border-[rgb(var(--vibe-border))] pt-3 text-[13px]"><dt className="font-medium">Total</dt><dd className="font-mono font-semibold tabular-nums">{format(total)}</dd></div>
             </dl>
             <button type="button" onClick={goCheckout} className="mt-4 flex h-9 w-full items-center justify-center gap-2 rounded-md bg-[rgb(var(--vibe-foreground))] px-3 text-[12px] font-medium text-white transition-opacity hover:opacity-90">
@@ -279,7 +284,7 @@ export function CartDrawer() {
             </button>
             <PaymentMethods compact className="mt-4" />
             <p className="mt-2 text-center text-[11px] text-[rgb(var(--vibe-muted))]">
-              Shipping is included across India.
+              {shippingNote}
             </p>
           </div>
         </>

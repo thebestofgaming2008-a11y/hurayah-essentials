@@ -6,8 +6,13 @@ import { PaymentMethods } from "@/components/shop/PaymentMethods";
 
 const Cart = () => {
   const { cartLines, cartSubtotal, updateQty, removeFromCart } = useShop();
-  const { format } = useCurrency();
+  const { detectedCountry, format } = useCurrency();
   const navigate = useNavigate();
+  const isIndiaVisitor = String(detectedCountry ?? "").toUpperCase() === "IN";
+  const shippingLabel = isIndiaVisitor ? "Included" : "Confirmed at checkout";
+  const shippingNote = isIndiaVisitor
+    ? "Shipping is included across India."
+    : "International shipping and payment details are confirmed on WhatsApp at checkout.";
   const shipping = 0;
   const total = cartSubtotal + shipping;
 
@@ -112,7 +117,7 @@ const Cart = () => {
                 <div className="flex justify-between">
                   <dt className="text-[rgb(var(--vibe-muted))]">Shipping</dt>
                   <dd className="font-mono font-medium">
-                    Included
+                    {shippingLabel}
                   </dd>
                 </div>
                 <div className="mt-3 flex justify-between border-t border-[rgb(var(--vibe-border))] pt-3 text-[13px]">
@@ -129,7 +134,7 @@ const Cart = () => {
               </button>
               <PaymentMethods compact className="mt-4" />
               <p className="mt-3 text-center text-[11px] text-[rgb(var(--vibe-muted))]">
-                Shipping is included across India.
+                {shippingNote}
               </p>
             </aside>
           </div>
