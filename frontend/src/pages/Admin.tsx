@@ -264,14 +264,26 @@ function addressPreview(order: AdminOrder) {
   return lines.length ? lines.join(" · ") : "No shipping address saved";
 }
 
-function whatsappPhone(phone?: string | null) {
+function orderCustomerPhone(order: AdminOrder) {
+  return order.customer_phone || order.shipping_address?.phone || null;
+}
+
+function orderCustomerCountry(order: AdminOrder) {
+  return order.shipping_address?.country || null;
+}
+
+function whatsappPhone(phone?: string | null, country?: string | null) {
   const digits = (phone ?? "").replace(/\D/g, "");
   if (!digits) return null;
-  return digits.startsWith("00") ? digits.slice(2) : digits;
+  const normalized = digits.startsWith("00") ? digits.slice(2) : digits;
+  const isIndia = String(country ?? "").trim().toLowerCase() === "india";
+  if (isIndia && normalized.length === 10) return `91${normalized}`;
+  if (isIndia && normalized.length === 11 && normalized.startsWith("0")) return `91${normalized.slice(1)}`;
+  return normalized;
 }
 
 function trackingWhatsappUrl(order: AdminOrder, form: OrderFulfillmentState) {
-  const phone = whatsappPhone(order.customer_phone);
+  const phone = whatsappPhone(orderCustomerPhone(order), orderCustomerCountry(order));
   if (!phone) return null;
   const orderLabel = order.order_number ?? order.id.slice(0, 8);
   const carrier = form.carrier.trim() || "courier";
@@ -286,7 +298,24 @@ function trackingWhatsappUrl(order: AdminOrder, form: OrderFulfillmentState) {
   return `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(lines.join("\n"))}`;
 }
 
-function openWhatsapp(url: string) {
+function reserveWhatsappWindow() {
+  const popup = window.open("about:blank", "_blank");
+  if (!popup) return null;
+  try {
+    popup.opener = null;
+    popup.document.title = "Opening WhatsApp...";
+    popup.document.body.innerHTML = '<p style="font-family: system-ui, sans-serif; padding: 24px;">Opening WhatsApp...</p>';
+  } catch {
+    // Some mobile browsers do not allow writing to the placeholder window.
+  }
+  return popup;
+}
+
+function openWhatsapp(url: string, popup?: Window | null) {
+  if (popup && !popup.closed) {
+    popup.location.href = url;
+    return;
+  }
   const link = document.createElement("a");
   link.href = url;
   link.target = "_blank";
@@ -520,6 +549,7 @@ export default function Admin() {
       toast({ title: "Customer phone is missing", description: "Add a phone number to the order before sending tracking.", variant: "destructive" });
       return;
     }
+    const whatsappWindow = reserveWhatsappWindow();
     try {
       let patch: Partial<AdminOrder> = {};
       if (
@@ -547,10 +577,11 @@ export default function Admin() {
         patch = { ...patch, status: nextStatus };
       }
       patchOrderLocally(order.id, patch);
-      openWhatsapp(whatsappUrl);
+      openWhatsapp(whatsappUrl, whatsappWindow);
       toast({ title: "Tracking opened in WhatsApp", description: order.order_number ?? order.id.slice(0, 8) });
       void refreshNotifications();
     } catch {
+      if (whatsappWindow && !whatsappWindow.closed) whatsappWindow.close();
       toast({ title: "Could not send tracking", variant: "destructive" });
     }
   };
@@ -2197,7 +2228,7 @@ function OrderDetailsDialog({
       setSavingStatus(false);
     }
   };
-  const canSendTracking = Boolean(form.trackingNumber.trim() && order.customer_phone);
+  const canSendTracking = Boolean(form.trackingNumber.trim() && orderCustomerPhone(order));
   const statusChanged = form.status !== fulfillmentStatus(order);
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/35 p-0 sm:items-center sm:p-6">
@@ -2269,7 +2300,7 @@ function OrderDetailsDialog({
               <button type="button" onClick={sendTracking} disabled={saving || !canSendTracking} className="mt-3 h-11 w-full rounded-md bg-[rgb(var(--vibe-foreground))] px-3 text-[12px] font-medium text-white transition-all hover:opacity-90 disabled:opacity-50">
                 {saving ? "Opening WhatsApp..." : "Send tracking on WhatsApp"}
               </button>
-              {!order.customer_phone && <p className="mt-2 text-[11px] text-red-600">Customer phone is required before tracking can be sent.</p>}
+              {!orderCustomerPhone(order) && <p className="mt-2 text-[11px] text-red-600">Customer phone is required before tracking can be sent.</p>}
             </div>
             <div className="rounded-lg border border-[rgb(var(--vibe-border))] p-4 text-[12px]">
               <p className="font-medium">Customer</p>
