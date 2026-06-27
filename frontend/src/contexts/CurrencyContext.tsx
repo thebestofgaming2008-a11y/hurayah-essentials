@@ -149,7 +149,14 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
   const format = useCallback(
     (amountInr: number | null | undefined) => {
       const converted = convertFromInr(amountInr);
-      if (converted == null) return "-";
+      if (converted == null) {
+        if (amountInr == null) return "-";
+        return new Intl.NumberFormat("en-IN", {
+          style: "currency",
+          currency: "INR",
+          maximumFractionDigits: 0,
+        }).format(amountInr);
+      }
       return new Intl.NumberFormat("en", {
         style: "currency",
         currency,
