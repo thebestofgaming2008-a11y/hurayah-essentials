@@ -616,6 +616,22 @@ export default function Admin() {
       toast({ title: "Name, price, and category are required", variant: "destructive" });
       return;
     }
+    if (form.is_active && !form.cover_image_url.trim()) {
+      toast({
+        title: "Add a cover photo before publishing",
+        description: "Active products need a cover photo so they can appear correctly in the shop.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (form.is_active && !form.short_description.trim() && !form.description.trim()) {
+      toast({
+        title: "Add a description before publishing",
+        description: "Active products need at least a short description so they can appear in the public catalog.",
+        variant: "destructive",
+      });
+      return;
+    }
     const currentProduct = productEditor && productEditor !== "new" ? productEditor : null;
     const variantGroup = slugifyAdmin(form.variant_group);
     if (variantGroup) {
@@ -724,7 +740,15 @@ export default function Admin() {
         }
       }
       clearProductListCache();
-      await refreshPublicCatalog(savedProduct);
+      try {
+        await refreshPublicCatalog(savedProduct);
+      } catch (refreshError) {
+        toast({
+          title: "Product saved, shop refresh delayed",
+          description: refreshError instanceof Error ? refreshError.message : "Open the shop once and refresh if the product does not appear immediately.",
+          variant: "destructive",
+        });
+      }
       void refreshNotifications();
       setProductEditor(null);
     } catch (error) {

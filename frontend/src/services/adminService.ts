@@ -67,7 +67,11 @@ export async function createProduct(input: ProductInput): Promise<Product | null
     slug: input.slug || slugify(input.name) || null,
     price: input.price ?? input.price_inr,
   };
-  return (await convex.mutation(api.products.createProduct, payload)) as Product | null;
+  try {
+    return (await convex.mutation(api.products.createProduct, payload)) as Product | null;
+  } catch (error) {
+    throw new Error(adminMutationMessage(error, "Could not create product."));
+  }
 }
 
 export async function updateProduct(
@@ -76,7 +80,11 @@ export async function updateProduct(
 ): Promise<Product | null> {
   const next: Record<string, unknown> = { ...patch };
   if (patch.price_inr != null && patch.price == null) next.price = patch.price_inr;
-  return (await convex.mutation(api.products.updateProduct, { id, patch: next })) as Product | null;
+  try {
+    return (await convex.mutation(api.products.updateProduct, { id, patch: next })) as Product | null;
+  } catch (error) {
+    throw new Error(adminMutationMessage(error, "Could not update product."));
+  }
 }
 
 export async function deleteProduct(id: string): Promise<boolean> {
@@ -90,7 +98,7 @@ export async function refreshPublicCatalog(product?: Pick<Product, "id" | "slug"
   if (product?.id) requests.push(`/api/catalog/product?id=${encodeURIComponent(product.id)}&refresh=${encodeURIComponent(version)}`);
   if (product?.slug) requests.push(`/api/catalog/product?slug=${encodeURIComponent(product.slug)}&refresh=${encodeURIComponent(version)}`);
 
-  await Promise.allSettled(
+  const results = await Promise.allSettled(
     requests.map((url) =>
       fetch(url, {
         cache: "no-store",
@@ -98,6 +106,8 @@ export async function refreshPublicCatalog(product?: Pick<Product, "id" | "slug"
       }),
     ),
   );
+  const failed = results.some((result) => result.status === "rejected" || (result.status === "fulfilled" && !result.value.ok));
+  if (failed) throw new Error("Product saved, but the public shop cache could not refresh. Refresh the shop once and check it before announcing the product.");
 }
 
 export async function uploadProductImage(file: File): Promise<string | null> {
@@ -110,15 +120,20 @@ export async function uploadProductImage(file: File): Promise<string | null> {
   }
 
   const media = await convex.action(api.media.createProductMediaUpload, {
-    fileName: file.name || "product-media",
+    fileName: safeUploadFileName(file.name || "product-media"),
     contentType,
     size: file.size,
   });
-  const result = await fetch(media.uploadUrl, {
-    method: media.method ?? "POST",
-    headers: media.headers,
-    body: file,
-  });
+  let result: Response;
+  try {
+    result = await fetch(media.uploadUrl, {
+      method: media.method ?? "POST",
+      headers: media.headers,
+      body: file,
+    });
+  } catch (error) {
+    throw new Error(uploadErrorMessage(error));
+  }
   if (!result.ok) {
     const payload = (await result.json().catch(() => null)) as { error?: string } | null;
     throw new Error(payload?.error || `Upload failed with status ${result.status}.`);
@@ -127,6 +142,42 @@ export async function uploadProductImage(file: File): Promise<string | null> {
   const url = media.publicUrl || payload?.url;
   if (!url) throw new Error("Upload finished, but no media URL was returned.");
   return `${url}#${encodeURIComponent(file.name)}`;
+}
+
+function safeUploadFileName(name: string) {
+  const extension = name.includes(".") ? `.${name.split(".").pop()}` : "";
+  const base = name
+    .replace(/\.[^.]+$/, "")
+    .normalize("NFKD")
+    .replace(/[^\x20-\x7E]/g, "")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 90);
+  return `${base || "product-media"}${extension.toLowerCase()}`.slice(0, 120);
+}
+
+function uploadErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  if (/failed to fetch|network/i.test(message)) {
+    return "Upload could not reach the media server. Check the connection and try again.";
+  }
+  if (/ByteString|headers/i.test(message)) {
+    return "The file name was not accepted by the browser. Rename the file using English letters and try again.";
+  }
+  return message || "Upload failed before reaching the media server.";
+}
+
+function adminMutationMessage(error: unknown, fallback: string) {
+  const raw = error instanceof Error ? error.message : String(error ?? "");
+  const withoutConvexPrefix = raw
+    .replace(/\[CONVEX [^\]]+\]\s*/g, "")
+    .replace(/\[Request ID:[^\]]+\]\s*/g, "")
+    .replace(/\bServer Error\b/g, "")
+    .replace(/\bCalled by client\b/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!withoutConvexPrefix || /^client$/i.test(withoutConvexPrefix)) return fallback;
+  return withoutConvexPrefix;
 }
 
 function inferProductMediaType(file: File) {
