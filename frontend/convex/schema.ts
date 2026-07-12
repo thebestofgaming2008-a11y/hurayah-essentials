@@ -157,12 +157,15 @@ export default defineSchema({
   })
     .index("by_razorpay_order_id", ["razorpay_order_id"])
     .index("by_status", ["status"])
+    .index("by_status_and_expires_at", ["status", "expires_at"])
     .index("by_expires_at", ["expires_at"]),
   razorpay_webhook_events: defineTable({
     event_id: v.string(),
     event_type: v.string(),
     created_at: v.string(),
-  }).index("by_event_id", ["event_id"]),
+  })
+    .index("by_event_id", ["event_id"])
+    .index("by_created_at", ["created_at"]),
   order_items: defineTable({
     order_id: v.id("orders"),
     product_id: optionalString,

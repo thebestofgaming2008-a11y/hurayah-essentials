@@ -48,6 +48,9 @@ const ORDER_STATUSES = new Set([
   "returned",
 ]);
 const CHECKOUT_RESERVATION_MS = 30 * 60 * 1000;
+const PAYMENT_RECOVERY_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
+const PAYMENT_TECHNICAL_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+const RECONCILIATION_HEARTBEAT_MS = 60 * 60 * 1000;
 
 function cleanText(value: string | null | undefined, max = 160) {
   return String(value ?? "")
@@ -641,14 +644,48 @@ export const listUnresolvedCheckoutIntents = internalQuery({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, args) => {
     const limit = Math.min(Math.max(args.limit ?? 50, 1), 100);
-    const statuses = ["pending", "released"];
+    const statuses = ["pending", "released", "recovery_required"];
     const rows = [];
-    const cutoff = Date.now() - 14 * 24 * 60 * 60 * 1000;
+    const cutoff = Date.now() - PAYMENT_RECOVERY_WINDOW_MS;
     for (const status of statuses) {
-      const matches = await ctx.db.query("checkout_intents").withIndex("by_status", (q) => q.eq("status", status)).collect();
-      rows.push(...matches.filter((intent) => !intent.payment_id && intent.expires_at >= cutoff));
+      const matches = await ctx.db
+        .query("checkout_intents")
+        .withIndex("by_status_and_expires_at", (q) => q.eq("status", status).gte("expires_at", cutoff))
+        .order("desc")
+        .take(limit);
+      rows.push(...matches.filter((intent) => status === "recovery_required" || !intent.payment_id));
     }
     return rows.sort((a, b) => b._creationTime - a._creationTime).slice(0, limit);
+  },
+});
+
+export const recordPaymentReconciliationHealth = internalMutation({
+  args: {
+    checked: v.number(),
+    finalized: v.number(),
+    errors: v.array(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const key = "razorpay_reconciliation_health";
+    const existing = await ctx.db.query("store_settings").withIndex("by_key", (q) => q.eq("key", key)).first();
+    const previous = existing?.value as { checked_at?: number; error_count?: number } | undefined;
+    const now = Date.now();
+    const shouldWrite =
+      args.finalized > 0 ||
+      args.errors.length > 0 ||
+      !previous?.checked_at ||
+      now - previous.checked_at >= RECONCILIATION_HEARTBEAT_MS ||
+      Number(previous.error_count ?? 0) > 0;
+    if (!shouldWrite) return;
+    const value = {
+      checked_at: now,
+      checked: args.checked,
+      finalized: args.finalized,
+      error_count: args.errors.length,
+      errors: args.errors.slice(0, 3),
+    };
+    if (existing) await ctx.db.patch(existing._id, { value, updated_at: nowIso() });
+    else await ctx.db.insert("store_settings", { key, value, updated_at: nowIso() });
   },
 });
 
@@ -664,25 +701,70 @@ export const reconcileCapturedPayments = internalAction({
       try {
         const result = await razorpayRequest(`/orders/${intent.razorpay_order_id}/payments`);
         const payments = Array.isArray(result?.items) ? result.items : [];
-        const captured = payments.find((payment: any) =>
+        let recoverable = payments.find((payment: any) =>
           payment?.status === "captured" &&
           payment?.amount === intent.amount_paise &&
           payment?.currency === "INR" &&
           payment?.order_id === intent.razorpay_order_id
         );
-        if (!captured?.id) continue;
+        if (!recoverable) {
+          const authorized = payments.find((payment: any) =>
+            payment?.status === "authorized" &&
+            payment?.amount === intent.amount_paise &&
+            payment?.currency === "INR" &&
+            payment?.order_id === intent.razorpay_order_id
+          );
+          if (authorized?.id) {
+            try {
+              recoverable = await razorpayRequest(`/payments/${cleanText(authorized.id, 120)}/capture`, {
+                method: "POST",
+                body: JSON.stringify({ amount: intent.amount_paise, currency: "INR" }),
+              });
+            } catch {
+              recoverable = await razorpayRequest(`/payments/${cleanText(authorized.id, 120)}`);
+            }
+          }
+        }
+        if (!recoverable?.id || recoverable.status !== "captured") continue;
         const order = await ctx.runMutation(internal.orders.finalizeCheckoutIntent, {
           razorpay_order_id: intent.razorpay_order_id,
-          razorpay_payment_id: cleanText(captured.id, 120),
-          amount_paise: captured.amount,
-          currency: captured.currency,
+          razorpay_payment_id: cleanText(recoverable.id, 120),
+          amount_paise: recoverable.amount,
+          currency: recoverable.currency,
         });
         if (order) finalized += 1;
       } catch (error) {
         errors.push(`${intent.razorpay_order_id}: ${error instanceof Error ? cleanText(error.message, 160) : "Unknown reconciliation error"}`);
       }
     }
-    return { checked, finalized, errors: errors.slice(0, 10) };
+    const result = { checked, finalized, errors: errors.slice(0, 10) };
+    await ctx.runMutation(internal.orders.recordPaymentReconciliationHealth, result);
+    return result;
+  },
+});
+
+export const cleanupPaymentTechnicalRecords = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const cutoffMs = Date.now() - PAYMENT_TECHNICAL_RETENTION_MS;
+    const cutoffIso = new Date(cutoffMs).toISOString();
+    let checkoutIntentsDeleted = 0;
+    for (const status of ["completed", "released", "failed"]) {
+      const rows = await ctx.db
+        .query("checkout_intents")
+        .withIndex("by_status_and_expires_at", (q) => q.eq("status", status).lt("expires_at", cutoffMs))
+        .take(250);
+      for (const row of rows) {
+        await ctx.db.delete(row._id);
+        checkoutIntentsDeleted += 1;
+      }
+    }
+    const webhookRows = await ctx.db
+      .query("razorpay_webhook_events")
+      .withIndex("by_created_at", (q) => q.lt("created_at", cutoffIso))
+      .take(250);
+    for (const row of webhookRows) await ctx.db.delete(row._id);
+    return { checkoutIntentsDeleted, webhookEventsDeleted: webhookRows.length };
   },
 });
 

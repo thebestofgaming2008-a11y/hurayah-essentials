@@ -375,19 +375,25 @@ export const notifications = query({
   args: {},
   handler: async (ctx) => {
     await requireAdmin(ctx);
-    const [orders, products, reviews, rates, recoveries, lowStockSetting] = await Promise.all([
+    const [orders, products, reviews, rates, recoveries, lowStockSetting, paymentHealthSetting] = await Promise.all([
       ctx.db.query("orders").collect(),
       ctx.db.query("products").collect(),
       ctx.db.query("reviews").collect(),
       ctx.db.query("shipping_rates").collect(),
       ctx.db.query("checkout_intents").withIndex("by_status", (q) => q.eq("status", "recovery_required")).collect(),
       ctx.db.query("store_settings").withIndex("by_key", (q) => q.eq("key", "lowStock")).first(),
+      ctx.db.query("store_settings").withIndex("by_key", (q) => q.eq("key", "razorpay_reconciliation_health")).first(),
     ]);
     const lowStockThreshold = Math.max(0, Number(lowStockSetting?.value ?? 5) || 0);
     const now = Date.now();
     const rateTimes = rates.map((rate) => Date.parse(rate.updated_at)).filter((time) => Number.isFinite(time));
     const oldestRate = rateTimes.length ? Math.min(...rateTimes) : 0;
     const shippingDue = rates.length === 0 || !oldestRate || now - oldestRate >= 30 * 24 * 60 * 60 * 1000;
+    const paymentHealth = paymentHealthSetting?.value as { checked_at?: number; error_count?: number } | undefined;
+    const paymentRecoveryUnhealthy =
+      !paymentHealth?.checked_at ||
+      now - paymentHealth.checked_at > 15 * 60 * 1000 ||
+      Number(paymentHealth.error_count ?? 0) > 0;
     const notices = [
       { id: "unshipped", count: orders.filter((o) => o.status === "processing").length, title: "Orders need fulfillment", body: "orders are processing", section: "orders" },
       { id: "tracking", count: orders.filter((o) => o.status === "shipped" && !o.tracking_number).length, title: "Missing tracking", body: "shipped orders need tracking", section: "orders" },
@@ -396,6 +402,7 @@ export const notifications = query({
       { id: "missing-descriptions", count: products.filter((p) => p.is_active !== false && !p.description && !p.short_description).length, title: "Product descriptions missing", body: "active products need product copy", section: "products" },
       { id: "reviews", count: reviews.filter((r) => r.status === "pending").length, title: "Reviews pending", body: "reviews waiting", section: "reviews" },
       { id: "payment-recovery", count: recoveries.length, title: "Paid orders need recovery", body: "captured payments need manual attention", section: "orders" },
+      { id: "payment-health", count: paymentRecoveryUnhealthy ? 1 : 0, title: "Payment recovery needs attention", body: "payment recovery check is stale or failing", section: "orders" },
       { id: "shipping-review", count: shippingDue ? 1 : 0, title: "Shipping rates due", body: "monthly carrier review is due", section: "shipping" },
     ];
     return notices.filter((notice) => notice.count > 0).map((notice) => ({
