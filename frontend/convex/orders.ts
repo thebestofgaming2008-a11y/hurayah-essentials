@@ -644,7 +644,7 @@ export const listUnresolvedCheckoutIntents = internalQuery({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, args) => {
     const limit = Math.min(Math.max(args.limit ?? 50, 1), 100);
-    const statuses = ["pending", "released", "recovery_required"];
+    const statuses = ["pending", "released", "failed", "recovery_required"];
     const rows = [];
     const cutoff = Date.now() - PAYMENT_RECOVERY_WINDOW_MS;
     for (const status of statuses) {
@@ -653,7 +653,7 @@ export const listUnresolvedCheckoutIntents = internalQuery({
         .withIndex("by_status_and_expires_at", (q) => q.eq("status", status).gte("expires_at", cutoff))
         .order("desc")
         .take(limit);
-      rows.push(...matches.filter((intent) => status === "recovery_required" || !intent.payment_id));
+      rows.push(...matches.filter((intent) => status === "recovery_required" || status === "failed" || !intent.payment_id));
     }
     return rows.sort((a, b) => b._creationTime - a._creationTime).slice(0, limit);
   },
@@ -831,6 +831,16 @@ export const razorpayWebhook = httpAction(async (ctx, request) => {
       item?.currency === "INR" &&
       Number.isFinite(item?.amount)
     );
+  }
+  if (eventType === "payment.authorized" && payment?.id && payment?.order_id && Number.isFinite(payment?.amount)) {
+    try {
+      payment = await razorpayRequest(`/payments/${cleanText(payment.id, 120)}/capture`, {
+        method: "POST",
+        body: JSON.stringify({ amount: payment.amount, currency: payment.currency ?? "INR" }),
+      });
+    } catch {
+      payment = await razorpayRequest(`/payments/${cleanText(payment.id, 120)}`);
+    }
   }
   await ctx.runMutation(internal.orders.recordRazorpayWebhook, {
     event_id: eventId,
