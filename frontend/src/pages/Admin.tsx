@@ -2347,7 +2347,10 @@ function OrderDetailsDialog({
               )}
             </div>
             <div className="rounded-lg border border-[rgb(var(--vibe-border))] p-4 text-[12px]">
-              <div className="flex justify-between"><span>Payment</span><span className="capitalize">{order.payment_status ?? "unknown"}</span></div>
+              <div className="flex justify-between"><span>Payment</span><span className="capitalize">{(order.payment_status ?? "unknown").replaceAll("_", " ")}</span></div>
+              {Number(order.refund_amount_inr ?? 0) > 0 && (
+                <div className="mt-2 flex justify-between text-red-700"><span>Refunded</span><span>{formatPrice(order.refund_amount_inr ?? 0)}</span></div>
+              )}
               <div className="mt-2 flex justify-between gap-3"><span>Shipping</span><span className="text-right capitalize">Included</span></div>
               {order.shipping_payment_note && <p className="mt-2 rounded-md bg-[rgb(var(--vibe-surface))] px-2 py-1.5 text-[11px] text-[rgb(var(--vibe-muted))]">{order.shipping_payment_note}</p>}
               <div className="mt-2 flex justify-between font-medium"><span>Total</span><span>{formatPrice(total)}</span></div>

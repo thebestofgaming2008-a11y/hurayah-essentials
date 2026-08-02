@@ -278,6 +278,8 @@ export interface AdminOrder {
   customer_phone: string | null;
   status: string | null;
   payment_status: string | null;
+  refund_amount_inr?: number | null;
+  refunded_at?: string | null;
   shipping_payment_status?: string | null;
   shipping_payment_note?: string | null;
   customer_country_type?: string | null;

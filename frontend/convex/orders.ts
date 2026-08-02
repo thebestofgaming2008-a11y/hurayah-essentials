@@ -829,6 +829,7 @@ export const recordRazorpayWebhook = internalMutation({
     razorpay_order_id: v.optional(v.string()),
     razorpay_payment_id: v.optional(v.string()),
     amount_paise: v.optional(v.number()),
+    amount_refunded_paise: v.optional(v.number()),
     currency: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -850,7 +851,47 @@ export const recordRazorpayWebhook = internalMutation({
         error: "Razorpay payment failed.",
       });
     }
+    if (args.event_type === "payment.refunded" && args.razorpay_payment_id && args.amount_refunded_paise !== undefined) {
+      const order = await ctx.db
+        .query("orders")
+        .withIndex("by_payment_id", (q) => q.eq("payment_id", args.razorpay_payment_id))
+        .first();
+      if (order) {
+        const refundAmountInr = Math.max(0, args.amount_refunded_paise / 100);
+        const fullyRefunded = args.amount_refunded_paise >= Math.round(order.total * 100);
+        await ctx.db.patch(order._id, {
+          payment_status: fullyRefunded ? "refunded" : "partially_refunded",
+          refund_amount_inr: refundAmountInr,
+          refunded_at: nowIso(),
+          updated_at: nowIso(),
+        });
+      }
+    }
     return { duplicate: false };
+  },
+});
+
+export const applyRazorpayRefund = internalMutation({
+  args: {
+    razorpay_payment_id: v.string(),
+    amount_refunded_paise: v.number(),
+  },
+  returns: v.object({ updated: v.boolean(), order_number: v.union(v.string(), v.null()) }),
+  handler: async (ctx, args) => {
+    const order = await ctx.db
+      .query("orders")
+      .withIndex("by_payment_id", (q) => q.eq("payment_id", args.razorpay_payment_id))
+      .first();
+    if (!order) return { updated: false, order_number: null };
+    const fullyRefunded = args.amount_refunded_paise >= Math.round(order.total * 100);
+    const timestamp = nowIso();
+    await ctx.db.patch(order._id, {
+      payment_status: fullyRefunded ? "refunded" : "partially_refunded",
+      refund_amount_inr: Math.max(0, args.amount_refunded_paise / 100),
+      refunded_at: timestamp,
+      updated_at: timestamp,
+    });
+    return { updated: true, order_number: order.order_number };
   },
 });
 
@@ -905,12 +946,18 @@ export const razorpayWebhook = httpAction(async (ctx, request) => {
       payment = await razorpayRequest(`/payments/${cleanText(payment.id, 120)}`);
     }
   }
+  const normalizedEventType = eventType === "payment.refunded"
+    ? eventType
+    : payment?.status === "captured"
+      ? "payment.captured"
+      : eventType;
   await ctx.runMutation(internal.orders.recordRazorpayWebhook, {
     event_id: eventId,
-    event_type: payment?.status === "captured" ? "payment.captured" : eventType,
+    event_type: normalizedEventType,
     razorpay_order_id: payment?.order_id ? cleanText(payment.order_id, 120) : order?.id ? cleanText(order.id, 120) : undefined,
     razorpay_payment_id: payment?.id ? cleanText(payment.id, 120) : undefined,
     amount_paise: Number.isFinite(payment?.amount) ? payment.amount : undefined,
+    amount_refunded_paise: Number.isFinite(payment?.amount_refunded) ? payment.amount_refunded : undefined,
     currency: payment?.currency ? cleanText(payment.currency, 12) : undefined,
   });
   return new Response("ok", { status: 200 });
