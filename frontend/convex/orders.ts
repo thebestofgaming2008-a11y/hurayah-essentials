@@ -851,7 +851,7 @@ export const recordRazorpayWebhook = internalMutation({
         error: "Razorpay payment failed.",
       });
     }
-    if (args.event_type === "payment.refunded" && args.razorpay_payment_id && args.amount_refunded_paise !== undefined) {
+    if ((args.event_type === "refund.processed" || args.event_type === "payment.refunded") && args.razorpay_payment_id && args.amount_refunded_paise !== undefined) {
       const order = await ctx.db
         .query("orders")
         .withIndex("by_payment_id", (q) => q.eq("payment_id", args.razorpay_payment_id))
@@ -906,6 +906,7 @@ export const razorpayWebhook = httpAction(async (ctx, request) => {
   if (!eventId) return new Response("Missing event ID.", { status: 400 });
   const payload = JSON.parse(rawBody);
   let payment = payload?.payload?.payment?.entity;
+  const refund = payload?.payload?.refund?.entity;
   const order = payload?.payload?.order?.entity;
   const eventType = cleanText(payload?.event, 80);
   if (eventType === "order.paid" && !payment?.id && order?.id) {
@@ -946,7 +947,10 @@ export const razorpayWebhook = httpAction(async (ctx, request) => {
       payment = await razorpayRequest(`/payments/${cleanText(payment.id, 120)}`);
     }
   }
-  const normalizedEventType = eventType === "payment.refunded"
+  if (eventType === "refund.processed" && refund?.payment_id) {
+    payment = await razorpayRequest(`/payments/${cleanText(refund.payment_id, 120)}`);
+  }
+  const normalizedEventType = eventType === "refund.processed" || eventType === "payment.refunded"
     ? eventType
     : payment?.status === "captured"
       ? "payment.captured"
