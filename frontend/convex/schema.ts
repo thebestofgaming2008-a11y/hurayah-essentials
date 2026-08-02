@@ -152,12 +152,16 @@ export default defineSchema({
     amount_paise: v.number(),
     error: optionalString,
     expires_at: v.number(),
+    reconcile_after: optionalNumber,
+    reconcile_attempts: optionalNumber,
+    last_reconciled_at: optionalNumber,
     created_at: v.string(),
     updated_at: v.string(),
   })
     .index("by_razorpay_order_id", ["razorpay_order_id"])
     .index("by_status", ["status"])
     .index("by_status_and_expires_at", ["status", "expires_at"])
+    .index("by_status_and_reconcile_after", ["status", "reconcile_after"])
     .index("by_expires_at", ["expires_at"]),
   razorpay_webhook_events: defineTable({
     event_id: v.string(),

@@ -51,6 +51,7 @@ const CHECKOUT_RESERVATION_MS = 30 * 60 * 1000;
 const PAYMENT_RECOVERY_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 const PAYMENT_TECHNICAL_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 const RECONCILIATION_HEARTBEAT_MS = 60 * 60 * 1000;
+const RECONCILIATION_DELAYS_MS = [5, 15, 60, 6 * 60, 24 * 60].map((minutes) => minutes * 60 * 1000);
 
 function cleanText(value: string | null | undefined, max = 160) {
   return String(value ?? "")
@@ -191,14 +192,14 @@ async function restoreReservedStock(ctx: any, cart: Array<any>) {
 }
 
 async function releaseExpiredReservations(ctx: any) {
+  const now = Date.now();
   const expired = await ctx.db
     .query("checkout_intents")
-    .withIndex("by_status", (q: any) => q.eq("status", "pending"))
-    .collect();
-  const now = Date.now();
-  for (const intent of expired.filter((item: any) => item.expires_at <= now)) {
+    .withIndex("by_status_and_expires_at", (q: any) => q.eq("status", "pending").lte("expires_at", now))
+    .take(100);
+  for (const intent of expired) {
     await restoreReservedStock(ctx, intent.cart);
-    await ctx.db.patch(intent._id, { status: "released", updated_at: nowIso() });
+    await ctx.db.patch(intent._id, { status: "released", reconcile_after: now, updated_at: nowIso() });
   }
 }
 
@@ -217,6 +218,7 @@ async function failCheckoutIntent(ctx: any, args: {
     status: "failed",
     payment_id: args.razorpay_payment_id ?? null,
     error: cleanNullable(args.error, 500),
+    reconcile_after: Date.now() + RECONCILIATION_DELAYS_MS[0],
     updated_at: nowIso(),
   });
   return true;
@@ -483,6 +485,9 @@ export const reserveCheckoutIntent = internalMutation({
       amount_paise: args.amount_paise,
       error: null,
       expires_at: Date.now() + CHECKOUT_RESERVATION_MS,
+      reconcile_after: Date.now() + RECONCILIATION_DELAYS_MS[0],
+      reconcile_attempts: 0,
+      last_reconciled_at: null,
       created_at: timestamp,
       updated_at: timestamp,
     });
@@ -543,6 +548,7 @@ async function finalizeCheckoutIntentHandler(ctx: any, args: {
         status: "completed",
         payment_id: args.razorpay_payment_id,
         error: null,
+        reconcile_after: null,
         updated_at: nowIso(),
       });
       return order;
@@ -641,21 +647,47 @@ export const findCheckoutIntent = internalQuery({
 });
 
 export const listUnresolvedCheckoutIntents = internalQuery({
-  args: { limit: v.optional(v.number()) },
+  args: { limit: v.optional(v.number()), now: v.number() },
+  returns: v.array(v.any()),
   handler: async (ctx, args) => {
     const limit = Math.min(Math.max(args.limit ?? 50, 1), 100);
     const statuses = ["pending", "released", "failed", "recovery_required"];
     const rows = [];
-    const cutoff = Date.now() - PAYMENT_RECOVERY_WINDOW_MS;
+    const cutoff = args.now - PAYMENT_RECOVERY_WINDOW_MS;
     for (const status of statuses) {
       const matches = await ctx.db
         .query("checkout_intents")
-        .withIndex("by_status_and_expires_at", (q) => q.eq("status", status).gte("expires_at", cutoff))
-        .order("desc")
+        .withIndex("by_status_and_reconcile_after", (q) => q.eq("status", status).lte("reconcile_after", args.now))
         .take(limit);
-      rows.push(...matches.filter((intent) => status === "recovery_required" || status === "failed" || !intent.payment_id));
+      rows.push(...matches.filter((intent) =>
+        intent.expires_at >= cutoff &&
+        (status === "recovery_required" || status === "failed" || !intent.payment_id)
+      ));
     }
     return rows.sort((a, b) => b._creationTime - a._creationTime).slice(0, limit);
+  },
+});
+
+export const markCheckoutIntentReconciled = internalMutation({
+  args: {
+    id: v.id("checkout_intents"),
+    checked_at: v.number(),
+    error: v.optional(v.union(v.string(), v.null())),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const intent = await ctx.db.get(args.id);
+    if (!intent || intent.status === "completed") return null;
+    const attempts = Math.max(0, Number(intent.reconcile_attempts ?? 0)) + 1;
+    const delay = RECONCILIATION_DELAYS_MS[Math.min(attempts, RECONCILIATION_DELAYS_MS.length - 1)];
+    await ctx.db.patch(intent._id, {
+      reconcile_attempts: attempts,
+      last_reconciled_at: args.checked_at,
+      reconcile_after: args.checked_at + delay,
+      error: args.error === undefined ? intent.error : cleanNullable(args.error, 500),
+      updated_at: nowIso(),
+    });
+    return null;
   },
 });
 
@@ -692,7 +724,8 @@ export const recordPaymentReconciliationHealth = internalMutation({
 export const reconcileCapturedPayments = internalAction({
   args: {},
   handler: async (ctx) => {
-    const intents: any[] = await ctx.runQuery(internal.orders.listUnresolvedCheckoutIntents, { limit: 75 });
+    const checkedAt = Date.now();
+    const intents: any[] = await ctx.runQuery(internal.orders.listUnresolvedCheckoutIntents, { limit: 75, now: checkedAt });
     let finalized = 0;
     let checked = 0;
     const errors: string[] = [];
@@ -725,7 +758,13 @@ export const reconcileCapturedPayments = internalAction({
             }
           }
         }
-        if (!recoverable?.id || recoverable.status !== "captured") continue;
+        if (!recoverable?.id || recoverable.status !== "captured") {
+          await ctx.runMutation(internal.orders.markCheckoutIntentReconciled, {
+            id: intent._id,
+            checked_at: checkedAt,
+          });
+          continue;
+        }
         const order = await ctx.runMutation(internal.orders.finalizeCheckoutIntent, {
           razorpay_order_id: intent.razorpay_order_id,
           razorpay_payment_id: cleanText(recoverable.id, 120),
@@ -734,7 +773,13 @@ export const reconcileCapturedPayments = internalAction({
         });
         if (order) finalized += 1;
       } catch (error) {
-        errors.push(`${intent.razorpay_order_id}: ${error instanceof Error ? cleanText(error.message, 160) : "Unknown reconciliation error"}`);
+        const message = error instanceof Error ? cleanText(error.message, 160) : "Unknown reconciliation error";
+        errors.push(`${intent.razorpay_order_id}: ${message}`);
+        await ctx.runMutation(internal.orders.markCheckoutIntentReconciled, {
+          id: intent._id,
+          checked_at: checkedAt,
+          error: message,
+        });
       }
     }
     const result = { checked, finalized, errors: errors.slice(0, 10) };
@@ -833,6 +878,24 @@ export const razorpayWebhook = httpAction(async (ctx, request) => {
     );
   }
   if (eventType === "payment.authorized" && payment?.id && payment?.order_id && Number.isFinite(payment?.amount)) {
+    const intent = await ctx.runQuery(internal.orders.findCheckoutIntent, {
+      razorpay_order_id: cleanText(payment.order_id, 120),
+    });
+    const matchesIntent =
+      intent &&
+      intent.amount_paise === payment.amount &&
+      (payment.currency ?? "INR") === "INR";
+    if (!matchesIntent) {
+      await ctx.runMutation(internal.orders.recordRazorpayWebhook, {
+        event_id: eventId,
+        event_type: eventType,
+        razorpay_order_id: cleanText(payment.order_id, 120),
+        razorpay_payment_id: cleanText(payment.id, 120),
+        amount_paise: payment.amount,
+        currency: payment.currency ? cleanText(payment.currency, 12) : undefined,
+      });
+      return new Response("accepted", { status: 202 });
+    }
     try {
       payment = await razorpayRequest(`/payments/${cleanText(payment.id, 120)}/capture`, {
         method: "POST",
