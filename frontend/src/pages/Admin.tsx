@@ -2355,6 +2355,9 @@ function OrderDetailsDialog({
               {order.shipping_payment_note && <p className="mt-2 rounded-md bg-[rgb(var(--vibe-surface))] px-2 py-1.5 text-[11px] text-[rgb(var(--vibe-muted))]">{order.shipping_payment_note}</p>}
               <div className="mt-2 flex justify-between font-medium"><span>Total</span><span>{formatPrice(total)}</span></div>
               <div className="mt-2 text-[rgb(var(--vibe-muted))]">Tracking: {order.tracking_number ?? "Not added"}</div>
+              {order.inventory_attention && (
+                <p className="mt-3 rounded-md bg-amber-50 px-2 py-2 text-[11px] font-medium text-amber-900">Payment was confirmed after inventory changed. Check item availability before fulfillment.</p>
+              )}
             </div>
           </aside>
         </div>

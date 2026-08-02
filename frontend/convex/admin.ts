@@ -50,7 +50,7 @@ export const listDiscounts = query({
   args: {},
   handler: async (ctx) => {
     await requireAdmin(ctx);
-    const rows = await ctx.db.query("discounts").collect();
+    const rows = await ctx.db.query("discounts").take(500);
     return rows.map(publicDoc).sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)));
   },
 });
@@ -151,7 +151,7 @@ export const listShippingRates = query({
   args: {},
   handler: async (ctx) => {
     await requireAdmin(ctx);
-    const rows = await ctx.db.query("shipping_rates").collect();
+    const rows = await ctx.db.query("shipping_rates").take(100);
     return rows.map(publicDoc).sort((a, b) => `${a.carrier}-${a.zone}-${a.method}`.localeCompare(`${b.carrier}-${b.zone}-${b.method}`));
   },
 });
@@ -187,7 +187,7 @@ export const getStoreSettings = query({
   args: {},
   handler: async (ctx) => {
     await requireAdmin(ctx);
-    const rows = await ctx.db.query("store_settings").collect();
+    const rows = await ctx.db.query("store_settings").take(200);
     return Object.fromEntries(rows.map((row) => [row.key, row.value]));
   },
 });
@@ -217,8 +217,8 @@ export const listCategories = query({
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
     const rows = args.type
-      ? await ctx.db.query("categories").withIndex("by_type", (q) => q.eq("type", cleanText(args.type, 40))).collect()
-      : await ctx.db.query("categories").collect();
+      ? await ctx.db.query("categories").withIndex("by_type", (q) => q.eq("type", cleanText(args.type, 40))).take(500)
+      : await ctx.db.query("categories").take(500);
     return rows
       .map(publicDoc)
       .sort((a, b) => Number(a.sort_order ?? 999) - Number(b.sort_order ?? 999) || String(a.name).localeCompare(String(b.name)));
@@ -318,11 +318,11 @@ export const launchReadiness = query({
   handler: async (ctx) => {
     await requireAdmin(ctx);
     const [products, orders, recoveries, pendingReviews, categories] = await Promise.all([
-      ctx.db.query("products").collect(),
-      ctx.db.query("orders").collect(),
-      ctx.db.query("checkout_intents").withIndex("by_status", (q) => q.eq("status", "recovery_required")).collect(),
-      ctx.db.query("reviews").withIndex("by_status", (q) => q.eq("status", "pending")).collect(),
-      ctx.db.query("categories").collect(),
+      ctx.db.query("products").take(2000),
+      ctx.db.query("orders").order("desc").take(1000),
+      ctx.db.query("checkout_intents").withIndex("by_status", (q) => q.eq("status", "recovery_required")).take(100),
+      ctx.db.query("reviews").withIndex("by_status", (q) => q.eq("status", "pending")).take(500),
+      ctx.db.query("categories").take(500),
     ]);
     const active = products.filter((product) => product.is_active !== false);
     const missingCover = active.filter((product) => !product.cover_image_url).map((product) => product.name);
@@ -375,14 +375,15 @@ export const notifications = query({
   args: {},
   handler: async (ctx) => {
     await requireAdmin(ctx);
-    const [orders, products, reviews, rates, recoveries, lowStockSetting, paymentHealthSetting] = await Promise.all([
-      ctx.db.query("orders").collect(),
-      ctx.db.query("products").collect(),
-      ctx.db.query("reviews").collect(),
-      ctx.db.query("shipping_rates").collect(),
-      ctx.db.query("checkout_intents").withIndex("by_status", (q) => q.eq("status", "recovery_required")).collect(),
+    const [orders, products, reviews, rates, recoveries, lowStockSetting, paymentHealthSetting, paymentAuditSetting] = await Promise.all([
+      ctx.db.query("orders").order("desc").take(500),
+      ctx.db.query("products").take(1000),
+      ctx.db.query("reviews").order("desc").take(500),
+      ctx.db.query("shipping_rates").take(100),
+      ctx.db.query("checkout_intents").withIndex("by_status", (q) => q.eq("status", "recovery_required")).take(100),
       ctx.db.query("store_settings").withIndex("by_key", (q) => q.eq("key", "lowStock")).first(),
       ctx.db.query("store_settings").withIndex("by_key", (q) => q.eq("key", "razorpay_reconciliation_health")).first(),
+      ctx.db.query("store_settings").withIndex("by_key", (q) => q.eq("key", "razorpay_daily_audit_health")).first(),
     ]);
     const lowStockThreshold = Math.max(0, Number(lowStockSetting?.value ?? 5) || 0);
     const now = Date.now();
@@ -392,8 +393,11 @@ export const notifications = query({
     const paymentHealth = paymentHealthSetting?.value as { checked_at?: number; error_count?: number } | undefined;
     const paymentRecoveryUnhealthy =
       !paymentHealth?.checked_at ||
-      now - paymentHealth.checked_at > 15 * 60 * 1000 ||
+      now - paymentHealth.checked_at > 75 * 60 * 1000 ||
       Number(paymentHealth.error_count ?? 0) > 0;
+    const paymentAudit = paymentAuditSetting?.value as { checked_at?: number; orphan_payment_ids?: string[]; errors?: string[] } | undefined;
+    const paymentAuditStale = !paymentAudit?.checked_at || now - paymentAudit.checked_at > 36 * 60 * 60 * 1000;
+    const paymentAuditIssues = (paymentAudit?.orphan_payment_ids?.length ?? 0) + (paymentAudit?.errors?.length ?? 0) + (paymentAuditStale ? 1 : 0);
     const notices = [
       { id: "unshipped", count: orders.filter((o) => o.status === "processing").length, title: "Orders need fulfillment", body: "orders are processing", section: "orders" },
       { id: "tracking", count: orders.filter((o) => o.status === "shipped" && !o.tracking_number).length, title: "Missing tracking", body: "shipped orders need tracking", section: "orders" },
@@ -402,7 +406,9 @@ export const notifications = query({
       { id: "missing-descriptions", count: products.filter((p) => p.is_active !== false && !p.description && !p.short_description).length, title: "Product descriptions missing", body: "active products need product copy", section: "products" },
       { id: "reviews", count: reviews.filter((r) => r.status === "pending").length, title: "Reviews pending", body: "reviews waiting", section: "reviews" },
       { id: "payment-recovery", count: recoveries.length, title: "Paid orders need recovery", body: "captured payments need manual attention", section: "orders" },
+      { id: "inventory-attention", count: orders.filter((o) => o.inventory_attention === true).length, title: "Paid orders need inventory review", body: "orders were paid after inventory changed", section: "orders" },
       { id: "payment-health", count: paymentRecoveryUnhealthy ? 1 : 0, title: "Payment recovery needs attention", body: "payment recovery check is stale or failing", section: "orders" },
+      { id: "payment-audit", count: paymentAuditIssues, title: "Razorpay audit needs attention", body: "payment audit issues need review", section: "orders" },
       { id: "shipping-review", count: shippingDue ? 1 : 0, title: "Shipping rates due", body: "monthly carrier review is due", section: "shipping" },
     ];
     return notices.filter((notice) => notice.count > 0).map((notice) => ({

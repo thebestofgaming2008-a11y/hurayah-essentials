@@ -52,6 +52,7 @@ const PAYMENT_RECOVERY_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 const PAYMENT_TECHNICAL_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 const RECONCILIATION_HEARTBEAT_MS = 60 * 60 * 1000;
 const RECONCILIATION_DELAYS_MS = [5, 15, 60, 6 * 60, 24 * 60].map((minutes) => minutes * 60 * 1000);
+const MAX_CART_LINES = 50;
 
 function cleanText(value: string | null | undefined, max = 160) {
   return String(value ?? "")
@@ -160,6 +161,7 @@ async function orderWithItems(ctx: any, order: any): Promise<Record<string, any>
 
 async function checkoutQuote(ctx: any, cart: Array<any>) {
   if (!cart.length) throw new Error("Cart is empty.");
+  if (cart.length > MAX_CART_LINES) throw new Error(`Cart cannot contain more than ${MAX_CART_LINES} different items.`);
   let subtotal = 0;
   let itemCount = 0;
   for (const item of cart) {
@@ -231,6 +233,7 @@ async function savePaidOrder(ctx: any, args: {
   razorpay_order_id: string;
   razorpay_payment_id: string;
   razorpay_signature: string;
+  use_reserved_snapshot?: boolean;
 }) {
   const existingByPayment = await ctx.db
     .query("orders")
@@ -266,19 +269,41 @@ async function savePaidOrder(ctx: any, args: {
 
   const normalizedItems = [];
   let computedSubtotal = 0;
+  let inventoryAttention = false;
   for (const item of args.cart) {
     const qty = Math.floor(item.qty);
     if (!Number.isFinite(qty) || qty < 1 || qty > 99) throw new Error("Cart quantity is invalid.");
     const product = await ctx.db.get(item.productId as any) as any;
-    if (!product || product.is_active === false) throw new Error(`Product is no longer available: ${cleanText(item.name, 80)}`);
-    const stock = product.stock_quantity ?? 0;
-    if (stock < qty || product.in_stock === false) throw new Error(`Not enough stock for ${product.name}.`);
-    const unitPrice = product.sale_price_inr ?? product.price_inr ?? product.price;
-    if (!Number.isFinite(unitPrice) || unitPrice < 0) throw new Error(`Invalid price for ${product.name}.`);
-    const selectedColor = cleanVariantSelection(item.selectedColor, product.color_options, "Colour", product.name);
-    const selectedSize = cleanVariantSelection(item.selectedSize, product.size_options, "Size", product.name);
+    if (!args.use_reserved_snapshot && (!product || product.is_active === false)) {
+      throw new Error(`Product is no longer available: ${cleanText(item.name, 80)}`);
+    }
+    const stock = Number(product?.stock_quantity ?? 0);
+    if (!args.use_reserved_snapshot && (stock < qty || product?.in_stock === false)) {
+      throw new Error(`Not enough stock for ${product.name}.`);
+    }
+    const unitPrice = args.use_reserved_snapshot
+      ? Number(item.priceInr ?? item.price)
+      : Number(product.sale_price_inr ?? product.price_inr ?? product.price);
+    const productName = args.use_reserved_snapshot ? cleanText(item.name, 160) : product.name;
+    if (!productName || !Number.isFinite(unitPrice) || unitPrice < 0) throw new Error("Reserved order item is invalid.");
+    const selectedColor = args.use_reserved_snapshot
+      ? cleanNullable(item.selectedColor, 60)
+      : cleanVariantSelection(item.selectedColor, product.color_options, "Colour", product.name);
+    const selectedSize = args.use_reserved_snapshot
+      ? cleanNullable(item.selectedSize, 60)
+      : cleanVariantSelection(item.selectedSize, product.size_options, "Size", product.name);
+    if (!product || stock < qty) inventoryAttention = true;
     computedSubtotal += unitPrice * qty;
-    normalizedItems.push({ product, qty, unitPrice, selectedColor, selectedSize });
+    normalizedItems.push({
+      product,
+      productId: cleanText(item.productId, 120),
+      productName,
+      productImageUrl: args.use_reserved_snapshot ? cleanNullable(item.image, 1000) : product.cover_image_url ?? null,
+      qty,
+      unitPrice,
+      selectedColor,
+      selectedSize,
+    });
   }
 
   const shippingMeta = requireIndiaShipping(customer.country);
@@ -308,6 +333,7 @@ async function savePaidOrder(ctx: any, args: {
     payment_provider: "RAZORPAY",
     payment_order_id: cleanText(args.razorpay_order_id, 120),
     payment_id: cleanText(args.razorpay_payment_id, 120),
+    inventory_attention: inventoryAttention,
     created_at: timestamp,
     updated_at: timestamp,
   });
@@ -315,21 +341,23 @@ async function savePaidOrder(ctx: any, args: {
   for (const item of normalizedItems) {
     await ctx.db.insert("order_items", {
       order_id: orderId,
-      product_id: item.product._id,
-      product_name: productNameWithOptions(item.product.name, item.selectedColor, item.selectedSize),
-      product_image_url: item.product.cover_image_url ?? null,
+      product_id: item.product?._id ?? item.productId,
+      product_name: productNameWithOptions(item.productName, item.selectedColor, item.selectedSize),
+      product_image_url: item.productImageUrl,
       selected_color: item.selectedColor,
       selected_size: item.selectedSize,
       quantity: item.qty,
       unit_price: item.unitPrice,
       subtotal: item.unitPrice * item.qty,
     });
-    const nextStock = Math.max(0, (item.product.stock_quantity ?? 0) - item.qty);
-    await ctx.db.patch(item.product._id, {
-      stock_quantity: nextStock,
-      in_stock: nextStock > 0,
-      updated_at: timestamp,
-    });
+    if (item.product) {
+      const nextStock = Math.max(0, (item.product.stock_quantity ?? 0) - item.qty);
+      await ctx.db.patch(item.product._id, {
+        stock_quantity: nextStock,
+        in_stock: nextStock > 0,
+        updated_at: timestamp,
+      });
+    }
   }
 
   if (args.user_id) {
@@ -468,11 +496,30 @@ export const reserveCheckoutIntent = internalMutation({
     const quote = await checkoutQuote(ctx, args.cart);
     if (quote.amountPaise !== args.amount_paise) throw new Error("Checkout total changed. Please try again.");
     const timestamp = nowIso();
+    const reservedCart = [];
     for (const item of args.cart) {
       const product = await ctx.db.get(item.productId as any) as any;
       if (!product) throw new Error("Product is no longer available.");
-      const nextStock = Number(product.stock_quantity ?? 0) - Math.max(1, Math.floor(item.qty));
+      const qty = Math.max(1, Math.floor(item.qty));
+      const nextStock = Number(product.stock_quantity ?? 0) - qty;
       if (nextStock < 0) throw new Error(`Not enough stock for ${product.name}.`);
+      const unitPrice = product.sale_price_inr ?? product.price_inr ?? product.price;
+      const selectedColor = cleanVariantSelection(item.selectedColor, product.color_options, "Colour", product.name);
+      const selectedSize = cleanVariantSelection(item.selectedSize, product.size_options, "Size", product.name);
+      reservedCart.push({
+        cartKey: item.cartKey,
+        productId: String(product._id),
+        qty,
+        name: cleanText(product.name, 160),
+        price: unitPrice,
+        priceInr: unitPrice,
+        image: product.cover_image_url ?? null,
+        slug: product.slug ?? null,
+        weightG: product.weight_g ?? null,
+        shippingClass: product.shipping_class ?? null,
+        selectedColor,
+        selectedSize,
+      });
       await ctx.db.patch(product._id, { stock_quantity: nextStock, in_stock: nextStock > 0, updated_at: timestamp });
     }
     return await ctx.db.insert("checkout_intents", {
@@ -480,7 +527,7 @@ export const reserveCheckoutIntent = internalMutation({
       user_id: args.user_id ?? null,
       payment_id: null,
       status: "pending",
-      cart: args.cart,
+      cart: reservedCart,
       customer: args.customer,
       amount_paise: args.amount_paise,
       error: null,
@@ -543,6 +590,7 @@ async function finalizeCheckoutIntentHandler(ctx: any, args: {
         razorpay_order_id: args.razorpay_order_id,
         razorpay_payment_id: args.razorpay_payment_id,
         razorpay_signature: "verified-by-server",
+        use_reserved_snapshot: true,
       });
       await ctx.db.patch(intent._id, {
         status: "completed",
@@ -788,6 +836,120 @@ export const reconcileCapturedPayments = internalAction({
   },
 });
 
+export const recordRazorpayAuditHealth = internalMutation({
+  args: {
+    checked_at: v.number(),
+    checked: v.number(),
+    recovered: v.number(),
+    refunds_synced: v.number(),
+    orphan_payment_ids: v.array(v.string()),
+    errors: v.array(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const key = "razorpay_daily_audit_health";
+    const existing = await ctx.db.query("store_settings").withIndex("by_key", (q) => q.eq("key", key)).first();
+    const value = {
+      checked_at: args.checked_at,
+      checked: args.checked,
+      recovered: args.recovered,
+      refunds_synced: args.refunds_synced,
+      orphan_payment_ids: args.orphan_payment_ids.slice(0, 20),
+      errors: args.errors.slice(0, 10),
+    };
+    const timestamp = nowIso();
+    if (existing) await ctx.db.patch(existing._id, { value, updated_at: timestamp });
+    else await ctx.db.insert("store_settings", { key, value, updated_at: timestamp });
+    return null;
+  },
+});
+
+export const auditRecentRazorpayPayments = internalAction({
+  args: {},
+  returns: v.object({
+    checked: v.number(),
+    recovered: v.number(),
+    refunds_synced: v.number(),
+    orphan_payment_ids: v.array(v.string()),
+    errors: v.array(v.string()),
+  }),
+  handler: async (ctx) => {
+    const checkedAt = Date.now();
+    const to = Math.floor(checkedAt / 1000);
+    const from = to - 48 * 60 * 60;
+    const payments: any[] = [];
+    try {
+      for (const skip of [0, 100]) {
+        const response = await razorpayRequest(`/payments?from=${from}&to=${to}&count=100&skip=${skip}`);
+        const page = Array.isArray(response?.items) ? response.items : [];
+        payments.push(...page);
+        if (page.length < 100) break;
+      }
+    } catch (error) {
+      const result = {
+        checked: 0,
+        recovered: 0,
+        refunds_synced: 0,
+        orphan_payment_ids: [] as string[],
+        errors: [`Razorpay payment list: ${error instanceof Error ? cleanText(error.message, 180) : "Audit failed"}`],
+      };
+      await ctx.runMutation(internal.orders.recordRazorpayAuditHealth, { checked_at: checkedAt, ...result });
+      return result;
+    }
+
+    let recovered = 0;
+    let refundsSynced = 0;
+    const orphanPaymentIds: string[] = [];
+    const errors: string[] = [];
+    for (const payment of payments) {
+      if (!payment?.id || !payment?.order_id || !["captured", "refunded"].includes(payment.status)) continue;
+      try {
+        let saved: any = await ctx.runQuery(internal.orders.findSavedPayment, {
+          razorpay_order_id: cleanText(payment.order_id, 120),
+          razorpay_payment_id: cleanText(payment.id, 120),
+        });
+        if (!saved) {
+          const intent: any = await ctx.runQuery(internal.orders.findCheckoutIntent, {
+            razorpay_order_id: cleanText(payment.order_id, 120),
+          });
+          if (intent) {
+            saved = await ctx.runMutation(internal.orders.finalizeCheckoutIntent, {
+              razorpay_order_id: cleanText(payment.order_id, 120),
+              razorpay_payment_id: cleanText(payment.id, 120),
+              amount_paise: payment.amount,
+              currency: payment.currency,
+            });
+            if (saved) recovered += 1;
+          } else {
+            const razorpayOrder = await razorpayRequest(`/orders/${cleanText(payment.order_id, 120)}`);
+            if (String(razorpayOrder?.receipt ?? "").startsWith("HE-")) {
+              orphanPaymentIds.push(cleanText(payment.id, 120));
+            }
+          }
+        }
+        if (saved && Number(payment.amount_refunded ?? 0) > 0) {
+          const refundResult = await ctx.runMutation(internal.orders.applyRazorpayRefund, {
+            razorpay_payment_id: cleanText(payment.id, 120),
+            amount_refunded_paise: payment.amount_refunded,
+          });
+          if (refundResult.updated) refundsSynced += 1;
+        }
+      } catch (error) {
+        errors.push(`${cleanText(payment.id, 120)}: ${error instanceof Error ? cleanText(error.message, 180) : "Audit failed"}`);
+      }
+    }
+    const result = {
+      checked: payments.length,
+      recovered,
+      refunds_synced: refundsSynced,
+      orphan_payment_ids: orphanPaymentIds.slice(0, 20),
+      errors: errors.slice(0, 10),
+    };
+    await ctx.runMutation(internal.orders.recordRazorpayAuditHealth, { checked_at: checkedAt, ...result });
+    return result;
+  },
+});
+
 export const cleanupPaymentTechnicalRecords = internalMutation({
   args: {},
   handler: async (ctx) => {
@@ -817,7 +979,7 @@ export const listPaymentRecoveries = query({
   args: {},
   handler: async (ctx) => {
     await requireAdmin(ctx);
-    const rows = await ctx.db.query("checkout_intents").withIndex("by_status", (q) => q.eq("status", "recovery_required")).collect();
+    const rows = await ctx.db.query("checkout_intents").withIndex("by_status", (q) => q.eq("status", "recovery_required")).order("desc").take(100);
     return rows.map(({ _id, _creationTime, ...row }) => ({ id: _id, ...row })).sort((a, b) => b.updated_at.localeCompare(a.updated_at));
   },
 });
@@ -971,7 +1133,7 @@ export const listMine = query({
   args: {},
   handler: async (ctx) => {
     const auth = await requireIdentity(ctx);
-    const rows = await ctx.db.query("orders").withIndex("by_user_id", (q) => q.eq("user_id", auth.userId)).collect();
+    const rows = await ctx.db.query("orders").withIndex("by_user_id", (q) => q.eq("user_id", auth.userId)).order("desc").take(200);
     const enriched = await Promise.all(rows.map((row) => orderWithItems(ctx, row)));
     return enriched.sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")));
   },
@@ -981,7 +1143,7 @@ export const listAll = query({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
-    const rows = await ctx.db.query("orders").take(args.limit ?? 100);
+    const rows = await ctx.db.query("orders").order("desc").take(Math.min(Math.max(args.limit ?? 100, 1), 500));
     const enriched = await Promise.all(rows.map((row) => orderWithItems(ctx, row)));
     return enriched.sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")));
   },
@@ -993,7 +1155,11 @@ export const updateStatus = mutation({
     await requireAdmin(ctx);
     const status = cleanText(args.status, 24).toLowerCase();
     if (!ORDER_STATUSES.has(status)) throw new Error("Invalid order status.");
-    await ctx.db.patch(args.id as any, { status, updated_at: nowIso() });
+    await ctx.db.patch(args.id as any, {
+      status,
+      ...(status !== "processing" ? { inventory_attention: false } : {}),
+      updated_at: nowIso(),
+    });
     await writeAuditLog(ctx, {
       action: "order.status.update",
       entityType: "order",
@@ -1020,6 +1186,7 @@ export const updateTracking = mutation({
       tracking_number: trackingNumber,
       tracking_url: cleanTrackingUrl(args.trackingUrl),
       status: "shipped",
+      inventory_attention: false,
       updated_at: nowIso(),
     });
     await writeAuditLog(ctx, {

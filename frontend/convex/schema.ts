@@ -126,6 +126,7 @@ export default defineSchema({
     payment_id: optionalString,
     refund_amount_inr: optionalNumber,
     refunded_at: optionalString,
+    inventory_attention: optionalBoolean,
     carrier: optionalString,
     items: v.optional(v.array(v.any())),
     tracking_carrier: optionalString,
