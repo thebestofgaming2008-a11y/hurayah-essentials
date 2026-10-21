@@ -9,9 +9,18 @@ function View() {
 }
 const liveRates = { source: "exchangerate-api.com", base: "INR", rates: { INR: 1, EUR: 0.01, USD: 0.012, GBP: 0.009 } };
 beforeEach(() => localStorage.clear());
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 describe("currency selection", () => {
+  it("still renders and switches when browser storage is blocked", async () => {
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => { throw new Error("Storage blocked"); });
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("Storage blocked"); });
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => ({ ok: true, json: async () => url === "/api/rates" ? liveRates : { country: "IN", currency: "INR" } })));
+    render(<CurrencyProvider><View /></CurrencyProvider>);
+    fireEvent.change(screen.getByLabelText("Select currency"), { target: { value: "EUR" } });
+    await waitFor(() => expect(screen.getByTestId("price")).toHaveTextContent("10.00"));
+    expect(screen.getByLabelText("Select currency")).toHaveValue("EUR");
+  });
   it("switches displayed prices and retains manual preference after remount", async () => {
     vi.stubGlobal("fetch", vi.fn(async (url: string) => ({ ok: true, json: async () => url === "/api/rates" ? liveRates : { country: "IN", currency: "INR" } })));
     const mounted = render(<CurrencyProvider><View /></CurrencyProvider>);

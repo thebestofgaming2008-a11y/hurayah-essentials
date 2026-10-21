@@ -1,0 +1,56 @@
+name: Live store health
+on:
+  schedule:
+    - cron: '17 * * * *'
+    - cron: '43 4 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+  issues: write
+concurrency:
+  group: live-store-health
+  cancel-in-progress: false
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Read-only production checks
+        id: health
+        continue-on-error: true
+        env:
+          FULL_SCAN: ${{ github.event_name == 'workflow_dispatch' || github.event.schedule == '43 4 * * *' }}
+        run: |
+          if [ "$FULL_SCAN" = "true" ]; then
+            node frontend/scripts/check-store-health.mjs --full --report store-health.json
+          else
+            node frontend/scripts/check-store-health.mjs --report store-health.json
+          fi
+      - name: Open or resolve a single incident
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const title = '[Reliability] Live storefront checks need attention';
+            const report = fs.existsSync('store-health.json') ? JSON.parse(fs.readFileSync('store-health.json', 'utf8')) : null;
+            const ok = report?.ok === true;
+            const issues = await github.paginate(github.rest.issues.listForRepo, { ...context.repo, state: 'open', creator: 'github-actions[bot]', per_page: 100 });
+            const existing = issues.find(issue => issue.title === title);
+            const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            if (!ok) {
+              const failed = report?.results.filter(result => !result.ok).map(result => `- ${result.name}`).join('\n') || '- Health check could not complete';
+              const body = `Automated read-only checks need attention. No orders or payments were created.\n\n${failed}\n\n[Inspect run](${run})\n\nThis does not diagnose the cause or confirm payment-provider delivery.`;
+              if (!existing) await github.rest.issues.create({ ...context.repo, title, body, assignees: [context.repo.owner] });
+              else await github.rest.issues.update({ ...context.repo, issue_number: existing.number, body });
+            } else if (existing) {
+              await github.rest.issues.createComment({ ...context.repo, issue_number: existing.number, body: `Public health checks recovered. [Verified run](${run}). Payment settlement and fulfillment are separate checks.` });
+              await github.rest.issues.update({ ...context.repo, issue_number: existing.number, state: 'closed' });
+            }
+      - name: Mark failed checks
+        if: steps.health.outcome != 'success'
+        run: exit 1

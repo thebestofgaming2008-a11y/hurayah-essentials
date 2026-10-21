@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { SiteLayout } from "@/components/layout/SiteLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
+import { safeRedirect } from "@/lib/safeRedirect";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -15,7 +16,7 @@ const Login = () => {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const redirect = params.get("redirect") || "/account";
+  const redirect = safeRedirect(params.get("redirect"));
   const isAdminLogin = redirect === "/admin";
   const { signIn, signUp, requestPasswordReset, resetPassword } = useAuth();
 
