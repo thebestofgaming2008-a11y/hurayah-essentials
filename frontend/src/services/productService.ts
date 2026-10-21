@@ -1,5 +1,6 @@
 import { api } from "../../convex/_generated/api";
 import { convex } from "@/integrations/convex/client";
+import { normalizeMediaUrls } from "../../shared/mediaUrls";
 
 export interface Product {
   id: string;
@@ -76,7 +77,7 @@ let activeProductsMemoryCache: { expiresAt: number; products: Product[] } | null
 let activeProductsInFlight: Promise<Product[]> | null = null;
 
 function normalize(p: unknown): Product {
-  const r = p as Record<string, unknown>;
+  const r = normalizeMediaUrls(p) as Record<string, unknown>;
   return {
     ...(r as object),
     images: Array.isArray(r.images) ? (r.images as string[]) : [],

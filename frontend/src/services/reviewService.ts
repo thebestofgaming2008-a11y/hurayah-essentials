@@ -1,5 +1,6 @@
 import { api } from "../../convex/_generated/api";
 import { convex } from "@/integrations/convex/client";
+import { normalizeMediaUrls } from "../../shared/mediaUrls";
 
 export interface ProductReview {
   id: string;
@@ -21,12 +22,12 @@ export async function listPublishedReviews(productId: string): Promise<ProductRe
         headers: { accept: "application/json" },
       });
       if (!response.ok) throw new Error("Review cache unavailable.");
-      return (await response.json()) as ProductReview[];
+      return normalizeMediaUrls(await response.json()) as ProductReview[];
     } catch {
       // Fall through to Convex so reviews do not disappear if the cache endpoint fails.
     }
   }
-  return (await convex.query(api.reviews.listPublishedForProduct, { productId })) as ProductReview[];
+  return normalizeMediaUrls(await convex.query(api.reviews.listPublishedForProduct, { productId })) as ProductReview[];
 }
 
 export async function submitReview(input: {

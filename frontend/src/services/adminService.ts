@@ -1,6 +1,7 @@
 import { api } from "../../convex/_generated/api";
 import { convex } from "@/integrations/convex/client";
 import type { Product } from "./productService";
+import { mediaUrl, normalizeMediaUrls } from "../../shared/mediaUrls";
 
 export const PRODUCT_BUCKET = "product-images";
 
@@ -49,7 +50,7 @@ export interface ProductInput {
 }
 
 export async function listAllProducts(): Promise<Product[]> {
-  return (await convex.query(api.products.listAllProducts, {})) as Product[];
+  return normalizeMediaUrls(await convex.query(api.products.listAllProducts, {})) as Product[];
 }
 
 function slugify(s: string): string {
@@ -68,7 +69,7 @@ export async function createProduct(input: ProductInput): Promise<Product | null
     price: input.price ?? input.price_inr,
   };
   try {
-    return (await convex.mutation(api.products.createProduct, payload)) as Product | null;
+    return normalizeMediaUrls(await convex.mutation(api.products.createProduct, payload)) as Product | null;
   } catch (error) {
     throw new Error(adminMutationMessage(error, "Could not create product."));
   }
@@ -81,7 +82,7 @@ export async function updateProduct(
   const next: Record<string, unknown> = { ...patch };
   if (patch.price_inr != null && patch.price == null) next.price = patch.price_inr;
   try {
-    return (await convex.mutation(api.products.updateProduct, { id, patch: next })) as Product | null;
+    return normalizeMediaUrls(await convex.mutation(api.products.updateProduct, { id, patch: next })) as Product | null;
   } catch (error) {
     throw new Error(adminMutationMessage(error, "Could not update product."));
   }
@@ -141,7 +142,7 @@ export async function uploadProductImage(file: File): Promise<string | null> {
   const payload = (await result.json().catch(() => null)) as { url?: string } | null;
   const url = media.publicUrl || payload?.url;
   if (!url) throw new Error("Upload finished, but no media URL was returned.");
-  return `${url}#${encodeURIComponent(file.name)}`;
+  return `${mediaUrl(url)}#${encodeURIComponent(file.name)}`;
 }
 
 function safeUploadFileName(name: string) {
@@ -306,7 +307,7 @@ export interface AdminOrder {
 }
 
 export async function listAllOrders(limit = 100): Promise<AdminOrder[]> {
-  return (await convex.query(api.orders.listAll, { limit })) as AdminOrder[];
+  return normalizeMediaUrls(await convex.query(api.orders.listAll, { limit })) as AdminOrder[];
 }
 
 export interface PaymentRecovery {
@@ -332,7 +333,7 @@ export async function updateOrderTracking(
   id: string,
   payload: { carrier?: string | null; trackingNumber: string; trackingUrl?: string | null },
 ): Promise<AdminOrder | null> {
-  return (await convex.mutation(api.orders.updateTracking, { id, ...payload })) as AdminOrder | null;
+  return normalizeMediaUrls(await convex.mutation(api.orders.updateTracking, { id, ...payload })) as AdminOrder | null;
 }
 
 export interface AdminCustomer {
@@ -366,7 +367,7 @@ export interface AdminReview {
 }
 
 export async function listAllReviews(limit = 200): Promise<AdminReview[]> {
-  return (await convex.query(api.reviews.listAll, { limit })) as AdminReview[];
+  return normalizeMediaUrls(await convex.query(api.reviews.listAll, { limit })) as AdminReview[];
 }
 
 export async function createAdminReview(input: {

@@ -1,3 +1,5 @@
+import { mediaUrl, normalizeMediaUrls } from "../shared/mediaUrls";
+
 const PRIMARY_HOST = "hurayrahessentials.com";
 const LEGACY_HOSTS = new Set(["abuhurayrahessentials.site", "www.abuhurayrahessentials.site"]);
 const SITE_ORIGIN = `https://${PRIMARY_HOST}`;
@@ -62,7 +64,7 @@ async function routeMeta(request: Request): Promise<SeoMeta> {
         cleanText(product.short_description || product.description, `Buy ${name} from Hurayrah Essentials.`),
         155,
       );
-      const image = cleanText(product.cover_image_url, DEFAULT_IMAGE);
+      const image = mediaUrl(cleanText(product.cover_image_url, DEFAULT_IMAGE));
       const price = Number(product.sale_price_inr ?? product.price_inr ?? product.price ?? 0);
       return {
         title: `${name} | Hurayrah Essentials`,
@@ -184,6 +186,16 @@ export const onRequest: PagesFunction<Env> = async ({ request, next }) => {
   }
   const response = await next();
   const contentType = response.headers.get("content-type") ?? "";
+  if (request.method === "GET" && response.ok && contentType.includes("application/json") &&
+      (url.pathname === "/api/catalog/products" || url.pathname === "/api/catalog/product")) {
+    const headers = new Headers(response.headers);
+    headers.delete("content-length");
+    headers.delete("etag");
+    return new Response(JSON.stringify(normalizeMediaUrls(await response.json())), {
+      status: response.status,
+      headers,
+    });
+  }
   if (request.method !== "GET" || !contentType.includes("text/html")) {
     return response;
   }

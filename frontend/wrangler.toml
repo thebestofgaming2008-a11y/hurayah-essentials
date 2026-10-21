@@ -4,12 +4,12 @@ pages_build_output_dir = "dist"
 compatibility_date = "2026-05-15"
 
 [vars]
-R2_PUBLIC_BASE_URL = "https://media.abuhurayrahessentials.site"
+R2_PUBLIC_BASE_URL = "https://media.hurayrahessentials.com"
 VITE_CONVEX_SITE_URL = "https://kindly-herring-709.convex.site"
 VITE_CONVEX_URL = "https://kindly-herring-709.convex.cloud"
 
 [env.production.vars]
-R2_PUBLIC_BASE_URL = "https://media.abuhurayrahessentials.site"
+R2_PUBLIC_BASE_URL = "https://media.hurayrahessentials.com"
 VITE_CONVEX_SITE_URL = "https://kindly-herring-709.convex.site"
 VITE_CONVEX_URL = "https://kindly-herring-709.convex.cloud"
 

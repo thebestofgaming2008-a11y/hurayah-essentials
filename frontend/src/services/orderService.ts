@@ -1,5 +1,6 @@
 import { api } from "../../convex/_generated/api";
 import { convex } from "@/integrations/convex/client";
+import { normalizeMediaUrls } from "../../shared/mediaUrls";
 import type { CartLine } from "@/store/shop";
 import { checkoutShippingForCountry } from "./shipping";
 
@@ -56,5 +57,5 @@ export async function verifyRazorpayPaymentWithRetry(args: RazorpayVerificationA
 }
 
 export async function trackOrder(orderNumber: string, email: string) {
-  return await convex.query(api.orders.getByNumber, { orderNumber, email });
+  return normalizeMediaUrls(await convex.query(api.orders.getByNumber, { orderNumber, email }));
 }
