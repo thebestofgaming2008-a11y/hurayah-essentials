@@ -164,13 +164,16 @@ async function checkoutQuote(ctx: any, cart: Array<any>) {
   if (cart.length > MAX_CART_LINES) throw new Error(`Cart cannot contain more than ${MAX_CART_LINES} different items.`);
   let subtotal = 0;
   let itemCount = 0;
+  const requestedByProduct = new Map<string, number>();
   for (const item of cart) {
     const qty = Math.floor(item.qty);
     if (!Number.isFinite(qty) || qty < 1 || qty > 99) throw new Error("Cart quantity is invalid.");
     const product = await ctx.db.get(item.productId as any) as any;
     if (!product || product.is_active === false) throw new Error(`Product is no longer available: ${cleanText(item.name, 80)}`);
     const stock = product.stock_quantity ?? 0;
-    if (stock < qty || product.in_stock === false) throw new Error(`Not enough stock for ${product.name}.`);
+    const requested = (requestedByProduct.get(item.productId) ?? 0) + qty;
+    if (stock < requested || product.in_stock === false) throw new Error(`Not enough stock for ${product.name}.`);
+    requestedByProduct.set(item.productId, requested);
     const unitPrice = product.sale_price_inr ?? product.price_inr ?? product.price;
     if (!Number.isFinite(unitPrice) || unitPrice < 0) throw new Error(`Invalid price for ${product.name}.`);
     cleanVariantSelection(item.selectedColor, product.color_options, "Colour", product.name);
@@ -270,6 +273,7 @@ async function savePaidOrder(ctx: any, args: {
   const normalizedItems = [];
   let computedSubtotal = 0;
   let inventoryAttention = false;
+  const remainingStock = new Map<string, { product: any; stock: number }>();
   for (const item of args.cart) {
     const qty = Math.floor(item.qty);
     if (!Number.isFinite(qty) || qty < 1 || qty > 99) throw new Error("Cart quantity is invalid.");
@@ -277,7 +281,7 @@ async function savePaidOrder(ctx: any, args: {
     if (!args.use_reserved_snapshot && (!product || product.is_active === false)) {
       throw new Error(`Product is no longer available: ${cleanText(item.name, 80)}`);
     }
-    const stock = Number(product?.stock_quantity ?? 0);
+    const stock = remainingStock.get(item.productId)?.stock ?? Number(product?.stock_quantity ?? 0);
     if (!args.use_reserved_snapshot && (stock < qty || product?.in_stock === false)) {
       throw new Error(`Not enough stock for ${product.name}.`);
     }
@@ -293,6 +297,7 @@ async function savePaidOrder(ctx: any, args: {
       ? cleanNullable(item.selectedSize, 60)
       : cleanVariantSelection(item.selectedSize, product.size_options, "Size", product.name);
     if (!product || stock < qty) inventoryAttention = true;
+    if (product) remainingStock.set(item.productId, { product, stock: Math.max(0, stock - qty) });
     computedSubtotal += unitPrice * qty;
     normalizedItems.push({
       product,
@@ -350,14 +355,15 @@ async function savePaidOrder(ctx: any, args: {
       unit_price: item.unitPrice,
       subtotal: item.unitPrice * item.qty,
     });
-    if (item.product) {
-      const nextStock = Math.max(0, (item.product.stock_quantity ?? 0) - item.qty);
-      await ctx.db.patch(item.product._id, {
-        stock_quantity: nextStock,
-        in_stock: nextStock > 0,
-        updated_at: timestamp,
-      });
-    }
+  }
+
+  // Variant lines share product stock; apply their combined deduction once.
+  for (const { product, stock } of remainingStock.values()) {
+    await ctx.db.patch(product._id, {
+      stock_quantity: stock,
+      in_stock: stock > 0,
+      updated_at: timestamp,
+    });
   }
 
   if (args.user_id) {
@@ -701,16 +707,12 @@ export const listUnresolvedCheckoutIntents = internalQuery({
     const limit = Math.min(Math.max(args.limit ?? 50, 1), 100);
     const statuses = ["pending", "released", "failed", "recovery_required"];
     const rows = [];
-    const cutoff = args.now - PAYMENT_RECOVERY_WINDOW_MS;
     for (const status of statuses) {
       const matches = await ctx.db
         .query("checkout_intents")
-        .withIndex("by_status_and_reconcile_after", (q) => q.eq("status", status).lte("reconcile_after", args.now))
+        .withIndex("by_status_and_reconcile_after", (q) => q.eq("status", status).gte("reconcile_after", 0).lte("reconcile_after", args.now))
         .take(limit);
-      rows.push(...matches.filter((intent) =>
-        intent.expires_at >= cutoff &&
-        (status === "recovery_required" || status === "failed" || !intent.payment_id)
-      ));
+      rows.push(...matches);
     }
     return rows.sort((a, b) => b._creationTime - a._creationTime).slice(0, limit);
   },
@@ -731,7 +733,7 @@ export const markCheckoutIntentReconciled = internalMutation({
     await ctx.db.patch(intent._id, {
       reconcile_attempts: attempts,
       last_reconciled_at: args.checked_at,
-      reconcile_after: args.checked_at + delay,
+      reconcile_after: intent.expires_at < args.checked_at - PAYMENT_RECOVERY_WINDOW_MS ? null : args.checked_at + delay,
       error: args.error === undefined ? intent.error : cleanNullable(args.error, 500),
       updated_at: nowIso(),
     });
@@ -778,6 +780,11 @@ export const reconcileCapturedPayments = internalAction({
     let checked = 0;
     const errors: string[] = [];
     for (const intent of intents) {
+      // Retire old queue entries in bounded batches; never delete their payment evidence.
+      if (intent.expires_at < checkedAt - PAYMENT_RECOVERY_WINDOW_MS) {
+        await ctx.runMutation(internal.orders.markCheckoutIntentReconciled, { id: intent._id, checked_at: checkedAt });
+        continue;
+      }
       checked += 1;
       try {
         const result = await razorpayRequest(`/orders/${intent.razorpay_order_id}/payments`);
@@ -1019,8 +1026,8 @@ export const recordRazorpayWebhook = internalMutation({
         .withIndex("by_payment_id", (q) => q.eq("payment_id", args.razorpay_payment_id))
         .first();
       if (order) {
-        const refundAmountInr = Math.max(0, args.amount_refunded_paise / 100);
-        const fullyRefunded = args.amount_refunded_paise >= Math.round(order.total * 100);
+        const refundAmountInr = Math.max(0, order.refund_amount_inr ?? 0, args.amount_refunded_paise / 100);
+        const fullyRefunded = Math.round(refundAmountInr * 100) >= Math.round(order.total * 100);
         await ctx.db.patch(order._id, {
           payment_status: fullyRefunded ? "refunded" : "partially_refunded",
           refund_amount_inr: refundAmountInr,
@@ -1045,11 +1052,12 @@ export const applyRazorpayRefund = internalMutation({
       .withIndex("by_payment_id", (q) => q.eq("payment_id", args.razorpay_payment_id))
       .first();
     if (!order) return { updated: false, order_number: null };
-    const fullyRefunded = args.amount_refunded_paise >= Math.round(order.total * 100);
+    const refundAmountInr = Math.max(0, order.refund_amount_inr ?? 0, args.amount_refunded_paise / 100);
+    const fullyRefunded = Math.round(refundAmountInr * 100) >= Math.round(order.total * 100);
     const timestamp = nowIso();
     await ctx.db.patch(order._id, {
       payment_status: fullyRefunded ? "refunded" : "partially_refunded",
-      refund_amount_inr: Math.max(0, args.amount_refunded_paise / 100),
+      refund_amount_inr: refundAmountInr,
       refunded_at: timestamp,
       updated_at: timestamp,
     });

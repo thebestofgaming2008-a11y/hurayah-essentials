@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import { BookOpen, BookText, Baby, Heart, Shirt, Sparkles } from "lucide-react";
 import type { Product as ServiceProduct } from "@/services/productService";
+import { MEDIA_IMAGE_HOST, mediaUrl } from "../../shared/mediaUrls";
 
 export type Product = ServiceProduct & {
   /** @deprecated use name */
@@ -288,14 +289,13 @@ export const formatPrice = (
 };
 
 const isRemote = (s: string | null | undefined): s is string => !!s && /^https?:\/\//i.test(s);
-const MEDIA_IMAGE_HOST = "media.abuhurayrahessentials.site";
 
 export const productImage = (p: ServiceProduct): string | null => {
   // Prefer working remote URLs over broken local paths during the data migration.
-  if (isRemote(p.cover_image_url)) return p.cover_image_url;
+  if (isRemote(p.cover_image_url)) return mediaUrl(p.cover_image_url);
   if (Array.isArray(p.images)) {
     const remote = p.images.find(isRemote);
-    if (remote) return remote;
+    if (remote) return mediaUrl(remote);
   }
   if (p.cover_image_url) return p.cover_image_url;
   if (Array.isArray(p.images) && p.images.length > 0) return p.images[0];
@@ -305,7 +305,7 @@ export const productImage = (p: ServiceProduct): string | null => {
 export function productCardThumbnailUrl(image: string | null | undefined, width = 420): string | null {
   if (!isRemote(image)) return null;
   try {
-    const url = new URL(image);
+    const url = new URL(mediaUrl(image));
     if (url.hostname !== MEDIA_IMAGE_HOST) return null;
     const path = decodeURIComponent(url.pathname).replace(/^\/+/, "");
     if (!path || path.startsWith("thumbnails/") || !/\.(png|jpe?g|webp)$/i.test(path)) return null;

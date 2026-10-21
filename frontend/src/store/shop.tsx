@@ -3,6 +3,7 @@ import { useMutation, useQuery } from "convex/react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "../../convex/_generated/api";
+import { normalizeMediaUrls } from "../../shared/mediaUrls";
 
 export interface CartProductInput {
   id: string;
@@ -65,7 +66,7 @@ function load<T>(k: string, fallback: T): T {
 }
 
 export function ShopProvider({ children }: { children: React.ReactNode }) {
-  const [cart, setCart] = useState<CartLine[]>(() => load<CartLine[]>(KEY_CART, []));
+  const [cart, setCart] = useState<CartLine[]>(() => normalizeMediaUrls(load<CartLine[]>(KEY_CART, [])));
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
   const { user } = useAuth();

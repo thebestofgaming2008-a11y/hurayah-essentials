@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 type RateSource = "fallback" | "exchangerate-api.com";
 
@@ -34,9 +34,6 @@ const MANUAL_KEY = "he_currency_manual_v1";
 const COUNTRY_KEY = "he_detected_country_v1";
 
 const CURRENCIES = ["INR", "USD", "EUR", "GBP", "AED", "SAR", "CAD", "AUD", "SGD", "MYR", "QAR", "KWD", "ZAR"] as const;
-const INR_RATES: Record<string, number> = {
-  INR: 1,
-};
 
 function supportedCurrency(value: string | null | undefined) {
   const next = String(value ?? "").trim().toUpperCase();
@@ -44,30 +41,43 @@ function supportedCurrency(value: string | null | undefined) {
 }
 
 function readStoredCurrency() {
-  if (typeof window === "undefined") return "INR";
-  return supportedCurrency(window.localStorage.getItem(STORAGE_KEY));
+  return supportedCurrency(readStorage(STORAGE_KEY));
 }
 
 function hasManualCurrency() {
-  return typeof window !== "undefined" && window.localStorage.getItem(MANUAL_KEY) === "1";
+  return readStorage(MANUAL_KEY) === "1";
+}
+
+function readStorage(key: string) {
+  try {
+    return typeof window === "undefined" ? null : window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeStorage(key: string, value: string) {
+  try {
+    if (typeof window !== "undefined") window.localStorage.setItem(key, value);
+  } catch {
+    // The current page must still work when browser storage is blocked or full.
+  }
 }
 
 function cleanRates(value: RatesResponse | null | undefined) {
-  if (value?.source !== "exchangerate-api.com") return { INR: 1 };
+  if (value?.source !== "exchangerate-api.com" || value.base !== "INR") return { INR: 1 };
   const rawRates = value?.rates ?? {};
   return CURRENCIES.reduce<Record<string, number>>((acc, code) => {
     const rate = rawRates[code];
-    if (Number.isFinite(rate) && rate > 0) acc[code] = rate;
+    if (code !== "INR" && Number.isFinite(rate) && rate > 0) acc[code] = rate;
     return acc;
   }, { INR: 1 });
 }
 
 export function CurrencyProvider({ children }: { children: React.ReactNode }) {
   const [currency, setCurrencyState] = useState(readStoredCurrency);
-  const [detectedCountry, setDetectedCountry] = useState<string | null>(() => {
-    if (typeof window === "undefined") return null;
-    return window.localStorage.getItem(COUNTRY_KEY);
-  });
+  const manualCurrency = useRef(hasManualCurrency());
+  const [detectedCountry, setDetectedCountry] = useState<string | null>(() => readStorage(COUNTRY_KEY));
   const [geoLoading, setGeoLoading] = useState(false);
   const [ratesLoading, setRatesLoading] = useState(false);
   const [rates, setRates] = useState<Record<string, number>>({ INR: 1 });
@@ -77,8 +87,10 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000);
     setRatesLoading(true);
-    fetch("/api/rates", { headers: { accept: "application/json" }, cache: "no-store" })
+    fetch("/api/rates", { headers: { accept: "application/json" }, signal: controller.signal })
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`Rates lookup failed (${res.status})`))))
       .then((data: RatesResponse) => {
         if (cancelled) return;
@@ -94,15 +106,18 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
         }
       })
       .finally(() => {
+        clearTimeout(timeout);
         if (!cancelled) setRatesLoading(false);
       });
     return () => {
       cancelled = true;
+      clearTimeout(timeout);
+      controller.abort();
     };
   }, []);
 
   useEffect(() => {
-    if (hasManualCurrency()) return;
+    if (manualCurrency.current) return;
     let cancelled = false;
     setGeoLoading(true);
     fetch("/api/geo", { headers: { accept: "application/json" } })
@@ -111,10 +126,12 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
         if (cancelled) return;
         const nextCurrency = supportedCurrency(data.currency);
         const nextCountry = String(data.country ?? "").trim().toUpperCase() || null;
-        setCurrencyState(nextCurrency);
         setDetectedCountry(nextCountry);
-        window.localStorage.setItem(STORAGE_KEY, nextCurrency);
-        if (nextCountry) window.localStorage.setItem(COUNTRY_KEY, nextCountry);
+        if (!manualCurrency.current) {
+          setCurrencyState(nextCurrency);
+          writeStorage(STORAGE_KEY, nextCurrency);
+        }
+        if (nextCountry) writeStorage(COUNTRY_KEY, nextCountry);
       })
       .catch((error) => {
         if (!cancelled) setRateError(error instanceof Error ? error.message : "Could not detect currency");
@@ -129,11 +146,10 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
 
   const setCurrency = useCallback((next: string) => {
     const clean = supportedCurrency(next);
+    manualCurrency.current = true;
     setCurrencyState(clean);
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(STORAGE_KEY, clean);
-      window.localStorage.setItem(MANUAL_KEY, "1");
-    }
+    writeStorage(STORAGE_KEY, clean);
+    writeStorage(MANUAL_KEY, "1");
   }, []);
 
   const convertFromInr = useCallback(

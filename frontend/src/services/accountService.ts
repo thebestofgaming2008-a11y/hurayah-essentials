@@ -1,5 +1,6 @@
 import { api } from "../../convex/_generated/api";
 import { convex } from "@/integrations/convex/client";
+import { normalizeMediaUrls } from "../../shared/mediaUrls";
 
 export interface Profile {
   id: string;
@@ -109,5 +110,5 @@ export async function setDefaultAddress(userId: string, id: string): Promise<boo
 
 export async function listUserOrders(userId: string): Promise<Order[]> {
   void userId;
-  return (await convex.query(api.orders.listMine, {})) as Order[];
+  return normalizeMediaUrls(await convex.query(api.orders.listMine, {})) as Order[];
 }
