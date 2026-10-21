@@ -34,9 +34,6 @@ const MANUAL_KEY = "he_currency_manual_v1";
 const COUNTRY_KEY = "he_detected_country_v1";
 
 const CURRENCIES = ["INR", "USD", "EUR", "GBP", "AED", "SAR", "CAD", "AUD", "SGD", "MYR", "QAR", "KWD", "ZAR"] as const;
-const INR_RATES: Record<string, number> = {
-  INR: 1,
-};
 
 function supportedCurrency(value: string | null | undefined) {
   const next = String(value ?? "").trim().toUpperCase();
@@ -53,11 +50,11 @@ function hasManualCurrency() {
 }
 
 function cleanRates(value: RatesResponse | null | undefined) {
-  if (value?.source !== "exchangerate-api.com") return { INR: 1 };
+  if (value?.source !== "exchangerate-api.com" || value.base !== "INR") return { INR: 1 };
   const rawRates = value?.rates ?? {};
   return CURRENCIES.reduce<Record<string, number>>((acc, code) => {
     const rate = rawRates[code];
-    if (Number.isFinite(rate) && rate > 0) acc[code] = rate;
+    if (code !== "INR" && Number.isFinite(rate) && rate > 0) acc[code] = rate;
     return acc;
   }, { INR: 1 });
 }
@@ -77,8 +74,10 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000);
     setRatesLoading(true);
-    fetch("/api/rates", { headers: { accept: "application/json" }, cache: "no-store" })
+    fetch("/api/rates", { headers: { accept: "application/json" }, signal: controller.signal })
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`Rates lookup failed (${res.status})`))))
       .then((data: RatesResponse) => {
         if (cancelled) return;
@@ -94,10 +93,13 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
         }
       })
       .finally(() => {
+        clearTimeout(timeout);
         if (!cancelled) setRatesLoading(false);
       });
     return () => {
       cancelled = true;
+      clearTimeout(timeout);
+      controller.abort();
     };
   }, []);
 
@@ -111,9 +113,11 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
         if (cancelled) return;
         const nextCurrency = supportedCurrency(data.currency);
         const nextCountry = String(data.country ?? "").trim().toUpperCase() || null;
-        setCurrencyState(nextCurrency);
         setDetectedCountry(nextCountry);
-        window.localStorage.setItem(STORAGE_KEY, nextCurrency);
+        if (!hasManualCurrency()) {
+          setCurrencyState(nextCurrency);
+          window.localStorage.setItem(STORAGE_KEY, nextCurrency);
+        }
         if (nextCountry) window.localStorage.setItem(COUNTRY_KEY, nextCountry);
       })
       .catch((error) => {
